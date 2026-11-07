@@ -11,6 +11,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+from . import access
 from . import models as m
 from . import serializers as s
 from .scoping import ADMIN, ALL_STAFF, resident_condo_ids, resident_unit_ids, staff_condo_ids
@@ -195,6 +196,20 @@ class AccessGateViewSet(ScopedModelViewSet):
     resident_condo_read = True
     filterset_fields = ["condominium", "gate_type", "direction", "is_active"]
     search_fields = ["name"]
+
+    @extend_schema(request=s.ManualOpenSerializer, responses={202: s.AccessLogSerializer})
+    @action(detail=True, methods=["post"])
+    def open(self, request, pk=None):
+        """Open the gate now (security or condo admin). Logged as a manual opening by the caller."""
+        gate = self.get_object()
+        if not request.user.is_superuser and gate.condominium_id not in staff_condo_ids(request.user, ALL_STAFF):
+            raise PermissionDenied("Only security staff and condo admins can open gates manually.")
+        if not gate.is_active:
+            return Response({"detail": "Gate is disabled."}, status=status.HTTP_409_CONFLICT)
+        body = s.ManualOpenSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        log = access.grant(gate, m.AccessLog.Method.MANUAL, actor=request.user, reason=body.validated_data["reason"])
+        return Response(s.AccessLogSerializer(log).data, status=status.HTTP_202_ACCEPTED)
 
 
 class RelayControllerViewSet(ScopedModelViewSet):

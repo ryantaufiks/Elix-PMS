@@ -66,13 +66,16 @@ Pastikan perangkat lokal Anda telah terinstal:
 
 ### 1. Kamera LPR Dahua (Skenario A)
 * **Endpoint API:** `https://api.domain-anda.com/v1/lpr-webhook/`
-* **Metode Otentikasi:** HTTP Basic Authentication.
-* **Konfigurasi Kamera:** Masuk ke Web GUI Dahua -> **Setting > Network > Advanced Settings > HTTP Post** (atau **Alarm Server**). Aktifkan Auth, masukkan username dan password user Django yang valid.
-* **Payload JSON:** Pastikan firmware kamera mengirim data dalam skema objek `PlateResult` berisi `plateNumber` dan `deviceID`.
+* **Metode Otentikasi:** HTTP Basic Authentication dengan kredensial **khusus per kamera** (Admin → LPR cameras → *Webhook username/password*), bukan akun user Django.
+* **Konfigurasi Kamera:** Masuk ke Web GUI Dahua -> **Setting > Network > Advanced Settings > HTTP Post** (atau **Alarm Server**). Aktifkan Auth, masukkan username dan password webhook kamera tersebut.
+* **Aktifkan per site:** Admin → Condominium → *LPR enabled* (default mati). Selama mati, payload hanya disimpan dan bisa dilihat di Admin → LPR camera → *Last payload*.
+* **Payload JSON:** Plat dideteksi otomatis dari format Dahua umum (`PlateNumber`, `plateNumber`, dll.), atau atur *Plate field* (mis. `Picture.Plate.PlateNumber`) bila firmware memakai skema lain.
 
 ### 2. Akses Kontrol Sonoff & Shelly (Cloud-to-Cloud)
-* Pengaturan perangkat fisik di site wajib mengaktifkan mode **Inching / Auto-Off** (durasi 2-3 detik) di dalam aplikasi eWeLink atau Shelly Cloud.
-* Django bertugas melempar instruksi `"on"` ke endpoint API *Cloud*, dan pemutusan arus dilakukan secara mandiri oleh relay fisik di gerbang kondo.
+* Kredensial cloud diisi per site di Admin → *Integration accounts*; tiap relay di Admin → *Relay controllers* (mode Cloud, LAN, atau LAN lalu fallback ke Cloud). Uji dengan aksi *Test: pulse relay now*.
+* **Shelly:** server mengirim `on` dengan `toggle_after` = *pulse seconds*, sehingga relay mati sendiri walau Auto-Off belum diatur.
+* **Sonoff (eWeLink):** perangkat wajib mengaktifkan mode **Inching / Auto-Off** (2-3 detik) di aplikasi eWeLink; Django hanya mengirim `"on"`.
+* **Mode LAN** hanya bisa dipakai jika server dapat menjangkau jaringan site (mis. Tailscale subnet router di site).
 
 ### 3. LiveKit Video Interkom
 * Server Django bertugas memproduksi Short-Lived Access Token menggunakan API key dari LiveKit Cloud.

@@ -205,11 +205,20 @@ class LprCamera(TimeStampedModel):
     )
     webhook_password_hash = models.CharField(max_length=128, blank=True, editable=False)
 
+    plate_field = models.CharField(
+        max_length=100, blank=True,
+        help_text="Dotted path to the plate in the camera's JSON, e.g. 'Picture.Plate.PlateNumber'. "
+                  "Leave blank to detect common Dahua formats.",
+    )
+
     # Optional: camera HTTP API login, for pulling snapshots.
     api_username = models.CharField("Camera API username", max_length=64, blank=True)
     api_password = EncryptedTextField("Camera API password", blank=True, default="")
 
     last_seen_at = models.DateTimeField(null=True, blank=True, editable=False)
+    last_payload = models.JSONField(
+        null=True, blank=True, editable=False, help_text="Most recent request body, kept for configuring the parser."
+    )
 
     class Meta:
         ordering = ["gate", "name"]

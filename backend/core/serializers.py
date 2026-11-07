@@ -247,6 +247,10 @@ class InvitationSerializer(ModelCleanSerializer):
         return super().create(validated_data)
 
 
+class ManualOpenSerializer(serializers.Serializer):
+    reason = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
+
+
 class IntercomCallSerializer(serializers.ModelSerializer):
     class Meta:
         model = m.IntercomCall

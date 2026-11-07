@@ -1,7 +1,11 @@
 from django import forms
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.utils.html import format_html
 
+import json
+
+from . import access, relays
 from . import models as m
 
 
@@ -61,6 +65,7 @@ class CondominiumAdmin(admin.ModelAdmin):
     inlines = [BlockInline]
     fieldsets = (
         (None, {"fields": ("name", "code", "address", "postal_code", "timezone", "contact_phone", "is_active")}),
+        ("Integrations", {"fields": ("lpr_enabled",)}),
         ("Visitor policy", {"fields": (
             "invitation_max_days", "intercom_ring_timeout_seconds", "face_verification_enabled",
             "visitor_data_retention_days",
@@ -160,6 +165,13 @@ class AccessGateAdmin(admin.ModelAdmin):
     list_filter = ("condominium", "gate_type", "is_active")
     search_fields = ("name",)
     inlines = [RelayInline, CameraInline]
+    actions = ["open_now"]
+
+    @admin.action(description="Open selected gates now (logged as manual)")
+    def open_now(self, request, queryset):
+        for gate in queryset.filter(is_active=True):
+            access.grant(gate, m.AccessLog.Method.MANUAL, actor=request.user, reason="Opened from Django admin")
+            self.message_user(request, f"'{gate}': opening queued - see Access logs for the result.")
 
 
 @admin.register(m.RelayController)
@@ -169,12 +181,30 @@ class RelayControllerAdmin(SecretFieldsAdminMixin, admin.ModelAdmin):
     list_filter = ("provider", "control_mode", "gate__condominium", "is_active")
     search_fields = ("name", "cloud_device_id", "local_ip")
     readonly_fields = ("last_triggered_at", "last_error")
+    actions = ["test_pulse", "check_status"]
     fieldsets = (
         (None, {"fields": ("gate", "name", "provider", "control_mode", "pulse_seconds", "is_active")}),
         ("Cloud", {"fields": ("account", "cloud_device_id", "channel")}),
         ("Local LAN (optional)", {"fields": ("local_ip", "local_port", "local_username", "local_password", "local_device_key")}),
         ("Status", {"fields": ("last_triggered_at", "last_error")}),
     )
+
+    def _run(self, request, queryset, action, verb):
+        for relay in queryset.select_related("account"):
+            try:
+                result = getattr(relays, action)(relay)
+            except relays.RelayError as exc:
+                self.message_user(request, f"{relay}: {verb} failed - {exc}", messages.ERROR)
+            else:
+                self.message_user(request, f"{relay}: {verb} OK via {result.via} - {result.detail}", messages.SUCCESS)
+
+    @admin.action(description="Test: pulse relay now (opens the gate, not logged)")
+    def test_pulse(self, request, queryset):
+        self._run(request, queryset, "pulse", "pulse")
+
+    @admin.action(description="Check relay status")
+    def check_status(self, request, queryset):
+        self._run(request, queryset, "status", "status")
 
 
 class LprCameraForm(forms.ModelForm):
@@ -206,13 +236,22 @@ class LprCameraAdmin(SecretFieldsAdminMixin, admin.ModelAdmin):
     list_display = ("name", "device_id", "gate", "direction", "ip_address", "is_active", "last_seen_at")
     list_filter = ("gate__condominium", "direction", "is_active")
     search_fields = ("name", "device_id", "ip_address")
-    readonly_fields = ("last_seen_at",)
+    readonly_fields = ("last_seen_at", "last_payload_pretty")
     fieldsets = (
         (None, {"fields": ("gate", "name", "device_id", "direction", "ip_address", "is_active")}),
-        ("Webhook authentication", {"fields": ("webhook_username", "webhook_password")}),
+        ("Webhook", {
+            "description": "Camera HTTP Post URL: https://&lt;your domain&gt;/v1/lpr-webhook/ with these credentials.",
+            "fields": ("webhook_username", "webhook_password", "plate_field"),
+        }),
         ("Camera HTTP API (optional)", {"fields": ("api_username", "api_password")}),
-        ("Status", {"fields": ("last_seen_at",)}),
+        ("Status", {"fields": ("last_seen_at", "last_payload_pretty")}),
     )
+
+    @admin.display(description="Last payload")
+    def last_payload_pretty(self, obj):
+        if not obj.last_payload:
+            return "Nothing received yet."
+        return format_html("<pre style='max-height:400px;overflow:auto'>{}</pre>", json.dumps(obj.last_payload, indent=2))
 
 
 @admin.register(m.Kiosk)

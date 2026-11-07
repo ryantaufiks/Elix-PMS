@@ -160,6 +160,10 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
+# Gate relays and LPR
+RELAY_HTTP_TIMEOUT = env.float("RELAY_HTTP_TIMEOUT", default=5.0)
+LPR_DEBOUNCE_SECONDS = env.int("LPR_DEBOUNCE_SECONDS", default=20)
+
 # LiveKit Cloud (used from Phase 3).
 LIVEKIT_URL = env("LIVEKIT_URL", default="")
 LIVEKIT_API_KEY = env("LIVEKIT_API_KEY", default="")

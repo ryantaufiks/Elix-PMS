@@ -18,3 +18,6 @@ celerybeat-schedule*
 .idea/
 .vscode/
 .DS_Store
+
+# Local device samples
+shelly1.zip

@@ -18,6 +18,11 @@ class Condominium(TimeStampedModel):
     contact_phone = PhoneNumberField(blank=True)
     is_active = models.BooleanField(default=True)
 
+    lpr_enabled = models.BooleanField(
+        "LPR enabled", default=False,
+        help_text="Act on licence-plate events. When off, camera posts are only recorded for inspection.",
+    )
+
     # Visitor policy
     invitation_max_days = models.PositiveSmallIntegerField(
         default=30, help_text="Longest validity window a resident may give an invitation."
