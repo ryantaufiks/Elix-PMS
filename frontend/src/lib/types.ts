@@ -18,6 +18,7 @@ export type Residency = {
   user: number;
   user_detail: UserSummary;
   unit: number;
+  unit_display: string;
   condominium: number;
   resident_type: "owner" | "tenant" | "family" | "helper";
   is_primary_contact: boolean;
@@ -35,9 +36,58 @@ export type Condominium = {
   id: number;
   name: string;
   code: string;
+  address: string;
   postal_code: string;
+  contact_phone: string;
   is_active: boolean;
+  lpr_enabled: boolean;
+  invitation_max_days: number;
   intercom_ring_timeout_seconds: number;
+  face_verification_enabled: boolean;
+  visitor_data_retention_days: number;
+};
+
+export type Block = { id: number; condominium: number; name: string };
+
+export type ManagedUser = UserSummary & {
+  is_active: boolean;
+  is_superuser: boolean;
+  last_login: string | null;
+  has_password: boolean;
+  residencies: Residency[];
+  staff_assignments: StaffAssignment[];
+};
+
+export type StaffRow = StaffAssignment & { user_detail: UserSummary; created_at: string };
+
+export type IntegrationAccount = {
+  id: number;
+  condominium: number;
+  provider: "ewelink" | "shelly";
+  label: string;
+  is_active: boolean;
+  notes: string;
+  ewelink_region: string;
+  ewelink_app_id: string;
+  ewelink_account: string;
+  ewelink_token_expires_at: string | null;
+  shelly_server_uri: string;
+  [key: `has_${string}`]: boolean;
+};
+
+export type SystemSettings = {
+  livekit_url: string;
+  livekit_api_key: string;
+  livekit_token_ttl_seconds: number | null;
+  intercom_unlock_window_seconds: number | null;
+  relay_http_timeout: number | null;
+  lpr_debounce_seconds: number | null;
+  has_livekit_api_secret: boolean;
+  has_fcm_service_account_json: boolean;
+  livekit_configured: boolean;
+  fcm_configured: boolean;
+  sources: Record<string, "admin" | ".env" | "">;
+  updated_at: string | null;
 };
 
 export type Unit = {
@@ -153,6 +203,15 @@ export type Relay = {
   provider: "ewelink" | "shelly";
   control_mode: "cloud" | "local" | "local_then_cloud";
   is_active: boolean;
+  account: number | null;
+  cloud_device_id: string;
+  channel: number;
+  local_ip: string | null;
+  local_port: number | null;
+  local_username: string;
+  pulse_seconds: number;
+  has_local_password: boolean;
+  has_local_device_key: boolean;
   last_triggered_at: string | null;
   last_error: string;
 };
@@ -165,7 +224,14 @@ export type Camera = {
   direction: "entry" | "exit" | "both";
   ip_address: string | null;
   is_active: boolean;
+  webhook_username: string;
+  has_webhook_password: boolean;
+  webhook_url: string;
+  plate_field: string;
+  api_username: string;
+  has_api_password: boolean;
   last_seen_at: string | null;
+  last_payload: unknown;
 };
 
 export type Kiosk = {
@@ -174,6 +240,7 @@ export type Kiosk = {
   gate: number | null;
   name: string;
   is_active: boolean;
+  token_hint: string;
   last_seen_at: string | null;
   app_version: string;
 };

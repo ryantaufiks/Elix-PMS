@@ -21,12 +21,16 @@ router.register("invitations", views.InvitationViewSet)
 router.register("intercom-calls", views.IntercomCallViewSet)
 router.register("access-logs", views.AccessLogViewSet)
 router.register("push-devices", views.PushDeviceViewSet, basename="push-device")
+router.register("users", views.ManagedUserViewSet, basename="user")
 
 urlpatterns = [
     path("health/", views.health, name="health"),
     path("auth/token/", TokenObtainPairView.as_view(), name="token-obtain"),
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
     path("auth/me/", views.MeView.as_view(), name="me"),
+    path("system-settings/", views.SystemSettingsView.as_view(), name="system-settings"),
+    path("system-settings/test-livekit/", views.test_livekit, name="system-settings-test-livekit"),
+    path("system-settings/test-fcm/", views.test_fcm, name="system-settings-test-fcm"),
     path("dashboard/summary/", views.DashboardSummaryView.as_view(), name="dashboard-summary"),
     path("kiosk/me/", kiosk_views.KioskMeView.as_view(), name="kiosk-me"),
     path("kiosk/directory/", kiosk_views.DirectoryView.as_view(), name="kiosk-directory"),

@@ -1,7 +1,26 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+
+  /* Brand blue (#3a57e8) scale */
+  --color-primary-50: #eef1fd;
+  --color-primary-100: #dde3fb;
+  --color-primary-200: #bcc7f7;
+  --color-primary-300: #8d9ff1;
+  --color-primary-400: #5f78eb;
+  --color-primary-500: #3a57e8;
+  --color-primary-600: #2f47cf;
+  --color-primary-700: #2639ac;
+  --color-primary-800: #1f2f8a;
+  --color-primary-900: #1a276f;
+
+  --color-ink: #232d42;
+  --color-muted: #8a92a6;
+  --color-canvas: #f5f6fa;
+
+  --shadow-card: 0 10px 30px 0 rgb(17 38 146 / 0.05);
+  --shadow-primary: 0 10px 20px -10px rgb(58 87 232 / 0.6);
 }
 
 html {
@@ -9,6 +28,15 @@ html {
 }
 
 body {
-  background: var(--color-slate-50);
-  color: var(--color-slate-900);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+/* Blue hero band behind the page title, with soft light curves. */
+.hero-band {
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgb(255 255 255 / 0.16) 0 22%, transparent 22.5%),
+    radial-gradient(90% 120% at 85% 120%, rgb(255 255 255 / 0.10) 0 30%, transparent 30.5%),
+    radial-gradient(70% 90% at 10% -20%, rgb(255 255 255 / 0.08) 0 35%, transparent 35.5%),
+    linear-gradient(120deg, #3a57e8 0%, #2f47cf 45%, #1f2f8a 100%);
 }

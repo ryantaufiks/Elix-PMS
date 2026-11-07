@@ -147,3 +147,6 @@ export function wsUrl(path: string): string {
   const { protocol, host } = window.location;
   return `${protocol === "https:" ? "wss" : "ws"}://${host}${path}`;
 }
+
+/** "#05-12" -> "05 12": the API searches floor and unit number as separate terms that must all match. */
+export const unitSearch = (text: string) => text.replace(/[#-]/g, " ").trim();

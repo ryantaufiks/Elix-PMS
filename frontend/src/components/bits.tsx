@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import useSWR from "swr";
 
-import { api, imageUrl, query } from "@/lib/api";
+import { api, imageUrl, query, unitSearch } from "@/lib/api";
 import { CALL_STATUS_LABEL } from "@/lib/format";
 import type { AccessResult, CallStatus, Gate, Page, Unit } from "@/lib/types";
 
@@ -101,7 +101,7 @@ export function UnitPicker({ condoId, value, onChange, initialLabel }: {
 }) {
   const [text, setText] = useState(initialLabel ?? "");
   const [open, setOpen] = useState(false);
-  const { data } = useSWR<Page<Unit>>(open ? `/v1/units/${query({ condominium: condoId, is_active: true, search: text.replace("#", ""), page_size: 20 })}` : null);
+  const { data } = useSWR<Page<Unit>>(open ? `/v1/units/${query({ condominium: condoId, is_active: true, search: unitSearch(text), page_size: 20 })}` : null);
   return (
     <div className="relative">
       <Input

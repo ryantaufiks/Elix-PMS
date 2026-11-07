@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useState } from "react";
 
 const cx = (...classes: (string | false | null | undefined)[]) => classes.filter(Boolean).join(" ");
 export { cx };
@@ -17,13 +17,13 @@ export function Button({ variant = "secondary", size = "md", busy, className, ch
       {...props}
       disabled={disabled || busy}
       className={cx(
-        "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:cursor-not-allowed disabled:opacity-50",
         size === "sm" && "h-8 px-3 text-sm",
         size === "md" && "h-10 px-4 text-sm",
         size === "lg" && "h-12 px-6 text-base",
-        variant === "primary" && "bg-teal-700 text-white hover:bg-teal-800",
+        variant === "primary" && "bg-primary-500 text-white shadow-primary hover:bg-primary-600",
         variant === "success" && "bg-emerald-600 text-white hover:bg-emerald-700",
-        variant === "secondary" && "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
+        variant === "secondary" && "border border-slate-200 bg-white text-ink hover:border-primary-300 hover:text-primary-600",
         variant === "danger" && "bg-rose-600 text-white hover:bg-rose-700",
         variant === "ghost" && "text-slate-600 hover:bg-slate-100",
         className,
@@ -40,13 +40,13 @@ export function Spinner({ className = "h-5 w-5" }: { className?: string }) {
 }
 
 export function Card({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <section className={cx("rounded-xl border border-slate-200 bg-white", className)}>{children}</section>;
+  return <section className={cx("rounded-lg bg-white shadow-card", className)}>{children}</section>;
 }
 
 export function CardHeader({ title, action }: { title: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-      <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
+    <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+      <h2 className="text-base font-semibold text-ink">{title}</h2>
       {action}
     </div>
   );
@@ -69,14 +69,15 @@ export function Badge({ tone = "slate", children }: { tone?: Tone; children: Rea
   );
 }
 
+/** Title on the blue hero band; the page content below overlaps the band. */
 export function PageHeader({ title, description, action }: { title: string; description?: string; action?: React.ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div className="mb-8 flex flex-wrap items-end justify-between gap-4 pt-2 text-white">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">{title}</h1>
-        {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
+        {description && <p className="mt-1.5 max-w-2xl text-sm text-white/80">{description}</p>}
       </div>
-      {action}
+      {action && <div className="flex flex-wrap gap-2">{action}</div>}
     </div>
   );
 }
@@ -103,7 +104,7 @@ export function ErrorNote({ error }: { error: unknown }) {
 }
 
 const inputClass =
-  "block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600/20 disabled:bg-slate-50";
+  "block w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/15 disabled:bg-slate-50";
 
 export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={cx(inputClass, props.className)} />;
@@ -117,20 +118,25 @@ export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
   return <textarea {...props} className={cx(inputClass, props.className)} />;
 }
 
+/** Label + control + hint. The label names only the control; the hint is linked as its description. */
 export function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  const generated = useId();
+  const child = isValidElement<{ id?: string; "aria-describedby"?: string }>(children) ? children : null;
+  const id = child?.props.id ?? generated;
+  const hintId = `${id}-hint`;
   return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
-      {children}
-      {hint && <span className="mt-1 block text-xs text-slate-500">{hint}</span>}
-    </label>
+    <div>
+      <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-ink">{label}</label>
+      {child ? cloneElement(child, { id, "aria-describedby": hint ? hintId : undefined }) : children}
+      {hint && <span id={hintId} className="mt-1 block text-xs text-muted">{hint}</span>}
+    </div>
   );
 }
 
 export function Checkbox({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
   return (
     <label className="flex items-center gap-2 text-sm text-slate-700">
-      <input type="checkbox" {...props} className="h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600" />
+      <input type="checkbox" {...props} className="h-4 w-4 rounded border-slate-300 text-primary-700 focus:ring-primary-600" />
       {label}
     </label>
   );
@@ -198,11 +204,11 @@ export function Table({ children }: { children: React.ReactNode }) {
 }
 
 export function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
-  return <th className={cx("whitespace-nowrap px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500", className)}>{children}</th>;
+  return <th className={cx("whitespace-nowrap bg-slate-50/70 px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted", className)}>{children}</th>;
 }
 
 export function Td({ children, className }: { children?: React.ReactNode; className?: string }) {
-  return <td className={cx("px-4 py-3 align-top text-slate-700", className)}>{children}</td>;
+  return <td className={cx("px-5 py-3.5 align-top text-slate-600", className)}>{children}</td>;
 }
 
 // --- Toasts ------------------------------------------------------------------
@@ -220,7 +226,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={push}>
       {children}
-      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex flex-col items-center gap-2 px-4" aria-live="polite">
+      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex flex-col items-center gap-2 px-4 sm:items-end sm:px-6" aria-live="polite">
         {toasts.map((t) => (
           <div
             key={t.id}

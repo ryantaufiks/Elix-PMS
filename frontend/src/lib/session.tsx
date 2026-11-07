@@ -4,6 +4,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { usePathname, useRouter } from "next/navigation";
 
 import { api, LOGOUT_EVENT, logout as clearTokens, tokens } from "./api";
+import { Onboarding } from "@/components/Onboarding";
+
 import type { Condominium, Me, Page, Role } from "./types";
 
 type Session = {
@@ -13,6 +15,8 @@ type Session = {
   role: Role;
   isAdmin: boolean;
   selectCondo: (id: number) => void;
+  /** Re-read the user and their condominiums (after adding or renaming a site). */
+  reload: () => Promise<void>;
   logout: () => void;
 };
 
@@ -48,22 +52,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener(LOGOUT_EVENT, onLogout);
   }, [router]);
 
-  useEffect(() => {
-    if (!tokens.access()) {
-      router.replace(`/login/?next=${encodeURIComponent(pathname)}`);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
+  const load = useCallback(async (isCancelled: () => boolean = () => false) => {
       try {
         const me = await api<Me>("/v1/auth/me/");
         if (!me.is_superuser && me.staff_assignments.length === 0) {
-          if (!cancelled) setState({ status: "no-access" });
+          if (!isCancelled()) setState({ status: "no-access" });
           return;
         }
         const page = await api<Page<Condominium>>("/v1/condominiums/?is_active=true&page_size=200");
         const condos = page.results.filter((c) => roleFor(me, c.id));
-        if (cancelled) return;
+        if (isCancelled()) return;
         if (!condos.length) {
           setState({ status: me.is_superuser ? "no-condo" : "no-access" });
           return;
@@ -72,12 +70,20 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         try {
           saved = Number(localStorage.getItem(CONDO_KEY)) || null;
         } catch {}
-        setCondoId(condos.some((c) => c.id === saved) ? saved : condos[0].id);
+        setCondoId((current) => (condos.some((c) => c.id === current) ? current : condos.some((c) => c.id === saved) ? saved : condos[0].id));
         setState({ status: "ready", me, condos });
       } catch (error) {
-        if (!cancelled) setState({ status: "error", message: (error as Error).message });
+        if (!isCancelled()) setState({ status: "error", message: (error as Error).message });
       }
-    })();
+  }, []);
+
+  useEffect(() => {
+    if (!tokens.access()) {
+      router.replace(`/login/?next=${encodeURIComponent(pathname)}`);
+      return;
+    }
+    let cancelled = false;
+    load(() => cancelled);
     return () => {
       cancelled = true;
     };
@@ -96,8 +102,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (state.status !== "ready" || condoId === null) return null;
     const condo = state.condos.find((c) => c.id === condoId) ?? state.condos[0];
     const role = roleFor(state.me, condo.id) ?? "security";
-    return { me: state.me, condos: state.condos, condo, role, isAdmin: role === "admin", selectCondo, logout };
-  }, [state, condoId, selectCondo, logout]);
+    return { me: state.me, condos: state.condos, condo, role, isAdmin: role === "admin", selectCondo, reload: () => load(), logout };
+  }, [state, condoId, selectCondo, load, logout]);
 
   if (state.status === "no-access") {
     return (
@@ -106,31 +112,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         <p className="mt-2 text-sm text-slate-500">
           This dashboard is for condominium staff. Residents use the Elix mobile app.
         </p>
-        <button className="mt-6 text-sm font-medium text-teal-700 hover:underline" onClick={logout}>
+        <button className="mt-6 text-sm font-medium text-primary-700 hover:underline" onClick={logout}>
           Sign in with another account
         </button>
       </Centered>
     );
   }
   if (state.status === "no-condo") {
-    return (
-      <Centered>
-        <h1 className="text-lg font-semibold">No condominium yet</h1>
-        <p className="mt-2 text-sm text-slate-500">
-          Create your first site in Django admin, with its blocks, units and gates. Then reload this page.
-        </p>
-        <a className="mt-6 inline-block text-sm font-medium text-teal-700 hover:underline" href="/v1/admin/core/condominium/add/">
-          Add a condominium
-        </a>
-      </Centered>
-    );
+    return <Onboarding onCreated={(id) => { selectCondo(id); load(); }} onLogout={logout} />;
   }
   if (state.status === "error") {
     return (
       <Centered>
         <h1 className="text-lg font-semibold">Cannot reach the server</h1>
         <p className="mt-2 text-sm text-slate-500">{state.message}</p>
-        <button className="mt-6 text-sm font-medium text-teal-700 hover:underline" onClick={() => location.reload()}>
+        <button className="mt-6 text-sm font-medium text-primary-700 hover:underline" onClick={() => location.reload()}>
           Try again
         </button>
       </Centered>
@@ -139,7 +135,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   if (!value) {
     return (
       <Centered>
-        <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-teal-600" />
+        <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-primary-600" />
       </Centered>
     );
   }

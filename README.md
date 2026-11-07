@@ -15,7 +15,7 @@ docker compose exec web python manage.py test core
 
 | URL | |
 |---|---|
-| http://127.0.0.1:8001/v1/admin/ | Django admin (sites, gates, relays, cameras, kiosks, credentials) |
+| http://127.0.0.1:8001/v1/admin/ | Django admin (advanced fallback; daily setup is in the dashboard) |
 | http://127.0.0.1:8001/v1/docs/ | Swagger API docs |
 | http://127.0.0.1:8001/v1/auth/token/ | JWT login |
 | `POST /v1/lpr-webhook/` | Dahua LPR events (Basic Auth per camera) |
@@ -28,23 +28,33 @@ in `.env` to the server's Tailscale IP to reach the dev API remotely.
 
 ## Dashboard (staff)
 
-`frontend/` is a Next.js + TypeScript + Tailwind app for condo admins and security guards, exported
-as static files and served by the **gateway** (nginx), which also proxies `/v1`, `/ws` and `/static`
-to Django. Everything runs on one origin, so there is no CORS and the browser keeps one JWT session.
+`frontend/` is a Next.js + TypeScript + Tailwind app, exported as static files and served by the
+**gateway** (nginx), which also proxies `/v1`, `/ws` and `/static` to Django. Everything runs on one
+origin, so there is no CORS and the browser keeps one JWT session. The look follows the Hope UI style
+(blue `#3a57e8`, hero band, soft cards), implemented from scratch in Tailwind.
 
-| Page | Who | What |
-|---|---|---|
-| Overview | all staff | Today's counters, device issues, latest access (live), one-click gate opening |
-| Access log | all staff | Filter by gate, method, result, plate, date; camera snapshots; live updates |
-| Intercom | all staff | Ringing kiosk calls (ringtone + banner on every page), answer with video, swipe to open, reject; history |
-| Gates | all staff | Manual opening with reason (logged under the user) |
-| Invitations | all staff (create/cancel: admin) | Active/expired/cancelled invitations, QR code and share link |
-| Vehicles | all staff (edit: admin) | Resident vehicles used by LPR auto-open |
-| Residents | all staff | Who lives in which unit and who receives intercom calls |
-| Devices | admin | Relay errors, camera last event, kiosk online status |
+**All day-to-day setup is done here; Django admin is only an advanced fallback for the platform admin.**
+On first sign-in with no condominium, the platform admin is guided through creating one.
 
-Staff sign in with their Django username and password; residents are refused (they use the app).
-Users with several condominiums get a site switcher. Times are shown and entered in SGT.
+| Section | Page | Who | What |
+|---|---|---|---|
+| Operations | Dashboard | all staff | Today's counters, device health, latest access (live), one-click gate opening |
+| | Access log | all staff | Filter by gate, method, result, plate, date; camera snapshots; live updates |
+| | Intercom | all staff | Ringing kiosk calls (ringtone + banner on every page), answer with video, swipe to open, reject; history |
+| | Open gates | all staff | Manual opening with reason (logged under the user) |
+| | Invitations | all staff (create/cancel: admin) | QR code and share link, status filters |
+| Community | Residents | all staff (manage: admin) | Add residents with their app login, unit role, intercom on/off, password reset, move out |
+| | Vehicles | all staff (edit: admin) | Resident plates used by LPR auto-open |
+| | Staff | admin | Create guard / condo-admin accounts, change role, reset password, remove |
+| Site setup | Site settings | admin | Name, address, LPR on/off, ring timeout, invitation limit, face check, PDPA retention |
+| | Blocks & units | admin | Blocks, units, and *Generate units* (e.g. floors 2–15 × units 01–08) |
+| | Gates & devices | admin | Gates; relays (cloud / LAN / LAN→cloud, *Test* and *Status*); LPR cameras (webhook URL, last payload); kiosks (device token shown once); Shelly / eWeLink cloud accounts |
+| Platform | Condominiums | platform admin | Add, edit, activate sites |
+| | System settings | platform admin | LiveKit, Firebase (with connection tests), relay / LPR tuning |
+
+Secrets (relay passwords, cloud keys, camera passwords, LiveKit secret, Firebase key) are write-only:
+the dashboard shows "saved" and a blank field keeps the stored value. Condo admins can manage only
+people who belong solely to their own condominium. Times are shown and entered in SGT.
 
 Development with hot reload (proxies the API to the dev web service):
 
@@ -54,8 +64,8 @@ docker compose --profile frontend up -d frontend   # http://127.0.0.1:3000
 
 ## Gate relays
 
-Configure under **Admin → Integration accounts** (cloud credentials, per site) and **Relay controllers**
-(per gate). Select relays and run **"Test: pulse relay now"** or **"Check relay status"** to verify.
+Configure in the dashboard under **Site setup → Gates & devices**: *Cloud accounts* (credentials, per
+site) and *Relays* (per gate). Use **Test** (pulses the relay) or **Status** to verify.
 
 | Provider | Local LAN | Cloud |
 |---|---|---|
@@ -68,9 +78,10 @@ the site plus `tailscale set --accept-routes` here). Otherwise use cloud, or "lo
 
 ## LPR cameras
 
-1. Admin → Condominium: **LPR enabled** is off by default. While off, camera posts are only stored
-   (Admin → LPR camera → *Last payload*) so you can inspect the real payload first.
-2. Admin → LPR camera: set Dahua device ID, webhook username/password, and optionally **Plate field**
+1. Site settings: **Licence-plate recognition enabled** is off by default. While off, camera posts are
+   only stored (Gates & devices → LPR cameras → *Setup info* shows the last payload) so you can inspect
+   the real payload first.
+2. Gates & devices → LPR cameras: set Dahua device ID, webhook username/password, and optionally **Plate field**
    (dotted path such as `Picture.Plate.PlateNumber`; blank = auto-detect).
 3. Camera Web GUI → HTTP Post: `https://<domain>/v1/lpr-webhook/` with those credentials.
 
@@ -100,14 +111,14 @@ created in Admin (action *Regenerate device token* issues a new one). Calls ring
 previous one. Rejected, missed and approved calls are all in the access log. Security staff of the
 condo can also answer and unlock.
 
-Enter the LiveKit URL, API key and secret in **Admin → System settings** and press
-*Save & test LiveKit* (or run `docker compose exec web python manage.py livekit_check`). Without them the
+Enter the LiveKit URL, API key and secret in the dashboard under **Platform → System settings** and
+press *Save & test connection* (or run `docker compose exec web python manage.py livekit_check`). Without them the
 kiosk gets HTTP 503 and nobody is rung. For push, paste the Firebase service-account JSON on the same
 page and press *Save & test Firebase*; without it only open apps (WebSocket) ring.
 
 ## System settings
 
-**Admin → System settings** is a single page for server-wide integrations: LiveKit (URL, key, secret,
+**Platform → System settings** in the dashboard (also available in Django admin) is a single page for server-wide integrations: LiveKit (URL, key, secret,
 token lifetime, unlock window), the Firebase service-account JSON, the relay HTTP timeout and the LPR
 debounce. Secrets are stored encrypted and never shown again. Changes apply immediately to the web,
 worker and beat processes (no restart). Any blank field falls back to the matching `.env` variable

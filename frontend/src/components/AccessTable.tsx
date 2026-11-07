@@ -31,7 +31,7 @@ export function AccessTable({ logs, highlight }: { logs: AccessLog[]; highlight?
         </thead>
         <tbody className="divide-y divide-slate-100">
           {logs.map((log) => (
-            <tr key={log.id} className={highlight?.has(log.id) ? "bg-teal-50/60 transition-colors" : undefined}>
+            <tr key={log.id} className={highlight?.has(log.id) ? "bg-primary-50/60 transition-colors" : undefined}>
               <Td className="whitespace-nowrap tabular-nums">{formatDateTime(log.occurred_at)}</Td>
               <Td className="whitespace-nowrap">{log.gate_name || "—"}</Td>
               <Td className="whitespace-nowrap">{METHOD_LABEL[log.method] ?? log.method}</Td>

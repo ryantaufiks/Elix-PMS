@@ -10,10 +10,10 @@ from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_sche
 from rest_framework import generics, mixins, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.response import Response
 
-from . import access, intercom, livekit
+from . import access, intercom, livekit, push, relays
 from . import models as m
 from . import serializers as s
 from .scoping import ADMIN, ALL_STAFF, resident_condo_ids, resident_unit_ids, staff_condo_ids
@@ -136,6 +136,12 @@ class CondominiumViewSet(ScopedModelViewSet):
             raise PermissionDenied("Only the platform administrator can add condominiums.")
         serializer.save()
 
+    def perform_update(self, serializer):
+        if "is_active" in serializer.validated_data and not self.request.user.is_superuser \
+                and serializer.validated_data["is_active"] != serializer.instance.is_active:
+            raise PermissionDenied("Only the platform administrator can activate or deactivate a condominium.")
+        super().perform_update(serializer)
+
     def perform_destroy(self, instance):
         if not self.request.user.is_superuser:
             raise PermissionDenied("Only the platform administrator can delete condominiums.")
@@ -154,8 +160,29 @@ class UnitViewSet(ScopedModelViewSet):
     queryset = m.Unit.objects.select_related("block")
     serializer_class = s.UnitSerializer
     resident_unit_path = "id"
-    filterset_fields = ["condominium", "block", "floor", "is_active"]
+    filterset_fields = {"condominium": ["exact"], "block": ["exact", "isnull"], "floor": ["exact"], "is_active": ["exact"]}
     search_fields = ["unit_number", "floor", "block__name"]
+
+    @extend_schema(request=s.BulkUnitsSerializer, responses={201: OpenApiResponse(description="{'created': n, 'skipped': n}")})
+    @action(detail=False, methods=["post"])
+    def bulk(self, request):
+        """Create every unit for a range of floors, e.g. floors 2-15 x units '01-08'. Existing units are skipped."""
+        body = s.BulkUnitsSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        data = body.validated_data
+        self.check_write({"condominium": data["condominium"]})
+        block = data.get("block")
+        existing = set(m.Unit.objects.filter(condominium=data["condominium"], block=block)
+                       .values_list("floor", "unit_number"))
+        new = [
+            m.Unit(condominium=data["condominium"], block=block, floor=str(floor).zfill(2), unit_number=number)
+            for floor in range(data["floor_from"], data["floor_to"] + 1)
+            for number in data["numbers"]
+            if (str(floor).zfill(2), number) not in existing
+        ]
+        m.Unit.objects.bulk_create(new)
+        total = (data["floor_to"] - data["floor_from"] + 1) * len(data["numbers"])
+        return Response({"created": len(new), "skipped": total - len(new)}, status=status.HTTP_201_CREATED)
 
 
 class StaffAssignmentViewSet(ScopedModelViewSet):
@@ -171,7 +198,7 @@ class ResidencyViewSet(ScopedModelViewSet):
     condo_path = "unit__condominium"
     resident_unit_path = "unit"
     filterset_fields = ["unit", "unit__condominium", "resident_type", "is_active", "user"]
-    search_fields = ["user__first_name", "user__last_name", "user__username", "unit__unit_number"]
+    search_fields = ["user__first_name", "user__last_name", "user__username", "unit__unit_number", "unit__floor", "unit__block__name"]
 
 
 class VehicleViewSet(ScopedModelViewSet):
@@ -220,6 +247,27 @@ class RelayControllerViewSet(ScopedModelViewSet):
     condo_path = "gate__condominium"
     staff_read_roles = (ADMIN,)
     filterset_fields = ["gate", "gate__condominium", "provider", "is_active"]
+
+    def _command(self, name):
+        relay = self.get_object()
+        self.check_write(relay)
+        try:
+            result = getattr(relays, name)(relay)
+        except relays.RelayError as exc:
+            return Response({"ok": False, "via": "", "detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+        return Response({"ok": True, "via": result.via, "detail": result.detail})
+
+    @extend_schema(request=None, responses={200: s.RelayCommandResultSerializer, 502: s.RelayCommandResultSerializer})
+    @action(detail=True, methods=["post"])
+    def test(self, request, pk=None):
+        """Pulse the relay now (the gate really opens; not written to the access log)."""
+        return self._command("pulse")
+
+    @extend_schema(request=None, responses={200: s.RelayCommandResultSerializer, 502: s.RelayCommandResultSerializer})
+    @action(detail=True, methods=["post"])
+    def check(self, request, pk=None):
+        """Ask the device for its current state without switching it."""
+        return self._command("status")
 
 
 class LprCameraViewSet(ScopedModelViewSet):
@@ -474,3 +522,108 @@ class DashboardSummaryView(generics.GenericAPIView):
             "lpr_enabled": m.Condominium.objects.filter(pk=condo_id).values_list("lpr_enabled", flat=True).first(),
         }
         return Response(self.get_serializer(data).data)
+
+
+# --- People & system ---------------------------------------------------------
+
+class ManagedUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin,
+                         mixins.UpdateModelMixin, viewsets.GenericViewSet):
+    """People (residents and staff) of the condominiums the caller administers.
+
+    Condo admins can manage only people who belong exclusively to their own condominiums;
+    anyone also attached elsewhere, and superusers, are left to the platform administrator.
+    """
+
+    serializer_class = s.ManagedUserSerializer
+    filterset_fields = ["is_active"]
+    search_fields = ["username", "first_name", "last_name", "email", "phone"]
+
+    def get_queryset(self):
+        qs = m.User.objects.prefetch_related("residencies__unit__block", "staff_assignments") \
+            .order_by("first_name", "last_name", "username")
+        if getattr(self, "swagger_fake_view", False):
+            return qs.none()
+        user = self.request.user
+        if not user.is_superuser:
+            condos = staff_condo_ids(user, (ADMIN,))
+            qs = qs.filter(Q(residencies__unit__condominium__in=condos) | Q(staff_assignments__condominium__in=condos))
+        condo = self.request.query_params.get("condominium")
+        if condo:
+            qs = qs.filter(Q(residencies__unit__condominium=condo) | Q(staff_assignments__condominium=condo))
+        return qs.distinct()
+
+    def _check_manage(self, target):
+        user = self.request.user
+        if user.is_superuser:
+            return
+        if target.is_superuser:
+            raise PermissionDenied("Platform administrators can only be changed by another platform administrator.")
+        condos = staff_condo_ids(user, (ADMIN,))
+        theirs = set(target.residencies.values_list("unit__condominium_id", flat=True)) | \
+            set(target.staff_assignments.values_list("condominium_id", flat=True))
+        if not theirs or not theirs <= condos:
+            raise PermissionDenied("This person also belongs to another condominium; ask the platform administrator.")
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        if not user.is_superuser:
+            data = serializer.validated_data
+            condo_id = data["residency"]["unit"].condominium_id if data.get("residency") else data["staff"]["condominium"].pk
+            if condo_id not in staff_condo_ids(user, (ADMIN,)):
+                raise PermissionDenied("You can only add people to condominiums you administer.")
+        serializer.save()
+
+    def perform_update(self, serializer):
+        self._check_manage(serializer.instance)
+        serializer.save()
+
+    @extend_schema(request=s.SetPasswordSerializer, responses={204: None})
+    @action(detail=True, methods=["post"], url_path="set-password")
+    def set_password(self, request, pk=None):
+        target = self.get_object()
+        self._check_manage(target)
+        body = s.SetPasswordSerializer(data=request.data, context={"user": target})
+        body.is_valid(raise_exception=True)
+        target.set_password(body.validated_data["password"])
+        target.save(update_fields=["password"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class IsSuperuser(BasePermission):
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_superuser)
+
+
+class SystemSettingsView(generics.RetrieveUpdateAPIView):
+    """Server-wide integrations (platform administrator only). Blank values fall back to .env."""
+
+    serializer_class = s.SystemSettingsSerializer
+    permission_classes = [IsSuperuser]
+    http_method_names = ["get", "patch"]
+
+    def get_object(self):
+        return m.SystemSettings.load()
+
+
+@extend_schema(request=None, responses={200: OpenApiResponse(description="{'ok': bool, 'detail': str}")})
+@api_view(["POST"])
+@permission_classes([IsSuperuser])
+def test_livekit(request):
+    try:
+        rooms = livekit.list_rooms()
+    except Exception as exc:
+        return Response({"ok": False, "detail": str(exc)})
+    return Response({"ok": True, "detail": f"LiveKit OK - {len(rooms)} active room(s)."})
+
+
+@extend_schema(request=None, responses={200: OpenApiResponse(description="{'ok': bool, 'detail': str}")})
+@api_view(["POST"])
+@permission_classes([IsSuperuser])
+def test_fcm(request):
+    if not push.is_enabled():
+        return Response({"ok": False, "detail": "No Firebase service account configured."})
+    try:
+        _, project_id = push._access_token()
+    except Exception as exc:
+        return Response({"ok": False, "detail": f"{exc.__class__.__name__}: {exc}"})
+    return Response({"ok": True, "detail": f"Firebase OK - project {project_id}."})

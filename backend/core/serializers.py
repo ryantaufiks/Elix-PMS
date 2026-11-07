@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import serializers
@@ -59,7 +60,7 @@ class CondominiumSerializer(ModelCleanSerializer):
     class Meta:
         model = m.Condominium
         fields = [
-            "id", "name", "code", "address", "postal_code", "timezone", "contact_phone", "is_active",
+            "id", "name", "code", "address", "postal_code", "timezone", "contact_phone", "is_active", "lpr_enabled",
             "invitation_max_days", "intercom_ring_timeout_seconds", "face_verification_enabled",
             "visitor_data_retention_days", "created_at", "updated_at",
         ]
@@ -99,11 +100,12 @@ class StaffAssignmentSerializer(ModelCleanSerializer):
 class ResidencySerializer(ModelCleanSerializer):
     user_detail = UserSummarySerializer(source="user", read_only=True)
     condominium = serializers.IntegerField(source="unit.condominium_id", read_only=True)
+    unit_display = serializers.CharField(source="unit.__str__", read_only=True)
 
     class Meta:
         model = m.Residency
         fields = [
-            "id", "user", "user_detail", "unit", "condominium", "resident_type", "is_primary_contact",
+            "id", "user", "user_detail", "unit", "unit_display", "condominium", "resident_type", "is_primary_contact",
             "receives_intercom_calls", "start_date", "end_date", "is_active",
         ]
 
@@ -173,14 +175,23 @@ class RelayControllerSerializer(ModelCleanSerializer):
 class LprCameraSerializer(ModelCleanSerializer):
     secret_fields = ("api_password",)
     webhook_password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    webhook_url = serializers.SerializerMethodField()
+    has_webhook_password = serializers.SerializerMethodField()
 
     class Meta:
         model = m.LprCamera
         fields = [
             "id", "gate", "name", "device_id", "direction", "ip_address", "is_active",
-            "webhook_username", "webhook_password", "api_username", "api_password", "last_seen_at",
+            "webhook_username", "webhook_password", "has_webhook_password", "webhook_url", "plate_field",
+            "api_username", "api_password", "last_seen_at", "last_payload",
         ]
-        read_only_fields = ["last_seen_at"]
+        read_only_fields = ["last_seen_at", "last_payload"]
+
+    def get_webhook_url(self, obj) -> str:
+        return f"{settings.PUBLIC_BASE_URL.rstrip('/')}/v1/lpr-webhook/"
+
+    def get_has_webhook_password(self, obj) -> bool:
+        return bool(obj.webhook_password_hash)
 
     def validate(self, attrs):
         if self.instance is None and not attrs.get("webhook_password"):
@@ -363,3 +374,165 @@ class DashboardSummarySerializer(serializers.Serializer):
     kiosks_total = serializers.IntegerField()
     kiosks_offline = serializers.IntegerField()
     lpr_enabled = serializers.BooleanField(allow_null=True)
+
+
+# --- People management -------------------------------------------------------
+
+class NewResidencySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.Residency
+        fields = ["unit", "resident_type", "is_primary_contact", "receives_intercom_calls"]
+
+
+class NewStaffSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.StaffAssignment
+        fields = ["condominium", "role"]
+
+
+class ManagedUserSerializer(serializers.ModelSerializer):
+    """A person managed from the dashboard. On create, attach them to a unit (``residency``) or a
+    condominium (``staff``) in the same request so the new account is never orphaned."""
+
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True, min_length=8,
+                                     style={"input_type": "password"})
+    residency = NewResidencySerializer(write_only=True, required=False)
+    staff = NewStaffSerializer(write_only=True, required=False)
+    residencies = ResidencySerializer(many=True, read_only=True)
+    staff_assignments = StaffAssignmentSerializer(many=True, read_only=True)
+    has_password = serializers.SerializerMethodField()
+
+    class Meta:
+        model = m.User
+        fields = [
+            "id", "username", "first_name", "last_name", "email", "phone", "is_active", "is_superuser", "last_login",
+            "date_joined", "password", "has_password", "residency", "staff", "residencies", "staff_assignments",
+        ]
+        read_only_fields = ["is_superuser", "last_login", "date_joined"]
+
+    def get_has_password(self, obj) -> bool:
+        return obj.has_usable_password()
+
+    def validate_password(self, value):
+        if value:
+            from django.contrib.auth.password_validation import validate_password
+            try:
+                validate_password(value, self.instance)
+            except DjangoValidationError as exc:
+                raise serializers.ValidationError(exc.messages)
+        return value
+
+    def validate(self, attrs):
+        if self.instance is None and not attrs.get("residency") and not attrs.get("staff") \
+                and not self.context["request"].user.is_superuser:
+            raise serializers.ValidationError("Attach the person to a unit (resident) or to the condominium (staff).")
+        if self.instance is not None and ("residency" in attrs or "staff" in attrs):
+            raise serializers.ValidationError("Use the residencies and staff-assignments endpoints to change memberships.")
+        return attrs
+
+    @transaction.atomic
+    def create(self, validated_data):
+        residency = validated_data.pop("residency", None)
+        staff = validated_data.pop("staff", None)
+        password = validated_data.pop("password", "")
+        user = m.User(**validated_data)
+        if password:
+            user.set_password(password)
+        else:
+            user.set_unusable_password()
+        user.save()
+        if residency:
+            m.Residency.objects.create(user=user, **residency)
+        if staff:
+            m.StaffAssignment.objects.create(user=user, **staff)
+        return user
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop("password", "")
+        user = super().update(instance, validated_data)
+        if password:
+            user.set_password(password)
+            user.save(update_fields=["password"])
+        return user
+
+
+class SetPasswordSerializer(serializers.Serializer):
+    password = serializers.CharField(min_length=8, style={"input_type": "password"})
+
+    def validate_password(self, value):
+        from django.contrib.auth.password_validation import validate_password
+        try:
+            validate_password(value, self.context.get("user"))
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.messages)
+        return value
+
+
+class SystemSettingsSerializer(ModelCleanSerializer):
+    secret_fields = ("livekit_api_secret", "fcm_service_account_json")
+    livekit_configured = serializers.SerializerMethodField()
+    fcm_configured = serializers.SerializerMethodField()
+    sources = serializers.SerializerMethodField()
+
+    class Meta:
+        model = m.SystemSettings
+        fields = [
+            "livekit_url", "livekit_api_key", "livekit_api_secret", "livekit_token_ttl_seconds",
+            "intercom_unlock_window_seconds", "fcm_service_account_json", "relay_http_timeout",
+            "lpr_debounce_seconds", "livekit_configured", "fcm_configured", "sources", "updated_at",
+        ]
+        read_only_fields = ["updated_at"]
+
+    def get_livekit_configured(self, obj) -> bool:
+        from . import config
+        return all(config.source(n) for n in ("LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET"))
+
+    def get_fcm_configured(self, obj) -> bool:
+        from . import push
+        return push.is_enabled()
+
+    def get_sources(self, obj) -> dict:
+        """Where each value currently comes from: 'admin', '.env' or '' (unset)."""
+        from . import config
+        return {field: config.source(name) for name, field in config.FIELDS.items()}
+
+
+class BulkUnitsSerializer(serializers.Serializer):
+    condominium = serializers.PrimaryKeyRelatedField(queryset=m.Condominium.objects.all())
+    block = serializers.PrimaryKeyRelatedField(queryset=m.Block.objects.all(), required=False, allow_null=True)
+    floor_from = serializers.IntegerField(min_value=1, max_value=99)
+    floor_to = serializers.IntegerField(min_value=1, max_value=99)
+    units = serializers.CharField(help_text="Unit numbers on every floor: '01-08' and/or '01,02,05'.")
+
+    def validate(self, attrs):
+        if attrs["floor_to"] < attrs["floor_from"]:
+            raise serializers.ValidationError({"floor_to": "Must be at or above the first floor."})
+        if attrs.get("block") and attrs["block"].condominium_id != attrs["condominium"].pk:
+            raise serializers.ValidationError({"block": "Block belongs to a different condominium."})
+        numbers = []
+        for part in attrs["units"].replace(" ", "").split(","):
+            if not part:
+                continue
+            if "-" in part:
+                start, _, end = part.partition("-")
+                if not (start.isdigit() and end.isdigit()) or int(end) < int(start):
+                    raise serializers.ValidationError({"units": f"Bad range '{part}'."})
+                width = max(len(start), 2)
+                numbers += [str(n).zfill(width) for n in range(int(start), int(end) + 1)]
+            elif part.isalnum():
+                numbers.append(part)
+            else:
+                raise serializers.ValidationError({"units": f"Bad unit number '{part}'."})
+        numbers = list(dict.fromkeys(numbers))
+        if not numbers:
+            raise serializers.ValidationError({"units": "Give at least one unit number."})
+        if len(numbers) * (attrs["floor_to"] - attrs["floor_from"] + 1) > 2000:
+            raise serializers.ValidationError("At most 2000 units per request.")
+        attrs["numbers"] = numbers
+        return attrs
+
+
+class RelayCommandResultSerializer(serializers.Serializer):
+    ok = serializers.BooleanField()
+    via = serializers.CharField(allow_blank=True)
+    detail = serializers.CharField(allow_blank=True)
