@@ -1,11 +1,11 @@
 """Access decisions: every gate opening goes through ``grant`` so it is logged and queued the same way."""
 from datetime import timedelta
 
-from django.conf import settings
 from django.db import transaction
 from django.db.models import F, Q
 from django.utils import timezone
 
+from . import config
 from .models import AccessLog, Direction, Invitation, Vehicle
 
 Result = AccessLog.Result
@@ -38,7 +38,7 @@ def handle_plate(camera, plate, payload):
     fields = {"method": AccessLog.Method.LPR, "plate_number": plate, "camera": camera, "raw_payload": payload}
 
     # Cameras report the same car several times while it waits at the barrier.
-    recent = timezone.now() - timedelta(seconds=settings.LPR_DEBOUNCE_SECONDS)
+    recent = timezone.now() - timedelta(seconds=config.get("LPR_DEBOUNCE_SECONDS"))
     if AccessLog.objects.filter(camera=camera, plate_number=plate, occurred_at__gte=recent).exists():
         return None
 

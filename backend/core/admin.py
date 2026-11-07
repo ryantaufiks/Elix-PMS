@@ -1,11 +1,12 @@
 from django import forms
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.shortcuts import redirect
 from django.utils.html import format_html
 
 import json
 
-from . import access, relays
+from . import access, config, livekit, push, relays
 from . import models as m
 
 
@@ -26,17 +27,18 @@ class SecretFieldsAdminMixin:
     """Renders ``secret_fields`` with SecretInput; a blank submission keeps the stored value."""
 
     secret_fields = ()
+    secret_widgets = {}  # field name -> widget class, default SecretInput
 
     def get_form(self, request, obj=None, **kwargs):
         form_class = super().get_form(request, obj, **kwargs)
-        secret_fields = self.secret_fields
+        secret_fields, secret_widgets = self.secret_fields, self.secret_widgets
 
         class SecretForm(form_class):
             def __init__(self, *args, **kw):
                 super().__init__(*args, **kw)
                 for name in secret_fields:
                     if name in self.fields:
-                        self.fields[name].widget = SecretInput()
+                        self.fields[name].widget = secret_widgets.get(name, SecretInput)()
                         self.fields[name].required = False
 
             def clean(self):
@@ -47,6 +49,87 @@ class SecretFieldsAdminMixin:
                 return data
 
         return SecretForm
+
+
+class SecretTextarea(forms.Textarea):
+    """Multi-line SecretInput (for pasted JSON keys): never renders the stored value."""
+
+    def __init__(self, attrs=None):
+        super().__init__(attrs={"rows": 4, "cols": 80, "autocomplete": "off", **(attrs or {})})
+
+    def format_value(self, value):
+        return ""
+
+    def get_context(self, name, value, attrs):
+        context = super().get_context(name, value, attrs)
+        if value:
+            context["widget"]["attrs"]["placeholder"] = "•••••••• saved - leave blank to keep"
+        return context
+
+
+# --- System ------------------------------------------------------------------
+
+@admin.register(m.SystemSettings)
+class SystemSettingsAdmin(SecretFieldsAdminMixin, admin.ModelAdmin):
+    """Single settings page; blank fields fall back to .env. Save buttons include connection tests."""
+
+    secret_fields = ("livekit_api_secret", "fcm_service_account_json")
+    secret_widgets = {"fcm_service_account_json": SecretTextarea}
+    change_form_template = "admin/core/systemsettings/change_form.html"
+    readonly_fields = ("livekit_status", "fcm_status")
+    fieldsets = (
+        ("LiveKit video intercom", {
+            "description": "From LiveKit Cloud > Settings > Keys. Blank fields use LIVEKIT_* from .env.",
+            "fields": ("livekit_status", "livekit_url", "livekit_api_key", "livekit_api_secret",
+                       "livekit_token_ttl_seconds", "intercom_unlock_window_seconds"),
+        }),
+        ("Push notifications (Firebase)", {
+            "description": "Blank uses FCM_SERVICE_ACCOUNT_FILE from .env. Without either, only open apps ring.",
+            "fields": ("fcm_status", "fcm_service_account_json"),
+        }),
+        ("Gate relays & LPR", {"fields": ("relay_http_timeout", "lpr_debounce_seconds")}),
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        m.SystemSettings.load().save()
+        return redirect("admin:core_systemsettings_change", 1)
+
+    @admin.display(description="Status")
+    def livekit_status(self, obj):
+        sources = {name: config.source(name) for name in ("LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET")}
+        if not all(sources.values()):
+            return "Not configured - kiosk calls are refused until URL, key and secret are set."
+        return "Configured (" + ", ".join(f"{k.split('_', 1)[1].lower().replace('_', ' ')}: {v}"
+                                          for k, v in sources.items()) + ")"
+
+    @admin.display(description="Status")
+    def fcm_status(self, obj):
+        if config.source("FCM_SERVICE_ACCOUNT_JSON"):
+            return "Configured (admin)"
+        return "Configured (.env file)" if push.is_enabled() else "Not configured"
+
+    def response_change(self, request, obj):
+        if "_test_livekit" in request.POST:
+            try:
+                rooms = livekit.list_rooms()
+                self.message_user(request, f"LiveKit OK - {len(rooms)} active room(s).", messages.SUCCESS)
+            except Exception as exc:
+                self.message_user(request, f"LiveKit test failed: {exc}", messages.ERROR)
+            return redirect(request.path)
+        if "_test_fcm" in request.POST:
+            try:
+                _, project_id = push._access_token()
+                self.message_user(request, f"Firebase OK - project {project_id}.", messages.SUCCESS)
+            except Exception as exc:
+                self.message_user(request, f"Firebase test failed: {exc.__class__.__name__}: {exc}", messages.ERROR)
+            return redirect(request.path)
+        return super().response_change(request, obj)
 
 
 # --- Tenancy -----------------------------------------------------------------

@@ -73,9 +73,22 @@ created in Admin (action *Regenerate device token* issues a new one). Calls ring
 previous one. Rejected, missed and approved calls are all in the access log. Security staff of the
 condo can also answer and unlock.
 
-Set `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` in `.env`, restart, and run
-`docker compose exec web python manage.py livekit_check`. Without them the kiosk gets HTTP 503 and
-nobody is rung. Push needs `FCM_SERVICE_ACCOUNT_FILE`; without it only open apps (WebSocket) ring.
+Enter the LiveKit URL, API key and secret in **Admin → System settings** and press
+*Save & test LiveKit* (or run `docker compose exec web python manage.py livekit_check`). Without them the
+kiosk gets HTTP 503 and nobody is rung. For push, paste the Firebase service-account JSON on the same
+page and press *Save & test Firebase*; without it only open apps (WebSocket) ring.
+
+## System settings
+
+**Admin → System settings** is a single page for server-wide integrations: LiveKit (URL, key, secret,
+token lifetime, unlock window), the Firebase service-account JSON, the relay HTTP timeout and the LPR
+debounce. Secrets are stored encrypted and never shown again. Changes apply immediately to the web,
+worker and beat processes (no restart). Any blank field falls back to the matching `.env` variable
+(`LIVEKIT_*`, `INTERCOM_UNLOCK_WINDOW_SECONDS`, `FCM_SERVICE_ACCOUNT_FILE`, `RELAY_HTTP_TIMEOUT`,
+`LPR_DEBOUNCE_SECONDS`); the page shows which source is live. Infrastructure values (database, Redis,
+`DJANGO_SECRET_KEY`, `FIELD_ENCRYPTION_KEY`, hosts) stay in `.env` because the server needs them to start.
+Per-condo settings (LPR on/off, ring timeout, invitation limits) are on each Condominium, and relay /
+camera credentials on their own admin pages.
 
 ## Production
 

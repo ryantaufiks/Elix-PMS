@@ -78,7 +78,7 @@ Pastikan perangkat lokal Anda telah terinstal:
 * **Mode LAN** hanya bisa dipakai jika server dapat menjangkau jaringan site (mis. Tailscale subnet router di site).
 
 ### 3. LiveKit Video Interkom
-* Server Django bertugas memproduksi Short-Lived Access Token (default 10 menit, satu token per room) menggunakan API key dari LiveKit Cloud. Isi `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` di `.env`, lalu cek dengan `python manage.py livekit_check`.
+* Server Django bertugas memproduksi Short-Lived Access Token (default 10 menit, satu token per room) menggunakan API key dari LiveKit Cloud. Isi URL, API key dan secret LiveKit di **Admin → System settings**, lalu tekan *Save & test LiveKit* (alternatif: `LIVEKIT_*` di `.env` sebagai cadangan).
 * Token ini dikirimkan via API ke **Tablet Kiosk** (saat memanggil unit) dan **Resident App** (saat menjawab) untuk bergabung ke room interkom. Media dialirkan melalui server SFU LiveKit Cloud (bukan *peer-to-peer*).
 * **Alur utama:** tamu memilih unit di kiosk → HP penghuni berdering (push FCM + WebSocket) → penghuni menjawab video → **swipe to unlock** → gerbang kiosk terbuka dan tercatat di log akses.
 

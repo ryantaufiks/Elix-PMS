@@ -4,7 +4,7 @@ from core import livekit
 
 
 class Command(BaseCommand):
-    help = "Verify LIVEKIT_URL / API key / secret by listing rooms on the LiveKit server."
+    help = "Verify the LiveKit URL / API key / secret (admin System settings or .env) by listing rooms."
 
     def handle(self, *args, **options):
         try:

@@ -8,11 +8,10 @@
 import secrets
 from datetime import timedelta
 
-from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from . import access
+from . import access, config
 from .models import AccessLog, IntercomCall, Residency, StaffAssignment
 from .realtime import broadcast_call
 
@@ -68,7 +67,7 @@ def start(kiosk, unit, visitor_name="", snapshot=None):
     transaction.on_commit(lambda: push_incoming_call.delay(call.pk))
     transaction.on_commit(lambda: expire_call.apply_async((call.pk,), countdown=timeout))
     # Safety net: close the room even if neither side hangs up.
-    transaction.on_commit(lambda: finish_call.apply_async((call.pk,), countdown=settings.INTERCOM_UNLOCK_WINDOW_SECONDS))
+    transaction.on_commit(lambda: finish_call.apply_async((call.pk,), countdown=config.get("INTERCOM_UNLOCK_WINDOW_SECONDS")))
     return call
 
 
@@ -91,7 +90,7 @@ def unlock(call, user):
     call = _locked(call)
     if not call.is_open:
         raise CallError("This call has ended.")
-    if timezone.now() - call.created_at > timedelta(seconds=settings.INTERCOM_UNLOCK_WINDOW_SECONDS):
+    if timezone.now() - call.created_at > timedelta(seconds=config.get("INTERCOM_UNLOCK_WINDOW_SECONDS")):
         raise CallError("This call is too old to unlock the gate.")
     if call.gate is None or not call.gate.is_active:
         raise CallError("The kiosk is not linked to an active gate.")

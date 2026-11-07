@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
 
 import requests
-from django.conf import settings
+
+from core import config
 
 
 class RelayError(Exception):
@@ -17,7 +18,7 @@ class RelayResult:
 
 def http(method, url, **kwargs):
     """requests wrapper: one timeout policy, and network failures become RelayError."""
-    kwargs.setdefault("timeout", settings.RELAY_HTTP_TIMEOUT)
+    kwargs.setdefault("timeout", config.get("RELAY_HTTP_TIMEOUT"))
     try:
         return requests.request(method, url, **kwargs)
     except requests.Timeout as exc:
