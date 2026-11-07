@@ -96,15 +96,15 @@ sudo sh get-docker.sh
 ```
 
 ### 2. Menjalankan Kluster Aplikasi
-1. Klon repositori proyek Anda ke dalam direktori `/opt/vms-project/`.
-2. Letakkan sertifikat SSL Let's Encrypt Anda di direktori `./nginx/certs/`.
-3. Jalankan seluruh orkestrasi kontainer di latar belakang:
+1. Klon repositori proyek, lalu buat `.env.prod` dari `.env.example` (`DJANGO_DEBUG=false`, hostname publik, secret baru).
+2. Publikasikan lewat **Cloudflare Tunnel**: di Zero Trust → Networks → Tunnels → *Public hostname*, arahkan hostname ke `HTTP` `localhost:8000`. Tidak ada port masuk yang perlu dibuka; HTTPS dan WebSocket ditangani Cloudflare. (Tanpa Cloudflare: jalankan dengan `--profile nginx` dan taruh sertifikat SSL di `./nginx/certs/`.)
+3. Jalankan stack produksi di latar belakang:
    ```bash
-   sudo docker compose up -d --build
+   ENV_FILE=.env.prod docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
    ```
 4. Verifikasi status kontainer untuk memastikan seluruh layanan berjalan normal:
    ```bash
-   sudo docker compose ps
+   ENV_FILE=.env.prod docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
    ```
 
 ---

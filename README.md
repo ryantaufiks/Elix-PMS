@@ -15,15 +15,16 @@ docker compose exec web python manage.py test core
 
 | URL | |
 |---|---|
-| http://127.0.0.1:8000/v1/admin/ | Django admin (sites, gates, relays, cameras, kiosks, credentials) |
-| http://127.0.0.1:8000/v1/docs/ | Swagger API docs |
-| http://127.0.0.1:8000/v1/auth/token/ | JWT login |
+| http://127.0.0.1:8001/v1/admin/ | Django admin (sites, gates, relays, cameras, kiosks, credentials) |
+| http://127.0.0.1:8001/v1/docs/ | Swagger API docs |
+| http://127.0.0.1:8001/v1/auth/token/ | JWT login |
 | `POST /v1/lpr-webhook/` | Dahua LPR events (Basic Auth per camera) |
 | `POST /v1/gates/{id}/open/` | Manual gate opening (security / condo admin) |
 | `ws://…/ws/events/?token=<JWT>` | Live events (access logs, intercom calls) for the user's condos and units |
 | `ws://…/ws/events/?kiosk_token=<token>` | Live state of the kiosk's own calls |
 
-Set `DEV_BIND` in `.env` to the server's Tailscale IP to reach the dev API remotely.
+The dev API listens on `127.0.0.1:8001` (`DEV_PORT`); port 8000 belongs to production. Set `DEV_BIND`
+in `.env` to the server's Tailscale IP to reach the dev API remotely.
 
 ## Gate relays
 
@@ -92,10 +93,25 @@ camera credentials on their own admin pages.
 
 ## Production
 
+Production runs on the same server as a separate stack and is published through **Cloudflare Tunnel**,
+so no inbound ports are opened (the Lighthouse firewall can stay closed except SSH):
+
 ```bash
-cp .env.example .env.prod     # DJANGO_DEBUG=false, real domain, new secrets
+cp .env.example .env.prod     # DJANGO_DEBUG=false, real hostname, new DJANGO_SECRET_KEY
 ENV_FILE=.env.prod docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+ENV_FILE=.env.prod docker compose -f docker-compose.yml -f docker-compose.prod.yml exec web python manage.py createsuperuser
 ```
+
+- The web service (daphne) listens on `127.0.0.1:8000` only.
+- In Cloudflare Zero Trust → Networks → Tunnels → *Public hostname*, set the service to
+  `HTTP` / `localhost:8000`. HTTPS and WebSockets are handled by Cloudflare.
+- In `.env.prod`, set `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS=https://<host>`,
+  `PUBLIC_BASE_URL=https://<host>` and `CORS_ALLOWED_ORIGINS`.
+- Keep `FIELD_ENCRYPTION_KEY` safe: losing it makes every stored secret unreadable.
+- Recommended: protect `/v1/admin/` with a Cloudflare Access policy. If Bot Fight Mode is on, add a
+  skip rule for `/v1/lpr-webhook/` so cameras are not challenged.
+- Without Cloudflare, add `--profile nginx` to run nginx on 80/443 with your own certificates in
+  `nginx/certs/`.
 
 Dev and prod use separate Compose project names (`elix-vms-dev`, `elix-vms-prod`), so their
 databases and volumes never mix.

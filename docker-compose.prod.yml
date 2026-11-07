@@ -1,4 +1,7 @@
 # Production overrides. Separate project name => separate database/volumes from dev.
+# The API listens on 127.0.0.1:${PROD_PORT:-8000} only and is published through Cloudflare Tunnel
+# (public hostname -> http://localhost:8000), so no inbound ports are opened.
+# Without Cloudflare, add `--profile nginx` to also run nginx with your own certs on 80/443.
 name: elix-vms-prod
 
 services:
@@ -7,9 +10,12 @@ services:
       MEDIA_ROOT: /data/media
       RUN_MIGRATIONS: "1"
       DJANGO_COLLECTSTATIC: "1"
+    ports:
+      - "127.0.0.1:${PROD_PORT:-8000}:8000"
 
   nginx:
     image: nginx:1.27-alpine
+    profiles: ["nginx"]
     ports:
       - "80:80"
       - "443:443"
