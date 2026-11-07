@@ -12,7 +12,6 @@ dependencies:
   firebase_core: 4.15.2
   firebase_messaging: 16.7.1
   flutter_callkit_incoming: 3.1.6
-  flutter_ringtone_player: 4.0.0+4
   flutter_secure_storage: 11.2.0
   http: 1.6.0
   intl: 0.20.3

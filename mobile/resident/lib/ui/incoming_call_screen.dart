@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
+import 'package:flutter/services.dart';
 import 'package:vibration/vibration.dart';
 
 import '../api.dart';
@@ -18,6 +18,8 @@ class IncomingCallScreen extends StatefulWidget {
   @override
   State<IncomingCallScreen> createState() => _IncomingCallScreenState();
 }
+
+const _ringer = MethodChannel('elix/ringer'); // MainActivity.kt
 
 class _IncomingCallScreenState extends State<IncomingCallScreen> {
   StreamSubscription? _sub;
@@ -37,7 +39,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
   /// The phone's own ringtone and a ring-like vibration (follows the phone's ring volume / silent mode).
   Future<void> _startRinging() async {
     try {
-      await FlutterRingtonePlayer().playRingtone(looping: true);
+      await _ringer.invokeMethod('start');
     } catch (_) {}
     try {
       if (await Vibration.hasVibrator()) Vibration.vibrate(pattern: const [0, 900, 1100], repeat: 0);
@@ -45,7 +47,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
   }
 
   void _stopRinging() {
-    FlutterRingtonePlayer().stop().catchError((_) {});
+    _ringer.invokeMethod('stop').catchError((_) {});
     Vibration.cancel().catchError((_) {});
   }
 
