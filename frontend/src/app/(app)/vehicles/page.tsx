@@ -24,7 +24,7 @@ export default function VehiclesPage() {
         action={isAdmin && <Button variant="primary" onClick={() => setEditing("new")}>Add vehicle</Button>}
       />
       <Card>
-        <div className="border-b border-slate-100 p-3">
+        <div className="border-b border-line p-3">
           <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Plate, make or model" />
         </div>
         {!data ? (
@@ -34,10 +34,10 @@ export default function VehiclesPage() {
         ) : (
           <Table>
             <thead><tr><Th>Plate</Th><Th>Unit</Th><Th>Vehicle</Th><Th>Status</Th><Th /></tr></thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-line">
               {data.results.map((v) => (
                 <tr key={v.id}>
-                  <Td className="font-mono font-medium text-slate-900">{v.plate_number}</Td>
+                  <Td className="font-mono font-medium text-ink">{v.plate_number}</Td>
                   <Td>{v.unit_display}</Td>
                   <Td>{[v.colour, v.make, v.model].filter(Boolean).join(" ") || "—"}</Td>
                   <Td>{v.is_active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}</Td>

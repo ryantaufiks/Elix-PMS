@@ -28,7 +28,7 @@ export default function CondominiumsPage() {
         {!data ? <Loading /> : data.results.length === 0 ? <Empty>No condominiums.</Empty> : (
           <Table>
             <thead><tr><Th>Name</Th><Th>Code</Th><Th>Postal code</Th><Th>LPR</Th><Th>Status</Th><Th /></tr></thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-line">
               {data.results.map((c) => (
                 <tr key={c.id}>
                   <Td className="font-medium text-ink">{c.name}{c.id === current.id && <span className="ml-2"><Badge tone="blue">Selected</Badge></span>}</Td>

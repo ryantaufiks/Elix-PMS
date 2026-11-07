@@ -104,7 +104,7 @@ function GatesTab({ condoId, data, mutate }: { condoId: number; data?: Page<Gate
       {!data ? <Loading /> : data.results.length === 0 ? <Empty>No gates yet. Start here.</Empty> : (
         <Table>
           <thead><tr><Th>Name</Th><Th>Type</Th><Th>Direction</Th><Th>Plate auto-open</Th><Th>Status</Th><Th /></tr></thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-line">
             {data.results.map((g) => (
               <tr key={g.id}>
                 <Td className="font-medium text-ink">{g.name}</Td>
@@ -186,7 +186,7 @@ function RelaysTab({ data, mutate, gateOptions, gateName, accounts }: {
       {!data ? <Loading /> : data.results.length === 0 ? <Empty>No relays yet.</Empty> : (
         <Table>
           <thead><tr><Th>Name</Th><Th>Gate</Th><Th>Device</Th><Th>Via</Th><Th>Last triggered</Th><Th>Status</Th><Th /></tr></thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-line">
             {data.results.map((r) => (
               <tr key={r.id}>
                 <Td className="font-medium text-ink">{r.name}</Td>
@@ -196,7 +196,7 @@ function RelaysTab({ data, mutate, gateOptions, gateName, accounts }: {
                 <Td>{timeAgo(r.last_triggered_at)}</Td>
                 <Td>
                   {!r.is_active ? <Badge>Disabled</Badge> : r.last_error ? (
-                    <div title={r.last_error}><Badge tone="red">Error</Badge><div className="mt-1 max-w-xs text-xs text-rose-600">{r.last_error}</div></div>
+                    <div title={r.last_error}><Badge tone="red">Error</Badge><div className="mt-1 max-w-xs text-xs text-rose-600 dark:text-rose-400">{r.last_error}</div></div>
                   ) : <Badge tone="green">OK</Badge>}
                 </Td>
                 <RowActions onEdit={() => setEditing(r)} onDelete={() => setDeleting(r)}>
@@ -216,7 +216,7 @@ function RelaysTab({ data, mutate, gateOptions, gateName, accounts }: {
       )}
       <Modal open={!!testing} onClose={() => setTesting(null)} title={`Test ${testing?.name ?? ""}`}
         footer={<><Button onClick={() => setTesting(null)}>Cancel</Button><Button variant="primary" busy={busy === `${testing?.id}-test`} onClick={async () => { await command(testing!, "test"); setTesting(null); }}>Pulse now</Button></>}>
-        <p className="text-sm text-slate-600">This really opens <strong>{testing && gateName(testing.gate)}</strong>. Test pulses are not written to the access log.</p>
+        <p className="text-sm text-body">This really opens <strong>{testing && gateName(testing.gate)}</strong>. Test pulses are not written to the access log.</p>
       </Modal>
       <ConfirmDialog open={!!deleting} title="Delete relay?" confirmLabel="Delete relay" onClose={() => setDeleting(null)}
         message={<>Delete <strong>{deleting?.name}</strong>? The gate cannot be opened remotely without a relay.</>}
@@ -253,7 +253,7 @@ function CamerasTab({ data, mutate, gateOptions, gateName }: { data?: Page<Camer
       {!data ? <Loading /> : data.results.length === 0 ? <Empty>No cameras yet.</Empty> : (
         <Table>
           <thead><tr><Th>Name</Th><Th>Gate</Th><Th>Device ID</Th><Th>Direction</Th><Th>Last event</Th><Th>Status</Th><Th /></tr></thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-line">
             {data.results.map((c) => (
               <tr key={c.id}>
                 <Td className="font-medium text-ink">{c.name}</Td>
@@ -279,7 +279,7 @@ function CamerasTab({ data, mutate, gateOptions, gateName }: { data?: Page<Camer
       <Modal wide open={!!inspecting} onClose={() => setInspecting(null)} title={`${inspecting?.name ?? ""}: camera setup`}>
         {inspecting && (
           <div className="space-y-4 text-sm">
-            <p className="text-slate-600">In the camera web page, open <em>Event &gt; ITC / HTTP upload</em> and enter:</p>
+            <p className="text-body">In the camera web page, open <em>Event &gt; ITC / HTTP upload</em> and enter:</p>
             <div><div className="mb-1 font-medium text-ink">Upload URL</div><CopyField value={inspecting.webhook_url} /></div>
             <div><div className="mb-1 font-medium text-ink">Username</div><CopyField value={inspecting.webhook_username} /></div>
             <p className="text-muted">Password: the webhook password set for this camera. Method: POST, body JSON.</p>
@@ -317,7 +317,7 @@ function KiosksTab({ condoId, data, mutate, gateOptions, gateName }: { condoId: 
       {!data ? <Loading /> : data.results.length === 0 ? <Empty>No kiosks yet.</Empty> : (
         <Table>
           <thead><tr><Th>Name</Th><Th>Gate</Th><Th>Token</Th><Th>App</Th><Th>Last seen</Th><Th>Status</Th><Th /></tr></thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-line">
             {data.results.map((k) => (
               <tr key={k.id}>
                 <Td className="font-medium text-ink">{k.name}</Td>
@@ -350,7 +350,7 @@ function KiosksTab({ condoId, data, mutate, gateOptions, gateName }: { condoId: 
       <Modal open={!!token} onClose={() => setToken(null)} title={`Device token for ${token?.kiosk ?? ""}`} footer={<Button variant="primary" onClick={() => setToken(null)}>I have copied it</Button>}>
         {token && (
           <div className="space-y-3 text-sm">
-            <p className="text-slate-600">Enter this token in the kiosk app. It is shown <strong>only once</strong>.</p>
+            <p className="text-body">Enter this token in the kiosk app. It is shown <strong>only once</strong>.</p>
             <CopyField value={token.token} />
           </div>
         )}
@@ -391,7 +391,7 @@ function AccountsTab({ condoId, data, mutate }: { condoId: number; data?: Page<I
       {!data ? <Loading /> : data.results.length === 0 ? <Empty>No cloud accounts yet.</Empty> : (
         <Table>
           <thead><tr><Th>Label</Th><Th>Provider</Th><Th>Details</Th><Th>Credentials</Th><Th>Status</Th><Th /></tr></thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-line">
             {data.results.map((a) => (
               <tr key={a.id}>
                 <Td className="font-medium text-ink">{a.label}</Td>

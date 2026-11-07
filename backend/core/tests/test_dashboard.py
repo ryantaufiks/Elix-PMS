@@ -45,6 +45,11 @@ class DashboardSummaryTests(APITestCase):
         self.assertEqual(data["invitations_today"], 1)
         self.assertEqual((data["relays_total"], data["relays_failing"]), (2, 1))
         self.assertEqual((data["kiosks_total"], data["kiosks_offline"]), (2, 1))
+        self.assertEqual(len(data["hourly"]), 24)
+        self.assertEqual(sum(h["granted"] for h in data["hourly"]), 2)
+        self.assertEqual(data["by_method"], {"manual": 4})
+        self.assertEqual(data["gates"], [{"id": self.gate.pk, "name": "Main", "gate_type": "vehicle", "is_active": True,
+                                          "relays_total": 2, "relays_failing": 1}])
 
     def test_only_staff_of_the_condo(self):
         self.client.force_authenticate(self.guard)

@@ -48,7 +48,7 @@ export default function SiteSettingsPage() {
         <form onSubmit={save} className="space-y-5 p-5 sm:p-6">
           <ErrorNote error={Object.keys(errors).length ? null : error} />
           <FormFields fields={fields} values={values} errors={errors} record={condo} onChange={(n, v) => setValues((s) => ({ ...s, [n]: v }))} />
-          <div className="flex justify-end border-t border-slate-100 pt-5">
+          <div className="flex justify-end border-t border-line pt-5">
             <Button type="submit" variant="primary" busy={busy}>Save changes</Button>
           </div>
         </form>

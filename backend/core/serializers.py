@@ -361,6 +361,22 @@ class AccessLogSerializer(serializers.ModelSerializer):
         return bool(obj.snapshot)
 
 
+class HourlyTrafficSerializer(serializers.Serializer):
+    hour = serializers.IntegerField()
+    granted = serializers.IntegerField()
+    denied = serializers.IntegerField()
+    error = serializers.IntegerField()
+
+
+class GateHealthSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    gate_type = serializers.CharField()
+    is_active = serializers.BooleanField()
+    relays_total = serializers.IntegerField()
+    relays_failing = serializers.IntegerField()
+
+
 class DashboardSummarySerializer(serializers.Serializer):
     granted_today = serializers.IntegerField()
     denied_today = serializers.IntegerField()
@@ -374,6 +390,9 @@ class DashboardSummarySerializer(serializers.Serializer):
     kiosks_total = serializers.IntegerField()
     kiosks_offline = serializers.IntegerField()
     lpr_enabled = serializers.BooleanField(allow_null=True)
+    hourly = HourlyTrafficSerializer(many=True)
+    by_method = serializers.DictField(child=serializers.IntegerField())
+    gates = GateHealthSerializer(many=True)
 
 
 # --- People management -------------------------------------------------------

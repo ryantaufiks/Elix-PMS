@@ -1,26 +1,80 @@
 @import "tailwindcss";
 
+/* `dark:` follows the theme toggle (data-theme on <html>), not only the OS setting. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 
-  /* Brand blue (#3a57e8) scale */
-  --color-primary-50: #eef1fd;
-  --color-primary-100: #dde3fb;
-  --color-primary-200: #bcc7f7;
-  --color-primary-300: #8d9ff1;
-  --color-primary-400: #5f78eb;
-  --color-primary-500: #3a57e8;
-  --color-primary-600: #2f47cf;
-  --color-primary-700: #2639ac;
-  --color-primary-800: #1f2f8a;
-  --color-primary-900: #1a276f;
+  /* Electric blue, matched to the logo's glow */
+  --color-primary-50: #eef4ff;
+  --color-primary-100: #dae7ff;
+  --color-primary-200: #bdd4ff;
+  --color-primary-300: #8fb8ff;
+  --color-primary-400: #5b93ff;
+  --color-primary-500: #2f6fff;
+  --color-primary-600: #1c56f0;
+  --color-primary-700: #1744c4;
+  --color-primary-800: #193c9b;
+  --color-primary-900: #1a367a;
 
-  --color-ink: #232d42;
-  --color-muted: #8a92a6;
-  --color-canvas: #f5f6fa;
+  /* Sidebar navy (same in both themes) */
+  --color-navy-700: #1b2c55;
+  --color-navy-800: #111f42;
+  --color-navy-900: #0b1631;
+  --color-navy-950: #070f24;
+}
 
-  --shadow-card: 0 10px 30px 0 rgb(17 38 146 / 0.05);
-  --shadow-primary: 0 10px 20px -10px rgb(58 87 232 / 0.6);
+/* Semantic tokens; the values swap with the theme. */
+@theme inline {
+  --color-canvas: var(--c-canvas);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-surface-3: var(--c-surface-3);
+  --color-line: var(--c-line);
+  --color-ink: var(--c-ink);
+  --color-body: var(--c-body);
+  --color-muted: var(--c-muted);
+  --shadow-card: var(--c-shadow-card);
+  --shadow-primary: 0 8px 20px -8px rgb(47 111 255 / 0.55);
+}
+
+:root {
+  color-scheme: light;
+  --c-canvas: #f3f5f9;
+  --c-surface: #ffffff;
+  --c-surface-2: #f7f8fb;
+  --c-surface-3: #eef1f6;
+  --c-line: #e4e8f0;
+  --c-ink: #0f172a;
+  --c-body: #475569;
+  --c-muted: #7a8599;
+  --c-shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 16px -4px rgb(15 23 42 / 0.06);
+
+  /* Chart roles (validated: dataviz validator, light surface #ffffff) */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --grid: #e9ecf2;
+  --axis: #c5ccd8;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --c-canvas: #0a1222;
+  --c-surface: #0f1a2e;
+  --c-surface-2: #13203a;
+  --c-surface-3: #192845;
+  --c-line: #20304f;
+  --c-ink: #e8eefb;
+  --c-body: #b3bfd6;
+  --c-muted: #7f8cab;
+  --c-shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -8px rgb(0 0 0 / 0.45);
+
+  /* Dark steps of the same hues (validated against #0f1a2e) */
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --grid: #1c2a45;
+  --axis: #2c3d61;
 }
 
 html {
@@ -28,15 +82,21 @@ html {
 }
 
 body {
-  background: var(--color-canvas);
-  color: var(--color-ink);
+  background: var(--c-canvas);
+  color: var(--c-ink);
 }
 
-/* Blue hero band behind the page title, with soft light curves. */
-.hero-band {
+/* Navy sidebar with a faint glow, echoing the logo. */
+.sidebar-bg {
   background:
-    radial-gradient(120% 140% at 100% 0%, rgb(255 255 255 / 0.16) 0 22%, transparent 22.5%),
-    radial-gradient(90% 120% at 85% 120%, rgb(255 255 255 / 0.10) 0 30%, transparent 30.5%),
-    radial-gradient(70% 90% at 10% -20%, rgb(255 255 255 / 0.08) 0 35%, transparent 35.5%),
-    linear-gradient(120deg, #3a57e8 0%, #2f47cf 45%, #1f2f8a 100%);
+    radial-gradient(120% 50% at 0% 0%, rgb(47 111 255 / 0.18), transparent 60%),
+    radial-gradient(80% 40% at 100% 100%, rgb(56 189 248 / 0.08), transparent 60%),
+    linear-gradient(180deg, var(--color-navy-900), var(--color-navy-950));
+}
+
+.brand-panel {
+  background:
+    radial-gradient(60% 50% at 50% 40%, rgb(47 111 255 / 0.28), transparent 70%),
+    radial-gradient(40% 30% at 80% 90%, rgb(56 189 248 / 0.12), transparent 70%),
+    linear-gradient(160deg, var(--color-navy-800), var(--color-navy-950));
 }

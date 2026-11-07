@@ -89,7 +89,7 @@ export default function SystemSettingsPage() {
           <div className="space-y-4 p-5 sm:p-6">
             <FormFields fields={livekitFields} values={values} errors={errors} record={record} onChange={change} />
             <SourceNote sources={data.sources} names={["livekit_url", "livekit_api_key", "livekit_api_secret"]} />
-            <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+            <div className="flex justify-end gap-2 border-t border-line pt-4">
               <Button busy={busy === "livekit"} onClick={() => save("livekit")}>Save &amp; test connection</Button>
             </div>
           </div>
@@ -99,7 +99,7 @@ export default function SystemSettingsPage() {
           <div className="space-y-4 p-5 sm:p-6">
             <p className="text-sm text-muted">Without Firebase, residents are only rung while the app is open.</p>
             <FormFields fields={fcmFields} values={values} errors={errors} record={record} onChange={change} />
-            <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+            <div className="flex justify-end gap-2 border-t border-line pt-4">
               <Button busy={busy === "fcm"} onClick={() => save("fcm")}>Save &amp; test Firebase</Button>
             </div>
           </div>

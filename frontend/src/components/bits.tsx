@@ -43,8 +43,8 @@ export function AuthImage({ path, alt, className }: { path: string; alt: string;
       if (url) URL.revokeObjectURL(url);
     };
   }, [path]);
-  if (failed) return <div className={`flex items-center justify-center bg-slate-100 text-xs text-slate-400 ${className}`}>No image</div>;
-  if (!src) return <div className={`flex items-center justify-center bg-slate-100 text-slate-400 ${className}`}><Spinner className="h-4 w-4" /></div>;
+  if (failed) return <div className={`flex items-center justify-center bg-surface-3 text-xs text-muted ${className}`}>No image</div>;
+  if (!src) return <div className={`flex items-center justify-center bg-surface-3 text-muted ${className}`}><Spinner className="h-4 w-4" /></div>;
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={src} alt={alt} className={className} />;
 }
@@ -84,7 +84,7 @@ export function OpenGateDialog({ gate, onClose }: { gate: Gate | null; onClose: 
         </>
       }
     >
-      <p className="mb-4 text-sm text-slate-600">The opening is recorded in the access log under your name.</p>
+      <p className="mb-4 text-sm text-body">The opening is recorded in the access log under your name.</p>
       <Field label="Reason (optional)">
         <Textarea rows={2} value={reason} maxLength={255} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Delivery van, resident forgot card" autoFocus />
       </Field>
@@ -115,13 +115,13 @@ export function UnitPicker({ condoId, value, onChange, initialLabel }: {
         }}
       />
       {open && data && (
-        <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-          {data.results.length === 0 && <li className="px-3 py-2 text-sm text-slate-500">No matching unit</li>}
+        <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-line bg-surface py-1 shadow-lg">
+          {data.results.length === 0 && <li className="px-3 py-2 text-sm text-muted">No matching unit</li>}
           {data.results.map((unit) => (
             <li key={unit.id}>
               <button
                 type="button"
-                className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-surface-2"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
                   setText(unit.display_name);

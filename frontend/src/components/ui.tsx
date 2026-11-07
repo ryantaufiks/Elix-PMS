@@ -23,9 +23,9 @@ export function Button({ variant = "secondary", size = "md", busy, className, ch
         size === "lg" && "h-12 px-6 text-base",
         variant === "primary" && "bg-primary-500 text-white shadow-primary hover:bg-primary-600",
         variant === "success" && "bg-emerald-600 text-white hover:bg-emerald-700",
-        variant === "secondary" && "border border-slate-200 bg-white text-ink hover:border-primary-300 hover:text-primary-600",
+        variant === "secondary" && "border border-line bg-surface text-ink hover:bg-surface-2",
         variant === "danger" && "bg-rose-600 text-white hover:bg-rose-700",
-        variant === "ghost" && "text-slate-600 hover:bg-slate-100",
+        variant === "ghost" && "text-body hover:bg-surface-3 hover:text-ink",
         className,
       )}
     >
@@ -40,12 +40,12 @@ export function Spinner({ className = "h-5 w-5" }: { className?: string }) {
 }
 
 export function Card({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <section className={cx("rounded-lg bg-white shadow-card", className)}>{children}</section>;
+  return <section className={cx("rounded-xl border border-line bg-surface shadow-card", className)}>{children}</section>;
 }
 
 export function CardHeader({ title, action }: { title: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+    <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
       <h2 className="text-base font-semibold text-ink">{title}</h2>
       {action}
     </div>
@@ -53,11 +53,11 @@ export function CardHeader({ title, action }: { title: React.ReactNode; action?:
 }
 
 const TONES = {
-  green: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-  red: "bg-rose-50 text-rose-700 ring-rose-600/20",
-  amber: "bg-amber-50 text-amber-800 ring-amber-600/20",
-  blue: "bg-sky-50 text-sky-700 ring-sky-600/20",
-  slate: "bg-slate-100 text-slate-600 ring-slate-500/20",
+  green: "bg-emerald-500/10 text-emerald-700 ring-emerald-600/25 dark:text-emerald-300",
+  red: "bg-rose-500/10 text-rose-700 ring-rose-600/25 dark:text-rose-300",
+  amber: "bg-amber-500/10 text-amber-800 ring-amber-600/25 dark:text-amber-300",
+  blue: "bg-primary-500/10 text-primary-700 ring-primary-600/25 dark:text-primary-300",
+  slate: "bg-surface-3 text-body ring-slate-500/20",
 };
 export type Tone = keyof typeof TONES;
 
@@ -69,13 +69,12 @@ export function Badge({ tone = "slate", children }: { tone?: Tone; children: Rea
   );
 }
 
-/** Title on the blue hero band; the page content below overlaps the band. */
 export function PageHeader({ title, description, action }: { title: string; description?: string; action?: React.ReactNode }) {
   return (
-    <div className="mb-8 flex flex-wrap items-end justify-between gap-4 pt-2 text-white">
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
-        {description && <p className="mt-1.5 max-w-2xl text-sm text-white/80">{description}</p>}
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
+        {description && <p className="mt-1 max-w-2xl text-sm text-muted">{description}</p>}
       </div>
       {action && <div className="flex flex-wrap gap-2">{action}</div>}
     </div>
@@ -83,12 +82,12 @@ export function PageHeader({ title, description, action }: { title: string; desc
 }
 
 export function Empty({ children }: { children: React.ReactNode }) {
-  return <div className="px-4 py-10 text-center text-sm text-slate-500">{children}</div>;
+  return <div className="px-4 py-10 text-center text-sm text-muted">{children}</div>;
 }
 
 export function Loading() {
   return (
-    <div className="flex justify-center py-10 text-slate-400">
+    <div className="flex justify-center py-10 text-muted">
       <Spinner />
     </div>
   );
@@ -97,14 +96,14 @@ export function Loading() {
 export function ErrorNote({ error }: { error: unknown }) {
   if (!error) return null;
   return (
-    <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+    <div className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">
       {error instanceof Error ? error.message : String(error)}
     </div>
   );
 }
 
 const inputClass =
-  "block w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/15 disabled:bg-slate-50";
+  "block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/15 disabled:bg-surface-2";
 
 export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={cx(inputClass, props.className)} />;
@@ -135,8 +134,8 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
 
 export function Checkbox({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
   return (
-    <label className="flex items-center gap-2 text-sm text-slate-700">
-      <input type="checkbox" {...props} className="h-4 w-4 rounded border-slate-300 text-primary-700 focus:ring-primary-600" />
+    <label className="flex items-center gap-2 text-sm text-ink">
+      <input type="checkbox" {...props} className="h-4 w-4 rounded border-line text-primary-700 focus:ring-primary-600" />
       {label}
     </label>
   );
@@ -164,16 +163,16 @@ export function Modal({ open, onClose, title, children, footer, wide }: {
         aria-modal="true"
         aria-label={title}
         onMouseDown={(e) => e.stopPropagation()}
-        className={cx("max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white shadow-xl sm:rounded-2xl", wide ? "sm:max-w-3xl" : "sm:max-w-lg")}
+        className={cx("max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-surface shadow-xl sm:rounded-2xl", wide ? "sm:max-w-3xl" : "sm:max-w-lg")}
       >
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-          <button onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="Close">
+        <div className="flex items-center justify-between border-b border-line px-5 py-4">
+          <h2 className="text-base font-semibold text-ink">{title}</h2>
+          <button onClick={onClose} className="rounded-md p-1 text-muted hover:bg-surface-3 hover:text-body" aria-label="Close">
             <svg viewBox="0 0 20 20" className="h-5 w-5" fill="currentColor"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" /></svg>
           </button>
         </div>
         <div className="px-5 py-4">{children}</div>
-        {footer && <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3">{footer}</div>}
+        {footer && <div className="flex justify-end gap-2 border-t border-line px-5 py-3">{footer}</div>}
       </div>
     </div>
   );
@@ -183,7 +182,7 @@ export function Pagination({ page, count, pageSize = 50, onPage }: { page: numbe
   const pages = Math.max(1, Math.ceil(count / pageSize));
   if (pages <= 1) return null;
   return (
-    <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm text-slate-600">
+    <div className="flex items-center justify-between border-t border-line px-4 py-3 text-sm text-body">
       <span>
         Page {page} of {pages} · {count} total
       </span>
@@ -198,17 +197,17 @@ export function Pagination({ page, count, pageSize = 50, onPage }: { page: numbe
 export function Table({ children }: { children: React.ReactNode }) {
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-slate-100 text-sm">{children}</table>
+      <table className="min-w-full divide-y divide-line text-sm">{children}</table>
     </div>
   );
 }
 
 export function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
-  return <th className={cx("whitespace-nowrap bg-slate-50/70 px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted", className)}>{children}</th>;
+  return <th className={cx("whitespace-nowrap bg-surface-2 px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted", className)}>{children}</th>;
 }
 
 export function Td({ children, className }: { children?: React.ReactNode; className?: string }) {
-  return <td className={cx("px-5 py-3.5 align-top text-slate-600", className)}>{children}</td>;
+  return <td className={cx("px-5 py-3.5 align-top text-body", className)}>{children}</td>;
 }
 
 // --- Toasts ------------------------------------------------------------------

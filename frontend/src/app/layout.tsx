@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 
+import { themeBootScript } from "@/lib/theme";
+
 import "./globals.css";
 import { Providers } from "./providers";
 
@@ -12,11 +14,14 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#3a57e8" };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#0b1631" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en-SG" className={inter.variable}>
+    <html lang="en-SG" className={inter.variable} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+      </head>
       <body>
         <Providers>{children}</Providers>
       </body>

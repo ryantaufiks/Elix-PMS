@@ -45,7 +45,7 @@ export default function ResidentsPage() {
         action={isAdmin && <Button variant="primary" onClick={() => setAdding(true)}><Icon name="plus" className="h-4 w-4" /> Add resident</Button>}
       />
       <Card>
-        <div className="flex flex-wrap gap-2 border-b border-slate-100 p-4">
+        <div className="flex flex-wrap gap-2 border-b border-line p-4">
           <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Name or unit number" />
           <Select value={type} onChange={(e) => { setType(e.target.value); setPage(1); }} className="sm:w-44" aria-label="Resident type">
             <option value="">All types</option>
@@ -55,7 +55,7 @@ export default function ResidentsPage() {
         {!data ? <Loading /> : data.results.length === 0 ? <Empty>No residents yet.</Empty> : (
           <Table>
             <thead><tr><Th>Unit</Th><Th>Resident</Th><Th>Type</Th><Th>Contact</Th><Th>Intercom</Th>{isAdmin && <Th />}</tr></thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-line">
               {data.results.map((r) => (
                 <tr key={r.id} className={r.is_active ? undefined : "opacity-60"}>
                   <Td className="whitespace-nowrap font-medium text-ink">{r.unit_display}</Td>
@@ -140,7 +140,7 @@ function AddResident({ condoId, onClose, onDone }: { condoId: number; onClose: (
           </Field>
         </div>
         <FormFields fields={fields} values={values} errors={errors} onChange={(n, v) => setValues((s) => ({ ...s, [n]: v }))} />
-        <div className="flex flex-wrap gap-6 border-t border-slate-100 pt-4 text-sm">
+        <div className="flex flex-wrap gap-6 border-t border-line pt-4 text-sm">
           <label className="flex items-center gap-2"><input type="checkbox" checked={link.is_primary_contact} onChange={(e) => setLink((l) => ({ ...l, is_primary_contact: e.target.checked }))} /> Primary contact</label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={link.receives_intercom_calls} onChange={(e) => setLink((l) => ({ ...l, receives_intercom_calls: e.target.checked }))} /> Receives intercom calls</label>
         </div>

@@ -30,15 +30,22 @@ in `.env` to the server's Tailscale IP to reach the dev API remotely.
 
 `frontend/` is a Next.js + TypeScript + Tailwind app, exported as static files and served by the
 **gateway** (nginx), which also proxies `/v1`, `/ws` and `/static` to Django. Everything runs on one
-origin, so there is no CORS and the browser keeps one JWT session. The look follows the Hope UI style
-(blue `#3a57e8`, hero band, soft cards), implemented from scratch in Tailwind.
+origin, so there is no CORS and the browser keeps one JWT session.
+
+Look: a "command center" theme built around the Elix logo - navy sidebar with the chrome logo,
+electric-blue accents, light content area - plus a **dark mode** toggle in the top bar (remembered per
+browser, defaults to the OS setting). Colours are semantic tokens in `frontend/src/app/globals.css`;
+chart colours were checked with a colour-blind-safety validator for both themes. Brand files live in
+`frontend/public/brand/` and `frontend/src/app/icon.png` / `apple-icon.png` (cropped from the source
+artwork `elix-logo.zip`, which is kept out of git). The dashboard home shows today's KPIs, an hourly
+traffic chart (with table view), live activity, gate health and entry methods.
 
 **All day-to-day setup is done here; Django admin is only an advanced fallback for the platform admin.**
 On first sign-in with no condominium, the platform admin is guided through creating one.
 
 | Section | Page | Who | What |
 |---|---|---|---|
-| Operations | Dashboard | all staff | Today's counters, device health, latest access (live), one-click gate opening |
+| Operations | Dashboard | all staff | Today's KPIs, hourly traffic chart, live activity, gate health with one-click opening, entry methods |
 | | Access log | all staff | Filter by gate, method, result, plate, date; camera snapshots; live updates |
 | | Intercom | all staff | Ringing kiosk calls (ringtone + banner on every page), answer with video, swipe to open, reject; history |
 | | Open gates | all staff | Manual opening with reason (logged under the user) |

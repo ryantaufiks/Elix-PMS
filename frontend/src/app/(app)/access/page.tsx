@@ -46,7 +46,7 @@ export default function AccessLogPage() {
     <>
       <PageHeader title="Access log" description="Every gate decision: licence plates, QR invitations, intercom and manual openings." />
       <Card>
-        <div className="flex flex-wrap gap-2 border-b border-slate-100 p-3">
+        <div className="flex flex-wrap gap-2 border-b border-line p-3">
           <SearchInput value={filters.search} onChange={(v) => set("search", v)} placeholder="Plate or reason" />
           <Select value={filters.gate} onChange={(e) => set("gate", e.target.value)} className="sm:w-44" aria-label="Gate">
             <option value="">All gates</option>

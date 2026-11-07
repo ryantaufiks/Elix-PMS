@@ -28,10 +28,10 @@ export default function GatesPage() {
           {data.results.map((gate) => (
             <Card key={gate.id} className="flex flex-col p-5">
               <div className="flex items-start justify-between gap-3">
-                <h2 className="text-base font-semibold text-slate-900">{gate.name}</h2>
+                <h2 className="text-base font-semibold text-ink">{gate.name}</h2>
                 {gate.is_active ? <Badge tone="green">Active</Badge> : <Badge>Disabled</Badge>}
               </div>
-              <dl className="mt-3 space-y-1 text-sm text-slate-600">
+              <dl className="mt-3 space-y-1 text-sm text-body">
                 <div>{TYPE_LABEL[gate.gate_type]} · {DIRECTION_LABEL[gate.direction]}</div>
                 <div>
                   Plate auto-open: {[gate.lpr_auto_open_residents && "residents", gate.lpr_auto_open_invited && "invited visitors"].filter(Boolean).join(", ") || "off"}

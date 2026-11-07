@@ -72,10 +72,10 @@ function ActiveCall({ call, connection, onAnswered, onDone }: {
 
   return (
     <Card className="overflow-hidden">
-      <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
+      <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
         <div>
-          <div className="text-base font-semibold text-slate-900">{call.unit_display}</div>
-          <div className="text-sm text-slate-500">
+          <div className="text-base font-semibold text-ink">{call.unit_display}</div>
+          <div className="text-sm text-muted">
             {call.kiosk_name || "Kiosk"} · {call.visitor_name || "Visitor"} · {elapsed}
           </div>
         </div>
@@ -87,7 +87,7 @@ function ActiveCall({ call, connection, onAnswered, onDone }: {
         ) : call.has_snapshot ? (
           <AuthImage path={`/v1/intercom-calls/${call.id}/snapshot/`} alt="Visitor at the kiosk" className="aspect-video w-full rounded-xl object-cover" />
         ) : (
-          <div className="flex aspect-video items-center justify-center rounded-xl bg-slate-100 text-sm text-slate-400">No snapshot</div>
+          <div className="flex aspect-video items-center justify-center rounded-xl bg-surface-3 text-sm text-muted">No snapshot</div>
         )}
         <SwipeToUnlock onUnlock={unlock} />
         <div className="flex flex-wrap gap-2">
@@ -167,7 +167,7 @@ export default function IntercomPage() {
             <thead>
               <tr><Th>Started</Th><Th>Unit</Th><Th>Kiosk</Th><Th>Visitor</Th><Th>Status</Th><Th>Answered</Th><Th>Decided</Th></tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-line">
               {history.data.results.map((call) => (
                 <tr key={call.id}>
                   <Td className="whitespace-nowrap tabular-nums">{formatDateTime(call.created_at)}</Td>

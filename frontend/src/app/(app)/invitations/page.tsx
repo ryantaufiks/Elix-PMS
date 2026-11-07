@@ -47,7 +47,7 @@ export default function InvitationsPage() {
         action={isAdmin && <Button variant="primary" onClick={() => setCreating(true)}>New invitation</Button>}
       />
       <Card>
-        <div className="flex flex-wrap gap-2 border-b border-slate-100 p-3">
+        <div className="flex flex-wrap gap-2 border-b border-line p-3">
           <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Visitor, phone or plate" />
           <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="sm:w-40" aria-label="Status">
             <option value="">All statuses</option>
@@ -66,18 +66,18 @@ export default function InvitationsPage() {
             <thead>
               <tr><Th>Visitor</Th><Th>Unit · host</Th><Th>Purpose</Th><Th>Valid</Th><Th>Entries</Th><Th>Plate</Th><Th>Status</Th><Th /></tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-line">
               {data.results.map((inv) => (
                 <tr key={inv.id}>
                   <Td>
-                    <div className="font-medium text-slate-800">{inv.visitor_name}</div>
-                    <div className="text-xs text-slate-500">{inv.visitor_phone}</div>
+                    <div className="font-medium text-ink">{inv.visitor_name}</div>
+                    <div className="text-xs text-muted">{inv.visitor_phone}</div>
                   </Td>
                   <Td>
                     <div>{inv.unit_display}</div>
-                    <div className="text-xs text-slate-500">{userName(inv.host_detail)}</div>
+                    <div className="text-xs text-muted">{userName(inv.host_detail)}</div>
                   </Td>
-                  <Td>{PURPOSE_LABEL[inv.purpose]}{inv.require_face && <div className="text-xs text-slate-500">Face check required</div>}</Td>
+                  <Td>{PURPOSE_LABEL[inv.purpose]}{inv.require_face && <div className="text-xs text-muted">Face check required</div>}</Td>
                   <Td className="whitespace-nowrap tabular-nums text-xs">
                     {formatDateTime(inv.valid_from)}<br />→ {formatDateTime(inv.valid_until)}
                   </Td>
@@ -114,7 +114,7 @@ export default function InvitationsPage() {
         title="Cancel invitation?"
         footer={<><Button onClick={() => setCancelling(null)}>Keep</Button><Button variant="danger" onClick={cancel}>Cancel invitation</Button></>}
       >
-        <p className="text-sm text-slate-600">The QR code for <strong>{cancelling?.visitor_name}</strong> stops working immediately.</p>
+        <p className="text-sm text-body">The QR code for <strong>{cancelling?.visitor_name}</strong> stops working immediately.</p>
       </Modal>
 
       {creating && <CreateInvitation condoId={condo.id} onClose={() => setCreating(false)} onCreated={() => { setCreating(false); mutate(); }} />}

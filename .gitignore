@@ -19,3 +19,6 @@ celerybeat-schedule*
 
 # Local device samples
 shelly1.zip
+
+# Brand source artwork (processed copies live in frontend/public/brand)
+elix-logo.zip

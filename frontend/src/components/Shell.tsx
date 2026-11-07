@@ -11,7 +11,9 @@ import { useSession } from "@/lib/session";
 import type { IntercomCall, Page } from "@/lib/types";
 
 import { Icon, type IconName } from "./icons";
-import { cx, Select } from "./ui";
+import { useTheme } from "@/lib/theme";
+
+import { cx } from "./ui";
 
 type NavItem = { href: string; label: string; icon: IconName; admin?: boolean; superuser?: boolean };
 const NAV: { title: string; items: NavItem[] }[] = [
@@ -58,6 +60,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const { me, condos, condo, role, isAdmin, selectCondo, logout } = useSession();
   const pathname = usePathname();
   const live = useLiveStatus();
+  const [theme, toggleTheme] = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   useEffect(() => {
@@ -70,99 +73,134 @@ export function Shell({ children }: { children: React.ReactNode }) {
     ...g,
     items: g.items.filter((i) => (!i.admin || isAdmin) && (!i.superuser || me.is_superuser)),
   })).filter((g) => g.items.length);
+  const current = groups.flatMap((g) => g.items.map((i) => ({ ...i, group: g.title }))).find((i) => isActive(i.href));
   const name = [me.first_name, me.last_name].filter(Boolean).join(" ") || me.username;
   const roleLabel = me.is_superuser ? "Platform admin" : role === "admin" ? "Condo admin" : "Security";
 
   const sidebar = (
-    <nav className="flex h-full flex-col">
-      <div className="flex h-[70px] shrink-0 items-center gap-2.5 border-b border-slate-100 px-6">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-500 text-base font-bold text-white shadow-primary">E</span>
-        <span className="text-xl font-semibold tracking-tight text-ink">Elix PMS</span>
+    <nav className="sidebar-bg flex h-full flex-col text-slate-300">
+      <div className="flex h-16 shrink-0 items-center px-6">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/elix-logo.png" alt="Elix" className="h-7 w-auto drop-shadow-[0_0_12px_rgba(47,111,255,0.45)]" />
+        <span className="ml-2.5 mt-1 rounded border border-white/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">PMS</span>
       </div>
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div className="mx-4 mb-2 rounded-lg border border-white/10 bg-white/5 p-1">
+        {condos.length > 1 ? (
+          <select
+            value={condo.id}
+            onChange={(e) => selectCondo(Number(e.target.value))}
+            aria-label="Condominium"
+            className="w-full cursor-pointer rounded-md bg-transparent px-2 py-1.5 text-sm font-medium text-white focus:outline-none [&>option]:text-ink"
+          >
+            {condos.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        ) : (
+          <div className="truncate px-2 py-1.5 text-sm font-medium text-white">{condo.name}</div>
+        )}
+      </div>
+      <div className="flex-1 overflow-y-auto px-3 py-3">
         {groups.map((group) => (
           <div key={group.title} className="mb-5">
-            <div className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted">{group.title}</div>
-            <ul className="space-y-1">
-              {group.items.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={cx(
-                      "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-all",
-                      isActive(item.href) ? "bg-primary-500 text-white shadow-primary" : "text-slate-500 hover:bg-primary-50 hover:text-primary-600",
-                    )}
-                  >
-                    <Icon name={item.icon} className="h-5 w-5 shrink-0" />
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
+            <div className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{group.title}</div>
+            <ul className="space-y-0.5">
+              {group.items.map((item) => {
+                const active = isActive(item.href);
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      className={cx(
+                        "relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                        active ? "bg-primary-500/15 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white",
+                      )}
+                    >
+                      {active && <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-r bg-primary-400 shadow-[0_0_10px_rgba(91,147,255,0.9)]" />}
+                      <Icon name={item.icon} className={cx("h-[18px] w-[18px] shrink-0", active ? "text-primary-300" : "text-slate-500")} />
+                      {item.label}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ))}
       </div>
-      <div className="border-t border-slate-100 px-6 py-4 text-xs text-muted">
-        <span className={cx("mr-2 inline-block h-2 w-2 rounded-full", live ? "bg-emerald-500" : "animate-pulse bg-amber-500")} />
-        {live ? "Live events connected" : "Reconnecting to live events…"}
+      <div className="border-t border-white/10 px-6 py-4 text-xs text-slate-500">
+        Elix PMS · Singapore
       </div>
     </nav>
   );
 
   return (
     <div className="min-h-screen bg-canvas">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 bg-white shadow-[0_0_30px_0_rgb(58_87_232/0.05)] lg:block">{sidebar}</aside>
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 lg:block">{sidebar}</aside>
       {menuOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-slate-900/40" onClick={() => setMenuOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-72 bg-white shadow-xl">{sidebar}</aside>
+          <div className="absolute inset-0 bg-slate-950/50" onClick={() => setMenuOpen(false)} />
+          <aside className="absolute inset-y-0 left-0 w-72 shadow-xl">{sidebar}</aside>
         </div>
       )}
       <div className="lg:pl-64">
-        <header className="sticky top-0 z-20 flex h-[70px] items-center gap-3 bg-white px-4 shadow-[0_0_30px_0_rgb(58_87_232/0.05)] sm:px-8">
-          <button className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu">
+        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line bg-surface/85 px-4 backdrop-blur sm:px-8">
+          <button className="rounded-md p-1.5 text-muted hover:bg-surface-3 lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu">
             <Icon name="menu" />
           </button>
-          <div className="flex min-w-0 items-center gap-2">
-            <Icon name="building" className="hidden h-5 w-5 shrink-0 text-muted sm:block" />
-            {condos.length > 1 ? (
-              <Select value={condo.id} onChange={(e) => selectCondo(Number(e.target.value))} aria-label="Condominium" className="max-w-[16rem] border-transparent bg-slate-50 font-medium">
-                {condos.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </Select>
-            ) : (
-              <span className="truncate text-sm font-medium text-ink">{condo.name}</span>
-            )}
+          <div className="min-w-0">
+            <div className="hidden text-xs text-muted sm:block">{current?.group ?? ""}</div>
+            <div className="truncate text-sm font-semibold text-ink sm:text-base">{current?.label ?? condo.name}</div>
           </div>
-          <div className="relative ml-auto">
-            <button onClick={() => setUserOpen((o) => !o)} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-slate-50">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-600">{initials(name)}</span>
-              <span className="hidden text-left sm:block">
-                <span className="block text-sm font-medium text-ink">{name}</span>
-                <span className="block text-xs text-muted">{roleLabel}</span>
-              </span>
+          <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+            <span
+              className={cx(
+                "hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium sm:inline-flex",
+                live ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+              )}
+              title={live ? "Receiving live events" : "Reconnecting to live events"}
+            >
+              <span className={cx("h-1.5 w-1.5 rounded-full", live ? "bg-emerald-500" : "animate-pulse bg-amber-500")} />
+              {live ? "Live" : "Reconnecting"}
+            </span>
+            <button
+              onClick={toggleTheme}
+              className="rounded-md p-2 text-muted hover:bg-surface-3 hover:text-ink"
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              title={theme === "dark" ? "Light mode" : "Dark mode"}
+            >
+              <Icon name={theme === "dark" ? "sun" : "moon"} className="h-5 w-5" />
             </button>
-            {userOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setUserOpen(false)} />
-                <div className="absolute right-0 z-20 mt-2 w-56 rounded-lg bg-white py-2 shadow-lg ring-1 ring-slate-100">
-                  {me.is_superuser && (
-                    <a href="/v1/admin/" className="flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
-                      <Icon name="external" className="h-4 w-4" /> Django admin (advanced)
-                    </a>
-                  )}
-                  <button onClick={logout} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
-                    <Icon name="logout" className="h-4 w-4" /> Sign out
-                  </button>
-                </div>
-              </>
-            )}
+            <div className="relative">
+              <button onClick={() => setUserOpen((o) => !o)} className="flex items-center gap-2.5 rounded-lg py-1 pl-1 pr-2 hover:bg-surface-3" aria-haspopup="menu" aria-expanded={userOpen}>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary-400 to-primary-700 text-xs font-semibold text-white">{initials(name)}</span>
+                <span className="hidden text-left md:block">
+                  <span className="block text-sm font-medium leading-tight text-ink">{name}</span>
+                  <span className="block text-xs leading-tight text-muted">{roleLabel}</span>
+                </span>
+              </button>
+              {userOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setUserOpen(false)} />
+                  <div role="menu" className="absolute right-0 z-20 mt-2 w-60 rounded-lg border border-line bg-surface py-1.5 shadow-card">
+                    <div className="border-b border-line px-4 pb-2.5 pt-1.5">
+                      <div className="truncate text-sm font-medium text-ink">{name}</div>
+                      <div className="truncate text-xs text-muted">{me.email || me.username}</div>
+                    </div>
+                    {me.is_superuser && (
+                      <a href="/v1/admin/" className="flex items-center gap-3 px-4 py-2 text-sm text-body hover:bg-surface-2">
+                        <Icon name="external" className="h-4 w-4" /> Django admin (advanced)
+                      </a>
+                    )}
+                    <button onClick={logout} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-body hover:bg-surface-2">
+                      <Icon name="logout" className="h-4 w-4" /> Sign out
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </header>
         <IncomingCalls />
-        <div className="relative">
-          <div className="hero-band absolute inset-x-0 top-0 h-60" aria-hidden="true" />
-          <main className="relative mx-auto max-w-7xl px-4 pb-10 pt-8 sm:px-8">{children}</main>
-        </div>
+        <main className="mx-auto max-w-7xl px-4 pb-12 pt-6 sm:px-8 sm:pt-8">{children}</main>
       </div>
     </div>
   );
@@ -198,10 +236,10 @@ function IncomingCalls() {
 
   if (ringing.length === 0) return null;
   return (
-    <div className="border-b border-sky-200 bg-sky-50 px-4 py-3 sm:px-8">
+    <div className="border-b border-primary-500/20 bg-primary-500/10 px-4 py-3 sm:px-8">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3">
-        <Icon name="bell" className="h-5 w-5 animate-pulse text-sky-700" />
-        <div className="flex-1 text-sm text-sky-900">
+        <Icon name="bell" className="h-5 w-5 animate-pulse text-primary-600 dark:text-primary-300" />
+        <div className="flex-1 text-sm text-ink">
           {ringing.map((call) => (
             <div key={call.id}>
               <strong>{call.unit_display}</strong> is being called from {call.kiosk_name || "a kiosk"}
@@ -209,9 +247,9 @@ function IncomingCalls() {
             </div>
           ))}
         </div>
-        <button className="text-sm text-sky-700 hover:underline" onClick={() => setMuted(true)}>{muted ? "Muted" : "Mute"}</button>
+        <button className="text-sm text-primary-600 hover:underline dark:text-primary-300" onClick={() => setMuted(true)}>{muted ? "Muted" : "Mute"}</button>
         {!pathname.startsWith("/intercom") && (
-          <Link href="/intercom/" className="rounded-lg bg-sky-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-800">
+          <Link href="/intercom/" className="rounded-md bg-primary-500 px-3 py-1.5 text-sm font-medium text-white shadow-primary hover:bg-primary-600">
             Go to intercom
           </Link>
         )}

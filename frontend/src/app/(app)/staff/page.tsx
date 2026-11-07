@@ -38,7 +38,7 @@ export default function StaffPage() {
         {!data ? <Loading /> : data.results.length === 0 ? <Empty>No staff yet.</Empty> : (
           <Table>
             <thead><tr><Th>Name</Th><Th>Username</Th><Th>Role</Th><Th>Contact</Th><Th>Since</Th><Th /></tr></thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-line">
               {data.results.map((s) => (
                 <tr key={s.id}>
                   <Td className="font-medium text-ink">{userName(s.user_detail)}{s.user === me.id && <span className="ml-2"><Badge tone="blue">You</Badge></span>}</Td>

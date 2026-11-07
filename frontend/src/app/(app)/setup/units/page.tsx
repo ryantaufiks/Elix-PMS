@@ -57,7 +57,7 @@ export default function UnitsSetupPage() {
                 <li key={String(item.key)} className="group flex items-center gap-1">
                   <button
                     onClick={() => { setBlockFilter(item.key as typeof blockFilter); setPage(1); }}
-                    className={cx("flex-1 rounded-md px-3 py-2 text-left text-sm", blockFilter === item.key ? "bg-primary-50 font-medium text-primary-600" : "text-slate-600 hover:bg-slate-50")}
+                    className={cx("flex-1 rounded-md px-3 py-2 text-left text-sm", blockFilter === item.key ? "bg-primary-50 font-medium text-primary-600" : "text-body hover:bg-surface-2")}
                   >
                     {item.label}
                   </button>
@@ -73,7 +73,7 @@ export default function UnitsSetupPage() {
           )}
         </Card>
         <Card>
-          <div className="border-b border-slate-100 p-4">
+          <div className="border-b border-line p-4">
             <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search unit, e.g. 05-12" />
           </div>
           {!units.data ? <Loading /> : units.data.results.length === 0 ? (
@@ -81,7 +81,7 @@ export default function UnitsSetupPage() {
           ) : (
             <Table>
               <thead><tr><Th>Unit</Th><Th>Block</Th><Th>Floor</Th><Th>Status</Th><Th /></tr></thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-line">
                 {units.data.results.map((u) => (
                   <tr key={u.id}>
                     <Td className="font-medium text-ink">{u.label}</Td>

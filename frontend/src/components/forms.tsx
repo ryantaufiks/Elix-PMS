@@ -114,7 +114,7 @@ export function FormFields({ fields, values, onChange, errors, record }: {
         }
         return (
           <div key={f.name} className={cx((f.wide || f.type === "textarea" || f.type === "secret-text") && "sm:col-span-2", f.type === "checkbox" && "flex flex-col justify-end")}>
-            {f.section && <h3 className="mb-3 mt-2 border-t border-slate-100 pt-4 text-xs font-semibold uppercase tracking-wide text-muted">{f.section}</h3>}
+            {f.section && <h3 className="mb-3 mt-2 border-t border-line pt-4 text-xs font-semibold uppercase tracking-wide text-muted">{f.section}</h3>}
             {f.type === "checkbox" ? (
               <div>
                 {control}
@@ -125,7 +125,7 @@ export function FormFields({ fields, values, onChange, errors, record }: {
                 {control}
               </Field>
             )}
-            {errors[f.name] && <p className="mt-1 text-xs font-medium text-rose-600">{errors[f.name]}</p>}
+            {errors[f.name] && <p className="mt-1 text-xs font-medium text-rose-600 dark:text-rose-400">{errors[f.name]}</p>}
           </div>
         );
       })}
@@ -207,14 +207,14 @@ export function ConfirmDialog({ open, title, message, confirmLabel, onConfirm, o
   }
   return (
     <Modal open={open} onClose={onClose} title={title} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="danger" busy={busy} onClick={confirm}>{confirmLabel}</Button></>}>
-      <div className="text-sm text-slate-600">{message}</div>
+      <div className="text-sm text-body">{message}</div>
     </Modal>
   );
 }
 
 export function Tabs<K extends string>({ tabs, active, onChange }: { tabs: { key: K; label: string; count?: number }[]; active: K; onChange: (key: K) => void }) {
   return (
-    <div className="flex gap-1 overflow-x-auto border-b border-slate-100 px-3">
+    <div className="flex gap-1 overflow-x-auto border-b border-line px-3">
       {tabs.map((t) => (
         <button
           key={t.key}
@@ -225,7 +225,7 @@ export function Tabs<K extends string>({ tabs, active, onChange }: { tabs: { key
           )}
         >
           {t.label}
-          {t.count !== undefined && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{t.count}</span>}
+          {t.count !== undefined && <span className="ml-2 rounded-full bg-surface-3 px-2 py-0.5 text-xs text-muted">{t.count}</span>}
         </button>
       ))}
     </div>

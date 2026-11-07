@@ -258,4 +258,7 @@ export type Summary = {
   kiosks_total: number;
   kiosks_offline: number;
   lpr_enabled: boolean | null;
+  hourly: { hour: number; granted: number; denied: number; error: number }[];
+  by_method: Partial<Record<AccessMethod, number>>;
+  gates: { id: number; name: string; gate_type: Gate["gate_type"]; is_active: boolean; relays_total: number; relays_failing: number }[];
 };

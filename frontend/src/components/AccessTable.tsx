@@ -29,7 +29,7 @@ export function AccessTable({ logs, highlight }: { logs: AccessLog[]; highlight?
             <Th />
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-line">
           {logs.map((log) => (
             <tr key={log.id} className={highlight?.has(log.id) ? "bg-primary-50/60 transition-colors" : undefined}>
               <Td className="whitespace-nowrap tabular-nums">{formatDateTime(log.occurred_at)}</Td>
@@ -37,8 +37,8 @@ export function AccessTable({ logs, highlight }: { logs: AccessLog[]; highlight?
               <Td className="whitespace-nowrap">{METHOD_LABEL[log.method] ?? log.method}</Td>
               <Td><ResultBadge result={log.result} /></Td>
               <Td className="min-w-48">{subject(log)}</Td>
-              <Td className="min-w-48 text-slate-500">
-                {log.actor_name && <span className="text-slate-700">{log.actor_name}</span>}
+              <Td className="min-w-48 text-muted">
+                {log.actor_name && <span className="text-ink">{log.actor_name}</span>}
                 {log.actor_name && log.reason && " · "}
                 {log.reason}
               </Td>

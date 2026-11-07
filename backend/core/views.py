@@ -4,6 +4,7 @@ from io import BytesIO
 import qrcode
 from django.db import connection
 from django.db.models import Count, Q
+from django.db.models.functions import ExtractHour
 from django.http import FileResponse, HttpResponse
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
@@ -520,8 +521,33 @@ class DashboardSummaryView(generics.GenericAPIView):
             "kiosks_total": kiosks.count(),
             "kiosks_offline": stale(kiosks, KIOSK_OFFLINE_AFTER),
             "lpr_enabled": m.Condominium.objects.filter(pk=condo_id).values_list("lpr_enabled", flat=True).first(),
+            "hourly": self._hourly(logs),
+            "by_method": dict(logs.values_list("method").annotate(n=Count("id"))),
+            "gates": self._gates(condo_id),
         }
         return Response(self.get_serializer(data).data)
+
+    @staticmethod
+    def _hourly(logs):
+        """24 buckets (local hours) of today's decisions, for the traffic chart."""
+        buckets = [{"hour": h, "granted": 0, "denied": 0, "error": 0} for h in range(24)]
+        rows = logs.annotate(hour=ExtractHour("occurred_at", tzinfo=timezone.get_current_timezone())) \
+            .values_list("hour", "result").annotate(n=Count("id"))
+        for hour, result, n in rows:
+            buckets[hour][result] = n
+        return buckets
+
+    @staticmethod
+    def _gates(condo_id):
+        gates = m.AccessGate.objects.filter(condominium_id=condo_id).order_by("name").annotate(
+            relays_total=Count("relays", filter=Q(relays__is_active=True)),
+            relays_failing=Count("relays", filter=Q(relays__is_active=True) & ~Q(relays__last_error="")),
+        )
+        return [
+            {"id": g.id, "name": g.name, "gate_type": g.gate_type, "is_active": g.is_active,
+             "relays_total": g.relays_total, "relays_failing": g.relays_failing}
+            for g in gates
+        ]
 
 
 # --- People & system ---------------------------------------------------------
