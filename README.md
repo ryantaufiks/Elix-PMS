@@ -123,6 +123,23 @@ press *Save & test connection* (or run `docker compose exec web python manage.py
 kiosk gets HTTP 503 and nobody is rung. For push, paste the Firebase service-account JSON on the same
 page and press *Save & test Firebase*; without it only open apps (WebSocket) ring.
 
+## Web kiosk & visitor pass
+
+- **Kiosk** (`/kiosk/` on the dashboard site, full-screen on any tablet browser): add a kiosk under
+  Gates & devices → Kiosks, open `/kiosk/` on the tablet and enter the one-time device token. Visitors
+  either **call a resident** (unit directory, snapshot, LiveKit video both ways; the gate opens when the
+  resident or guard swipes) or **scan their invitation QR** with the tablet camera. Invitations that
+  require a face check make the kiosk take a photo, stored with the access-log entry for review (it is
+  not matched automatically). Tap the empty area under the two buttons five times to sign the kiosk out.
+- **Visitor pass** (`/i/<token>`, the invitation's share link): shows the QR code, validity, the unit and
+  the host's first name only. Anyone with the link can use it, so the page sends no referrer.
+
+| Who | Endpoint | Purpose |
+|---|---|---|
+| Kiosk | `POST /v1/kiosk/checkin/lookup/` (`code`) | Who the QR belongs to and whether a face photo is needed (no logging) |
+| Kiosk | `POST /v1/kiosk/checkin/` (`code`, optional `plate`, `face_photo`) | Check in; opens the kiosk's gate when granted |
+| Public | `GET /v1/public/invitations/<token>/`, `…/qr/` | Visitor pass data and QR PNG (rate-limited) |
+
 ## System settings
 
 **Platform → System settings** in the dashboard (also available in Django admin) is a single page for server-wide integrations: LiveKit (URL, key, secret,

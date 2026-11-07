@@ -9,10 +9,11 @@ from django.http import FileResponse, HttpResponse
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import generics, mixins, status, viewsets
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import action, api_view, permission_classes, throttle_classes
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 
 from . import access, intercom, livekit, push, relays
 from . import models as m
@@ -653,3 +654,42 @@ def test_fcm(request):
     except Exception as exc:
         return Response({"ok": False, "detail": f"{exc.__class__.__name__}: {exc}"})
     return Response({"ok": True, "detail": f"Firebase OK - project {project_id}."})
+
+
+# --- Public visitor pass -----------------------------------------------------
+
+class PassThrottle(AnonRateThrottle):
+    scope = "visitor_pass"
+
+
+def _pass_invitation(token):
+    return m.Invitation.objects.select_related("condominium", "unit__block", "host").filter(token=token).first()
+
+
+@extend_schema(responses=s.InvitationPassSerializer)
+@api_view(["GET"])
+@permission_classes([AllowAny])
+@throttle_classes([PassThrottle])
+def visitor_pass(request, token):
+    """The visitor's pass behind the share link: validity and where to go. Anyone with the link can see it."""
+    invitation = _pass_invitation(token)
+    if invitation is None:
+        return Response({"detail": "Invitation not found."}, status=status.HTTP_404_NOT_FOUND)
+    response = Response(s.InvitationPassSerializer(invitation).data)
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
+@extend_schema(responses={(200, "image/png"): OpenApiResponse(description="QR code PNG")})
+@api_view(["GET"])
+@permission_classes([AllowAny])
+@throttle_classes([PassThrottle])
+def visitor_pass_qr(request, token):
+    invitation = _pass_invitation(token)
+    if invitation is None:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+    buffer = BytesIO()
+    qrcode.make(invitation.share_url, box_size=10, border=2).save(buffer)
+    response = HttpResponse(buffer.getvalue(), content_type="image/png")
+    response["Cache-Control"] = "private, no-store"
+    return response

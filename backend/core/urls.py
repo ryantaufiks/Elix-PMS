@@ -36,6 +36,10 @@ urlpatterns = [
     path("kiosk/directory/", kiosk_views.DirectoryView.as_view(), name="kiosk-directory"),
     path("kiosk/calls/", kiosk_views.StartCallView.as_view(), name="kiosk-call-start"),
     path("kiosk/calls/<int:pk>/", kiosk_views.KioskCallView.as_view(), name="kiosk-call"),
+    path("kiosk/checkin/lookup/", kiosk_views.QrLookupView.as_view(), name="kiosk-checkin-lookup"),
+    path("kiosk/checkin/", kiosk_views.QrCheckInView.as_view(), name="kiosk-checkin"),
+    path("public/invitations/<str:token>/", views.visitor_pass, name="visitor-pass"),
+    path("public/invitations/<str:token>/qr/", views.visitor_pass_qr, name="visitor-pass-qr"),
     path("kiosk/calls/<int:pk>/hangup/", kiosk_views.KioskHangupView.as_view(), name="kiosk-call-hangup"),
     path("", include(router.urls)),
 ]

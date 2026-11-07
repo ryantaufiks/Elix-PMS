@@ -126,7 +126,11 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "core.exceptions.exception_handler",
     "PAGE_SIZE": 50,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-    "DEFAULT_THROTTLE_RATES": {"kiosk_call": env("KIOSK_CALL_RATE", default="10/min")},
+    "DEFAULT_THROTTLE_RATES": {
+        "kiosk_call": env("KIOSK_CALL_RATE", default="10/min"),
+        "kiosk_checkin": env("KIOSK_CHECKIN_RATE", default="30/min"),
+        "visitor_pass": env("VISITOR_PASS_RATE", default="60/min"),
+    },
 }
 
 SIMPLE_JWT = {
@@ -140,6 +144,10 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Visitor Management & Access Control System",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "ENUM_NAME_OVERRIDES": {
+        "InvitationStatusEnum": "core.models.visitors.Invitation.Status",
+        "IntercomCallStatusEnum": "core.models.access.IntercomCall.Status",
+    },
 }
 
 REDIS_URL = env("REDIS_URL", default="redis://redis:6379/0")

@@ -313,7 +313,7 @@ function KiosksTab({ condoId, data, mutate, gateOptions, gateName }: { condoId: 
   ];
   return (
     <>
-      <Toolbar text="Tablets at the gate that call residents. Each tablet signs in with its own device token." onAdd={() => setEditing("new")} addLabel="Add kiosk" />
+      <Toolbar text="Tablets at the gate: visitors call residents or scan their invitation QR. On the tablet, open /kiosk/ on this site and enter the device token." onAdd={() => setEditing("new")} addLabel="Add kiosk" />
       {!data ? <Loading /> : data.results.length === 0 ? <Empty>No kiosks yet.</Empty> : (
         <Table>
           <thead><tr><Th>Name</Th><Th>Gate</Th><Th>Token</Th><Th>App</Th><Th>Last seen</Th><Th>Status</Th><Th /></tr></thead>
@@ -350,7 +350,8 @@ function KiosksTab({ condoId, data, mutate, gateOptions, gateName }: { condoId: 
       <Modal open={!!token} onClose={() => setToken(null)} title={`Device token for ${token?.kiosk ?? ""}`} footer={<Button variant="primary" onClick={() => setToken(null)}>I have copied it</Button>}>
         {token && (
           <div className="space-y-3 text-sm">
-            <p className="text-body">Enter this token in the kiosk app. It is shown <strong>only once</strong>.</p>
+            <p className="text-body">On the tablet, open this address and enter the token. It is shown <strong>only once</strong>.</p>
+            <CopyField value={`${typeof window !== "undefined" ? window.location.origin : ""}/kiosk/`} mono={false} />
             <CopyField value={token.token} />
           </div>
         )}

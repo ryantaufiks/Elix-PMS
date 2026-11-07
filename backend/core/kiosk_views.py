@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
 
-from . import intercom, livekit
+from . import access, intercom, livekit
 from . import models as m
 from . import serializers as s
 from .kiosk_auth import IsKiosk, KioskTokenAuthentication
@@ -101,3 +101,53 @@ class KioskHangupView(KioskCallView):
         """Visitor walked away or pressed cancel."""
         call = intercom.hang_up(self._call(pk), m.IntercomCall.Status.CANCELLED)
         return Response(s.IntercomCallSerializer(call).data)
+
+
+class KioskCheckInThrottle(KioskCallThrottle):
+    scope = "kiosk_checkin"
+
+
+def _pass(invitation):
+    return s.InvitationPassSerializer(invitation).data if invitation else None
+
+
+class QrLookupView(KioskView):
+    throttle_classes = [KioskCheckInThrottle]
+
+    @extend_schema(request=s.QrCodeSerializer, responses=s.QrCheckInResultSerializer)
+    def post(self, request):
+        """Show who a scanned QR belongs to and what the kiosk still needs (face photo), without opening."""
+        body = s.QrCodeSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        if not self.kiosk.gate_id:
+            return Response({"detail": "This kiosk is not linked to a gate."}, status=status.HTTP_409_CONFLICT)
+        invitation = access.find_invitation(self.kiosk.condominium_id, body.validated_data["code"])
+        problem = access.qr_problem(invitation, self.kiosk.gate)
+        result = "denied" if problem else ("face_required" if invitation.require_face else "granted")
+        return Response({"result": result, "reason": problem, "invitation": _pass(invitation)})
+
+
+class QrCheckInView(KioskView):
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    throttle_classes = [KioskCheckInThrottle]
+
+    @extend_schema(request=s.QrCheckInSerializer, responses=s.QrCheckInResultSerializer)
+    def post(self, request):
+        """Check a visitor in with their invitation QR. Opens the kiosk's gate when granted.
+
+        ``plate`` (optional) must match the invitation's plate if both are set. Invitations that
+        require a face check answer ``face_required`` until ``face_photo`` is sent."""
+        body = s.QrCheckInSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        if not self.kiosk.gate_id:
+            return Response({"detail": "This kiosk is not linked to a gate."}, status=status.HTTP_409_CONFLICT)
+        data = body.validated_data
+        try:
+            log = access.handle_qr(self.kiosk, data["code"], data["plate"], data.get("face_photo"))
+        except access.FaceRequired:
+            invitation = access.find_invitation(self.kiosk.condominium_id, data["code"])
+            return Response({"result": "face_required", "reason": "Please look at the camera.", "invitation": _pass(invitation)})
+        invitation = log.invitation
+        if invitation is not None:
+            invitation.refresh_from_db()
+        return Response({"result": log.result, "reason": log.reason, "invitation": _pass(invitation)})

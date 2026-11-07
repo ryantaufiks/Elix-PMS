@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from . import config
 from .models import AccessLog, Direction, Invitation, Vehicle
+from .validators import normalize_plate
 
 Result = AccessLog.Result
 
@@ -73,3 +74,69 @@ def handle_plate(camera, plate, payload):
     if camera.direction != Direction.EXIT:
         invitation.record_entry()
     return grant(gate, **fields)
+
+
+def invitation_token(code):
+    """The invitation token from what a kiosk scanned: the share link (…/i/<token>) or the bare token."""
+    code = (code or "").strip()
+    if "/i/" in code:
+        code = code.split("/i/", 1)[1]
+    return code.split("?", 1)[0].split("#", 1)[0].strip("/")
+
+
+def find_invitation(condominium_id, code, lock=False):
+    token = invitation_token(code)
+    if not token:
+        return None
+    qs = Invitation.objects.select_related("unit__block", "host", "visitor").prefetch_related("gates")
+    if lock:
+        qs = qs.select_for_update(of=("self",))
+    return qs.filter(condominium_id=condominium_id, token=token).first()
+
+
+def qr_problem(invitation, gate):
+    """Why this invitation cannot open ``gate`` now, or "" when it can."""
+    if invitation is None:
+        return "Unknown QR code."
+    ok, reason = invitation.check_usable()
+    if not ok:
+        return reason
+    if not _admits_gate(invitation, gate):
+        return "This invitation is not valid at this gate."
+    return ""
+
+
+class FaceRequired(Exception):
+    """The invitation needs a face photo; the kiosk should capture one and try again."""
+
+
+@transaction.atomic
+def handle_qr(kiosk, code, plate="", face_photo=None):
+    """Check a visitor in at a kiosk with their invitation QR (plus optional plate / face photo).
+
+    The face photo is stored with the access log for staff to review; it is not matched
+    automatically. Raises FaceRequired (nothing logged) when the invitation needs a photo.
+    """
+    gate = kiosk.gate
+    invitation = find_invitation(kiosk.condominium_id, code, lock=True)
+    plate = normalize_plate(plate)
+    fields = {"method": AccessLog.Method.QR, "plate_number": plate}
+    if invitation is not None:
+        fields.update(invitation=invitation, unit=invitation.unit, visitor=invitation.visitor)
+
+    if not gate.is_active:
+        return deny(gate, reason="Gate is disabled", **fields)
+    problem = qr_problem(invitation, gate)
+    if problem:
+        return deny(gate, reason=problem, **fields)
+    if plate and invitation.vehicle_plate and plate != invitation.vehicle_plate:
+        return deny(gate, reason=f"Vehicle {plate} does not match the invitation", **fields)
+    if invitation.require_face and face_photo is None:
+        raise FaceRequired()
+
+    invitation.record_entry()
+    reason = "Face photo captured at kiosk (review in the access log)" if face_photo is not None else ""
+    log = grant(gate, reason=reason, **fields)
+    if face_photo is not None:
+        log.snapshot.save(f"qr-{log.pk}.jpg", face_photo, save=True)
+    return log

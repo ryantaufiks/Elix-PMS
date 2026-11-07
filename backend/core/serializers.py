@@ -555,3 +555,51 @@ class RelayCommandResultSerializer(serializers.Serializer):
     ok = serializers.BooleanField()
     via = serializers.CharField(allow_blank=True)
     detail = serializers.CharField(allow_blank=True)
+
+
+# --- QR check-in -------------------------------------------------------------
+
+class QrCodeSerializer(serializers.Serializer):
+    code = serializers.CharField(max_length=500, help_text="What the kiosk scanned: the share link or the token.")
+
+
+class QrCheckInSerializer(QrCodeSerializer):
+    plate = serializers.CharField(max_length=12, required=False, allow_blank=True, default="")
+    face_photo = serializers.ImageField(required=False)
+
+
+class InvitationPassSerializer(serializers.ModelSerializer):
+    """What a visitor (or a kiosk) may see about an invitation: no resident names beyond the host's first name."""
+
+    condominium_name = serializers.CharField(source="condominium.name")
+    condominium_address = serializers.CharField(source="condominium.address")
+    unit_display = serializers.CharField(source="unit.__str__")
+    host_first_name = serializers.SerializerMethodField()
+    entries_left = serializers.SerializerMethodField()
+    usable = serializers.SerializerMethodField()
+    problem = serializers.SerializerMethodField()
+
+    class Meta:
+        model = m.Invitation
+        fields = [
+            "visitor_name", "purpose", "condominium_name", "condominium_address", "unit_display", "host_first_name",
+            "valid_from", "valid_until", "status", "vehicle_plate", "require_face", "entries_left", "usable", "problem",
+        ]
+
+    def get_host_first_name(self, obj) -> str:
+        return obj.host.first_name or ""
+
+    def get_entries_left(self, obj) -> int | None:
+        return None if not obj.max_entries else max(0, obj.max_entries - obj.entry_count)
+
+    def get_usable(self, obj) -> bool:
+        return obj.check_usable()[0]
+
+    def get_problem(self, obj) -> str:
+        return obj.check_usable()[1]
+
+
+class QrCheckInResultSerializer(serializers.Serializer):
+    result = serializers.ChoiceField(choices=["granted", "denied", "face_required"])
+    reason = serializers.CharField(allow_blank=True)
+    invitation = InvitationPassSerializer(allow_null=True)
