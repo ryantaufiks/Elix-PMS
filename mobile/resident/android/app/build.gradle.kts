@@ -27,7 +27,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "sg.elix.resident"
+        applicationId = "com.sct.elixpms"
         minSdk = maxOf(flutter.minSdkVersion, 24)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

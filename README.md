@@ -157,12 +157,12 @@ scripts/fetch-resident-apk.sh   # downloads the latest APK into downloads/ (serv
 ```
 
 The APK is then downloadable at `https://<your-host>/downloads/elix-resident.apk` (button on the
-Residents page). Application ID: `sg.elix.resident`. Repository secrets the workflow needs:
+Residents page). Application ID: `com.sct.elixpms`. Repository secrets the workflow needs:
 `ANDROID_KEYSTORE_BASE64` and `ANDROID_KEYSTORE_PASSWORD` (the release key, see Signing below), and
 optionally `GOOGLE_SERVICES_JSON_BASE64`; optional variable `API_BASE`.
 
 - **Push (calls ring while the app is closed)** needs Firebase: register an Android app with package
-  `sg.elix.resident` in your Firebase project, store its `google-services.json` (base64) as the
+  `com.sct.elixpms` in your Firebase project, store its `google-services.json` (base64) as the
   `GOOGLE_SERVICES_JSON_BASE64` secret and rebuild; and paste the
   project's service-account key in **Platform → System settings → Firebase**. Without these the app
   still works but rings only while it is open.
