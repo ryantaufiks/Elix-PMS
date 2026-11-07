@@ -66,13 +66,13 @@ Pastikan perangkat lokal Anda telah terinstal:
 
 ### 1. Kamera LPR Dahua (Skenario A)
 * **Endpoint API:** `https://api.domain-anda.com/v1/lpr-webhook/`
-* **Metode Otentikasi:** HTTP Basic Authentication dengan kredensial **khusus per kamera** (Admin → LPR cameras → *Webhook username/password*), bukan akun user Django.
+* **Metode Otentikasi:** HTTP Basic Authentication dengan kredensial **khusus per kamera** (dashboard → Gates & devices → LPR cameras → *Webhook username/password*), bukan akun user Django.
 * **Konfigurasi Kamera:** Masuk ke Web GUI Dahua -> **Setting > Network > Advanced Settings > HTTP Post** (atau **Alarm Server**). Aktifkan Auth, masukkan username dan password webhook kamera tersebut.
-* **Aktifkan per site:** Admin → Condominium → *LPR enabled* (default mati). Selama mati, payload hanya disimpan dan bisa dilihat di Admin → LPR camera → *Last payload*.
+* **Aktifkan per site:** dashboard → Site settings → *Licence-plate recognition enabled* (default mati). Selama mati, payload hanya disimpan dan bisa dilihat di Gates & devices → LPR cameras → *Setup info*.
 * **Payload JSON:** Plat dideteksi otomatis dari format Dahua umum (`PlateNumber`, `plateNumber`, dll.), atau atur *Plate field* (mis. `Picture.Plate.PlateNumber`) bila firmware memakai skema lain.
 
 ### 2. Akses Kontrol Sonoff & Shelly (Cloud-to-Cloud)
-* Kredensial cloud diisi per site di Admin → *Integration accounts*; tiap relay di Admin → *Relay controllers* (mode Cloud, LAN, atau LAN lalu fallback ke Cloud). Uji dengan aksi *Test: pulse relay now*.
+* Kredensial cloud diisi per site di dashboard → Gates & devices → *Cloud accounts*; tiap relay di tab *Relays* (mode Cloud, LAN, atau LAN lalu fallback ke Cloud). Uji dengan tombol *Test*.
 * **Shelly:** server mengirim `on` dengan `toggle_after` = *pulse seconds*, sehingga relay mati sendiri walau Auto-Off belum diatur.
 * **Sonoff (eWeLink):** perangkat wajib mengaktifkan mode **Inching / Auto-Off** (2-3 detik) di aplikasi eWeLink; Django hanya mengirim `"on"`.
 * **Mode LAN** hanya bisa dipakai jika server dapat menjangkau jaringan site (mis. Tailscale subnet router di site).
