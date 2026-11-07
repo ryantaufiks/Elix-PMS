@@ -1,0 +1,60 @@
+# Base services shared by dev and prod.
+#   Dev  : docker compose up -d --build            (auto-loads docker-compose.override.yml)
+#   Prod : ENV_FILE=.env.prod docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+x-backend: &backend
+  build: ./backend
+  env_file: ${ENV_FILE:-.env}
+  environment:
+    MEDIA_ROOT: /data/media
+  volumes:
+    - media:/data/media
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgres:16-alpine
+    env_file: ${ENV_FILE:-.env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  web:
+    <<: *backend
+    environment:
+      MEDIA_ROOT: /data/media
+      RUN_MIGRATIONS: "1"
+
+  worker:
+    <<: *backend
+    command: ["celery", "-A", "myproject", "worker", "-l", "info", "--concurrency", "2"]
+
+  beat:
+    <<: *backend
+    command: ["celery", "-A", "myproject", "beat", "-l", "info", "--schedule", "/tmp/celerybeat-schedule"]
+
+volumes:
+  pgdata:
+  redisdata:
+  media:

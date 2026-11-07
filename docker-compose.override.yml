@@ -1,0 +1,24 @@
+# Development overrides (loaded automatically by `docker compose`).
+# The API listens on DEV_BIND:8000 only; set DEV_BIND to this server's
+# Tailscale IP in .env to reach it from your laptop without exposing it publicly.
+name: elix-vms-dev
+
+services:
+  web:
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+    user: root
+    volumes:
+      - ./backend:/app
+      - media:/data/media
+    ports:
+      - "${DEV_BIND:-127.0.0.1}:8000:8000"
+
+  worker:
+    volumes:
+      - ./backend:/app
+      - media:/data/media
+
+  beat:
+    volumes:
+      - ./backend:/app
+      - media:/data/media
