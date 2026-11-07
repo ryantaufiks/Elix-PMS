@@ -29,6 +29,7 @@ type State =
   | { status: "loading" }
   | { status: "ready"; me: Me; condos: Condominium[] }
   | { status: "no-access" }
+  | { status: "no-condo" }
   | { status: "error"; message: string };
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
@@ -64,7 +65,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         const condos = page.results.filter((c) => roleFor(me, c.id));
         if (cancelled) return;
         if (!condos.length) {
-          setState({ status: "no-access" });
+          setState({ status: me.is_superuser ? "no-condo" : "no-access" });
           return;
         }
         let saved: number | null = null;
@@ -108,6 +109,19 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         <button className="mt-6 text-sm font-medium text-teal-700 hover:underline" onClick={logout}>
           Sign in with another account
         </button>
+      </Centered>
+    );
+  }
+  if (state.status === "no-condo") {
+    return (
+      <Centered>
+        <h1 className="text-lg font-semibold">No condominium yet</h1>
+        <p className="mt-2 text-sm text-slate-500">
+          Create your first site in Django admin, with its blocks, units and gates. Then reload this page.
+        </p>
+        <a className="mt-6 inline-block text-sm font-medium text-teal-700 hover:underline" href="/v1/admin/core/condominium/add/">
+          Add a condominium
+        </a>
       </Centered>
     );
   }
