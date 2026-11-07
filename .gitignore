@@ -22,3 +22,6 @@ shelly1.zip
 
 # Brand source artwork (processed copies live in frontend/public/brand)
 elix-logo.zip
+
+# Built app packages served by the gateway at /downloads/
+downloads/

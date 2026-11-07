@@ -6,7 +6,8 @@ Sistem Manajemen Pengunjung Multi-Kondominium terintegrasi dengan LiveKit Video 
 Sistem ini menggunakan arsitektur terpisah (*Decoupled/Headless*):
 * **Backend:** Django 5.x + Django Rest Framework (DRF) + Django Channels + Celery
 * **Web Admin Dashboard:** Next.js + TypeScript
-* **Resident App & Tablet Kiosk:** Flutter
+* **Resident App:** Flutter (Android dulu; `mobile/resident/`)
+* **Tablet Kiosk:** web kiosk layar penuh di `/kiosk/` (Next.js), bisa dibuka di tablet apa saja
 
 ---
 
@@ -32,7 +33,7 @@ Pastikan perangkat lokal Anda telah terinstal:
 * Python 3.11+
 * Docker Desktop & Docker Compose
 * Node.js 22 (untuk Next.js Dashboard; di server cukup lewat Docker `node:22-alpine`)
-* Flutter SDK v3.x (untuk Mobile/Tablet)
+* Flutter 3.44 (untuk aplikasi penghuni; APK dibangun otomatis di GitHub Actions, bukan di server)
 
 ### 2. Setup Back-End (Django)
 1. Masuk ke direktori backend dan buat virtual environment:

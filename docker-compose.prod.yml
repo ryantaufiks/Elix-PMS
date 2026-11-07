@@ -15,6 +15,9 @@ services:
     build: ./frontend
     ports:
       - "127.0.0.1:${PROD_PORT:-8000}:80"
+    volumes:
+      # Built app packages (e.g. the resident APK), served at /downloads/.
+      - ./downloads:/usr/share/nginx/html/downloads:ro
     depends_on:
       - web
     restart: unless-stopped

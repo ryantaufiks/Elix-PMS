@@ -9,7 +9,7 @@ from PIL import Image
 from rest_framework.test import APITestCase
 
 from core import models as m
-from core.tasks import expire_call, push_incoming_call
+from core.tasks import expire_call, push_call_ended, push_incoming_call
 
 from .factories import make_condo, make_resident, make_staff, make_unit
 
@@ -218,6 +218,18 @@ class PushTests(APITestCase):
         self.assertEqual(m.PushDevice.objects.get().user, bob)
         self.client.force_authenticate(self.alice)
         self.assertEqual(self.client.get("/v1/push-devices/").data["count"], 0)
+
+    @override_settings(FCM_SERVICE_ACCOUNT_FILE="/tmp/sa.json")
+    @mock.patch("core.push._access_token", return_value=("fcm-token", "elix-project"))
+    @mock.patch("core.push.requests.post")
+    def test_call_ended_push_is_silent_data_only(self, post, token):
+        m.PushDevice.objects.create(user=self.alice, platform="ios", token="phone")
+        call = m.IntercomCall.objects.create(condominium=self.condo, unit=self.unit, room_name="r2", status="missed")
+        post.return_value = mock.Mock(ok=True, status_code=200, text="")
+        self.assertEqual(push_call_ended(call.pk), 1)
+        message = post.call_args.kwargs["json"]["message"]
+        self.assertEqual(message["data"], {"type": "intercom_call_ended", "call_id": str(call.pk), "status": "missed"})
+        self.assertEqual(message["apns"]["payload"], {"aps": {"content-available": 1}})
 
     @override_settings(FCM_SERVICE_ACCOUNT_FILE="/tmp/sa.json")
     @mock.patch("core.push._access_token", return_value=("fcm-token", "elix-project"))

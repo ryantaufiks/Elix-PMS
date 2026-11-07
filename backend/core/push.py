@@ -62,6 +62,10 @@ def send(devices, data, title, body, ttl_seconds):
             "apns": {
                 "headers": {"apns-priority": "10", "apns-expiration": str(int(timezone.now().timestamp()) + ttl_seconds)},
                 "payload": {"aps": {"alert": {"title": title, "body": body}, "sound": "default"}},
+            } if title else {
+                # No title: a silent background push (state updates such as "call ended").
+                "headers": {"apns-priority": "5", "apns-push-type": "background"},
+                "payload": {"aps": {"content-available": 1}},
             },
         }
         try:

@@ -39,7 +39,12 @@ def _locked(call):
 
 
 def _notify(call):
+    """Tell sockets about the new state; once a call stops ringing, also stop other phones ringing."""
+    from .tasks import push_call_ended
+
     transaction.on_commit(lambda: broadcast_call(call))
+    if call.status != IntercomCall.Status.RINGING:
+        transaction.on_commit(lambda: push_call_ended.delay(call.pk))
 
 
 @transaction.atomic

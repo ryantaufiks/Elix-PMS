@@ -1,0 +1,83 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_callkit_incoming/entities/entities.dart';
+import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
+
+import 'api.dart';
+import 'models.dart';
+import 'push.dart';
+import 'realtime.dart';
+import 'ui/call_screen.dart';
+import 'ui/incoming_call_screen.dart';
+
+final navigatorKey = GlobalKey<NavigatorState>();
+
+/// Routes incoming calls to the right screen, whatever announced them: the WebSocket (app open),
+/// a push received in the foreground, or the native call UI after a push in the background.
+class Calls {
+  Calls._();
+  static final instance = Calls._();
+
+  final _shown = <int>{};
+  int? _active;
+  final _updates = StreamController<IntercomCall>.broadcast();
+  Stream<IntercomCall> get updates => _updates.stream;
+
+  void start() {
+    Realtime.instance.events.listen((event) {
+      if (event['type'] != 'intercom_call') return;
+      final call = IntercomCall((event['data'] as Map).cast<String, dynamic>());
+      _updates.add(call);
+      if (call.status == 'ringing' && call.isOpen) _ring(call.id);
+      if (!call.isOpen || call.status != 'ringing') FlutterCallkitIncoming.endCall(callUuid(call.id));
+    });
+    Push.instance.foregroundMessages.listen((data) {
+      if (data['type'] == 'intercom_call') _ring(int.parse('${data['call_id']}'));
+    });
+    FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
+      switch (event) {
+        case CallEventActionCallAccept(:final callKitParams):
+          final id = callIdFromUuid(callKitParams.id);
+          if (id != null) answer(id);
+        case CallEventActionCallDecline(:final callKitParams):
+          final id = callIdFromUuid(callKitParams.id);
+          if (id != null) Api.instance.post('/v1/intercom-calls/$id/reject/').catchError((_) => null);
+        default:
+          break;
+      }
+    });
+    _resumeAcceptedFromBackground();
+  }
+
+  /// The app was launched by tapping "Answer" on the native call screen.
+  Future<void> _resumeAcceptedFromBackground() async {
+    for (final call in await FlutterCallkitIncoming.activeCalls()) {
+      final id = callIdFromUuid(call.id);
+      if (id != null && call.isAccepted) answer(id);
+    }
+  }
+
+  /// Show the in-app incoming call screen (app in the foreground).
+  Future<void> _ring(int callId) async {
+    if (_shown.contains(callId) || _active == callId) return;
+    _shown.add(callId);
+    try {
+      final call = IntercomCall(await Api.instance.get('/v1/intercom-calls/$callId/') as Map<String, dynamic>);
+      if (!call.isOpen || call.status != 'ringing') return;
+      navigatorKey.currentState?.push(MaterialPageRoute(builder: (_) => IncomingCallScreen(call: call), fullscreenDialog: true));
+    } catch (_) {}
+  }
+
+  Future<void> answer(int callId) async {
+    if (_active == callId) return;
+    _active = callId;
+    _shown.add(callId);
+    navigatorKey.currentState?.push(MaterialPageRoute(builder: (_) => CallScreen(callId: callId)));
+  }
+
+  void finished(int callId) {
+    if (_active == callId) _active = null;
+    FlutterCallkitIncoming.endCall(callUuid(callId));
+  }
+}

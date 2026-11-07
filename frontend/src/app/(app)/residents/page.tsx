@@ -41,8 +41,11 @@ export default function ResidentsPage() {
     <>
       <PageHeader
         title="Residents"
-        description="Who lives in each unit, and who answers intercom calls on the app."
-        action={isAdmin && <Button variant="primary" onClick={() => setAdding(true)}><Icon name="plus" className="h-4 w-4" /> Add resident</Button>}
+        description="Who lives in each unit, and who answers intercom calls on the Elix app."
+        action={<>
+          <a href="/downloads/elix-resident.apk"><Button><Icon name="smartphone" className="h-4 w-4" /> Resident app (Android)</Button></a>
+          {isAdmin && <Button variant="primary" onClick={() => setAdding(true)}><Icon name="plus" className="h-4 w-4" /> Add resident</Button>}
+        </>}
       />
       <Card>
         <div className="flex flex-wrap gap-2 border-b border-line p-4">

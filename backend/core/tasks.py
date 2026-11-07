@@ -81,8 +81,21 @@ def push_incoming_call(call_id: int) -> int:
     where = call.kiosk.name if call.kiosk else call.condominium.name
     return push.send(
         devices,
-        data={"type": "intercom_call", "call_id": call.pk, "unit": str(call.unit), "kiosk": where},
+        data={"type": "intercom_call", "call_id": call.pk, "unit": str(call.unit), "kiosk": where,
+              "visitor": call.visitor_name, "timeout": call.condominium.intercom_ring_timeout_seconds},
         title=f"Visitor at {where}",
         body=call.visitor_name or "Someone is calling your unit",
         ttl_seconds=call.condominium.intercom_ring_timeout_seconds,
     )
+
+
+@shared_task
+def push_call_ended(call_id: int) -> int:
+    """Silent push so phones still showing the incoming-call screen dismiss it."""
+    call = IntercomCall.objects.select_related("unit", "condominium").get(pk=call_id)
+    from .models import PushDevice
+
+    users = intercom.recipients(call.unit).values_list("user_id", flat=True)
+    devices = PushDevice.objects.filter(user_id__in=list(users))
+    return push.send(devices, data={"type": "intercom_call_ended", "call_id": call.pk, "status": call.status},
+                     title="", body="", ttl_seconds=60)

@@ -140,6 +140,36 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
 | Kiosk | `POST /v1/kiosk/checkin/` (`code`, optional `plate`, `face_photo`) | Check in; opens the kiosk's gate when granted |
 | Public | `GET /v1/public/invitations/<token>/`, `…/qr/` | Visitor pass data and QR PNG (rate-limited) |
 
+## Resident app (Flutter, Android)
+
+`mobile/resident/` is the residents' app: sign in with the login created under **Residents**, answer
+gate calls (native full-screen ringing when the app is closed, in-app screen with the visitor's photo
+when open), video with the kiosk, **swipe to open**, invite visitors and share the QR pass, register
+vehicles, and see the unit's recent entries. Staff use the web dashboard instead.
+
+**Builds run on GitHub Actions, not on the server** (Gradle needs more RAM than the 4 GB production
+box has; a local build there hangs it). `.github/workflows/resident-apk.yml` builds on every push that
+touches `mobile/resident/` (or manually: Actions → Resident APK → Run workflow) and publishes
+`elix-resident.apk` to the `resident-latest` GitHub release. Then on the server:
+
+```bash
+scripts/fetch-resident-apk.sh   # downloads the latest APK into downloads/ (served at /downloads/)
+```
+
+The APK is then downloadable at `https://<your-host>/downloads/elix-resident.apk` (button on the
+Residents page). Application ID: `sg.elix.resident`. Repository secrets the workflow needs:
+`ANDROID_KEYSTORE_BASE64` and `ANDROID_KEYSTORE_PASSWORD` (the release key, see Signing below), and
+optionally `GOOGLE_SERVICES_JSON_BASE64`; optional variable `API_BASE`.
+
+- **Push (calls ring while the app is closed)** needs Firebase: register an Android app with package
+  `sg.elix.resident` in your Firebase project, store its `google-services.json` (base64) as the
+  `GOOGLE_SERVICES_JSON_BASE64` secret and rebuild; and paste the
+  project's service-account key in **Platform → System settings → Firebase**. Without these the app
+  still works but rings only while it is open.
+- **Signing:** the release key is `mobile/resident/android/elix-release.jks` with its password in
+  `android/key.properties` (both git-ignored, on the server). Back them up: Android only installs
+  updates signed with the same key.
+
 ## System settings
 
 **Platform → System settings** in the dashboard (also available in Django admin) is a single page for server-wide integrations: LiveKit (URL, key, secret,
