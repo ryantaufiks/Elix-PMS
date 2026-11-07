@@ -16,3 +16,4 @@ cryptography>=44
 Pillow~=11.0
 qrcode~=8.0
 requests~=2.32
+google-auth~=2.38

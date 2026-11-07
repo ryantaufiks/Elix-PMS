@@ -25,6 +25,10 @@ def unit_group(unit_id):
     return f"unit.{unit_id}"
 
 
+def kiosk_group(kiosk_id):
+    return f"kiosk.{kiosk_id}"
+
+
 class JWTQueryAuthMiddleware:
     """Authenticates a WebSocket from a ``?token=`` query parameter (browsers cannot set headers)."""
 
@@ -32,9 +36,18 @@ class JWTQueryAuthMiddleware:
         self.app = app
 
     async def __call__(self, scope, receive, send):
-        token = parse_qs(scope.get("query_string", b"").decode()).get("token", [None])[0]
+        query = parse_qs(scope.get("query_string", b"").decode())
+        token = query.get("token", [None])[0]
+        kiosk_token = query.get("kiosk_token", [None])[0]
         scope["user"] = await self._user(token) if token else AnonymousUser()
+        scope["kiosk"] = await self._kiosk(kiosk_token) if kiosk_token else None
         return await self.app(scope, receive, send)
+
+    @database_sync_to_async
+    def _kiosk(self, raw):
+        from .kiosk_auth import kiosk_from_token
+
+        return kiosk_from_token(raw)
 
     @database_sync_to_async
     def _user(self, token):
@@ -47,11 +60,14 @@ class JWTQueryAuthMiddleware:
 
 class EventsConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
-        user = self.scope["user"]
-        if not user.is_authenticated:
+        user, kiosk = self.scope["user"], self.scope.get("kiosk")
+        if kiosk is not None:
+            self.groups_joined = [kiosk_group(kiosk.pk)]
+        elif user.is_authenticated:
+            self.groups_joined = await self._groups(user)
+        else:
             await self.close(code=4401)
             return
-        self.groups_joined = await self._groups(user)
         for group in self.groups_joined:
             await self.channel_layer.group_add(group, self.channel_name)
         await self.accept()
@@ -68,9 +84,23 @@ class EventsConsumer(AsyncJsonWebsocketConsumer):
         await self.send_json(message["payload"])
 
 
-def broadcast(condo_id, unit_id, event_type, data):
+def broadcast(condo_id, unit_id, event_type, data, kiosk_id=None):
     layer = get_channel_layer()
     payload = {"type": "event", "payload": {"type": event_type, "data": data}}
-    async_to_sync(layer.group_send)(condo_group(condo_id), payload)
-    if unit_id:
-        async_to_sync(layer.group_send)(unit_group(unit_id), payload)
+    groups = [condo_group(condo_id)] + ([unit_group(unit_id)] if unit_id else []) + \
+        ([kiosk_group(kiosk_id)] if kiosk_id else [])
+    for group in groups:
+        async_to_sync(layer.group_send)(group, payload)
+
+
+def broadcast_call(call):
+    """Tell the kiosk, the unit's phones and the guardhouse about a call's new state."""
+    import logging
+
+    from .serializers import IntercomCallSerializer
+
+    try:
+        broadcast(call.condominium_id, call.unit_id, "intercom_call", IntercomCallSerializer(call).data,
+                  kiosk_id=call.kiosk_id)
+    except Exception:  # Redis trouble must not break the call flow.
+        logging.getLogger(__name__).exception("Failed to broadcast call %s", call.pk)

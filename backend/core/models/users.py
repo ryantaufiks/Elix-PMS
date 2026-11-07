@@ -56,3 +56,20 @@ class Residency(TimeStampedModel):
     @property
     def condominium(self):
         return self.unit.condominium
+
+
+class PushDevice(TimeStampedModel):
+    """A resident/staff phone registered for push notifications (Firebase Cloud Messaging)."""
+
+    class Platform(models.TextChoices):
+        ANDROID = "android", "Android"
+        IOS = "ios", "iOS"
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="push_devices")
+    platform = models.CharField(max_length=10, choices=Platform.choices)
+    token = models.CharField(max_length=4096, unique=True)
+    app_version = models.CharField(max_length=30, blank=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.user} ({self.platform})"

@@ -125,6 +125,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 50,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_THROTTLE_RATES": {"kiosk_call": env("KIOSK_CALL_RATE", default="10/min")},
 }
 
 SIMPLE_JWT = {
@@ -164,10 +165,19 @@ CELERY_BEAT_SCHEDULE = {
 RELAY_HTTP_TIMEOUT = env.float("RELAY_HTTP_TIMEOUT", default=5.0)
 LPR_DEBOUNCE_SECONDS = env.int("LPR_DEBOUNCE_SECONDS", default=20)
 
-# LiveKit Cloud (used from Phase 3).
+# LiveKit Cloud video intercom
 LIVEKIT_URL = env("LIVEKIT_URL", default="")
 LIVEKIT_API_KEY = env("LIVEKIT_API_KEY", default="")
 LIVEKIT_API_SECRET = env("LIVEKIT_API_SECRET", default="")
+LIVEKIT_TOKEN_TTL_SECONDS = env.int("LIVEKIT_TOKEN_TTL_SECONDS", default=600)
+# How long after a call starts the resident may still swipe to unlock.
+INTERCOM_UNLOCK_WINDOW_SECONDS = env.int("INTERCOM_UNLOCK_WINDOW_SECONDS", default=600)
+
+# Firebase Cloud Messaging (push to resident app). Path to a service-account JSON file
+# mounted into the containers; leave blank to disable push.
+FCM_SERVICE_ACCOUNT_FILE = env("FCM_SERVICE_ACCOUNT_FILE", default="")
+
+CACHES = {"default": {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": REDIS_URL}}
 
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

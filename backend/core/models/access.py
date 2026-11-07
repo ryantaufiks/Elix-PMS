@@ -32,11 +32,20 @@ class IntercomCall(TimeStampedModel):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
     answered_at = models.DateTimeField(null=True, blank=True)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
     decided_at = models.DateTimeField(null=True, blank=True)
     ended_at = models.DateTimeField(null=True, blank=True)
 
+    OPEN_STATUSES = (Status.RINGING, Status.ANSWERED)
+
     class Meta:
         ordering = ["-created_at"]
+
+    @property
+    def is_open(self):
+        return self.status in self.OPEN_STATUSES and self.ended_at is None
 
     def __str__(self):
         return f"Call {self.room_name} -> {self.unit} [{self.status}]"

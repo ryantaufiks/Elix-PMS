@@ -252,13 +252,66 @@ class ManualOpenSerializer(serializers.Serializer):
 
 
 class IntercomCallSerializer(serializers.ModelSerializer):
+    unit_display = serializers.CharField(source="unit.__str__", read_only=True)
+    kiosk_name = serializers.CharField(source="kiosk.name", read_only=True, default="")
+    is_open = serializers.BooleanField(read_only=True)
+    has_snapshot = serializers.SerializerMethodField()
+
     class Meta:
         model = m.IntercomCall
         fields = [
-            "id", "condominium", "unit", "kiosk", "gate", "room_name", "status", "visitor_name", "visitor_snapshot",
-            "answered_by", "answered_at", "decided_at", "ended_at", "created_at",
+            "id", "condominium", "unit", "unit_display", "kiosk", "kiosk_name", "gate", "status", "is_open",
+            "visitor_name", "has_snapshot", "answered_by", "answered_at", "decided_by", "decided_at", "ended_at",
+            "created_at",
         ]
         read_only_fields = fields
+
+    def get_has_snapshot(self, obj) -> bool:
+        return bool(obj.visitor_snapshot)
+
+
+class LiveKitConnectionSerializer(serializers.Serializer):
+    url = serializers.CharField()
+    room = serializers.CharField()
+    token = serializers.CharField()
+
+
+class CallWithConnectionSerializer(serializers.Serializer):
+    call = IntercomCallSerializer()
+    livekit = LiveKitConnectionSerializer()
+
+
+class StartCallSerializer(serializers.Serializer):
+    unit = serializers.PrimaryKeyRelatedField(queryset=m.Unit.objects.filter(is_active=True))
+    visitor_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
+    snapshot = serializers.ImageField(required=False)
+
+
+class DirectoryUnitSerializer(serializers.ModelSerializer):
+    block = serializers.CharField(source="block.name", default="")
+    label = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = m.Unit
+        fields = ["id", "block", "floor", "unit_number", "label"]
+
+
+class KioskSelfSerializer(serializers.ModelSerializer):
+    condominium_name = serializers.CharField(source="condominium.name")
+    gate_name = serializers.CharField(source="gate.name", default="")
+    ring_timeout_seconds = serializers.IntegerField(source="condominium.intercom_ring_timeout_seconds")
+
+    class Meta:
+        model = m.Kiosk
+        fields = ["id", "name", "condominium", "condominium_name", "gate", "gate_name", "ring_timeout_seconds"]
+
+
+class PushDeviceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.PushDevice
+        fields = ["id", "platform", "token", "app_version", "created_at", "last_used_at"]
+        read_only_fields = ["created_at", "last_used_at"]
+        extra_kwargs = {"token": {"validators": []}}
 
 
 class AccessLogSerializer(serializers.ModelSerializer):

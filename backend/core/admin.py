@@ -301,9 +301,20 @@ class InvitationAdmin(admin.ModelAdmin):
 
 @admin.register(m.IntercomCall)
 class IntercomCallAdmin(admin.ModelAdmin):
-    list_display = ("room_name", "unit", "kiosk", "status", "answered_by", "created_at")
+    list_display = ("created_at", "unit", "kiosk", "status", "answered_by", "decided_by", "ended_at")
     list_filter = ("condominium", "status")
     search_fields = ("room_name", "visitor_name")
+    readonly_fields = [f.name for f in m.IntercomCall._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(m.PushDevice)
+class PushDeviceAdmin(admin.ModelAdmin):
+    list_display = ("user", "platform", "app_version", "last_used_at", "created_at")
+    list_filter = ("platform",)
+    search_fields = ("user__username",)
 
 
 @admin.register(m.AccessLog)

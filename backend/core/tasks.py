@@ -3,8 +3,8 @@ import logging
 from celery import shared_task
 from django.utils import timezone
 
-from . import relays
-from .models import AccessLog, Invitation
+from . import intercom, livekit, push, relays
+from .models import AccessLog, IntercomCall, Invitation
 
 logger = logging.getLogger(__name__)
 
@@ -47,3 +47,42 @@ def open_gate(access_log_id: int) -> str:
         return f"error: {reason}"
     AccessLog.objects.filter(pk=log.pk).update(relay=opened, reason=("; ".join(errors))[:255])
     return f"opened via {opened.name}"
+
+
+@shared_task
+def expire_call(call_id: int):
+    """Ring timeout: a call nobody answered becomes missed."""
+    intercom.mark_missed(call_id)
+
+
+@shared_task
+def finish_call(call_id: int):
+    """Unlock window over: close whatever is still open."""
+    intercom.finish(call_id)
+
+
+@shared_task(autoretry_for=(Exception,), retry_backoff=2, max_retries=3)
+def end_call_room(room: str):
+    try:
+        livekit.delete_room(room)
+    except livekit.LiveKitNotConfigured:
+        pass
+
+
+@shared_task
+def push_incoming_call(call_id: int) -> int:
+    call = IntercomCall.objects.select_related("unit__block", "kiosk", "condominium").get(pk=call_id)
+    if not call.is_open:
+        return 0
+    from .models import PushDevice
+
+    users = intercom.recipients(call.unit).values_list("user_id", flat=True)
+    devices = PushDevice.objects.filter(user_id__in=list(users))
+    where = call.kiosk.name if call.kiosk else call.condominium.name
+    return push.send(
+        devices,
+        data={"type": "intercom_call", "call_id": call.pk, "unit": str(call.unit), "kiosk": where},
+        title=f"Visitor at {where}",
+        body=call.visitor_name or "Someone is calling your unit",
+        ttl_seconds=call.condominium.intercom_ring_timeout_seconds,
+    )

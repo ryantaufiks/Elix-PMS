@@ -20,7 +20,8 @@ docker compose exec web python manage.py test core
 | http://127.0.0.1:8000/v1/auth/token/ | JWT login |
 | `POST /v1/lpr-webhook/` | Dahua LPR events (Basic Auth per camera) |
 | `POST /v1/gates/{id}/open/` | Manual gate opening (security / condo admin) |
-| `ws://…/ws/events/?token=<JWT>` | Live access events for the user's condos and units |
+| `ws://…/ws/events/?token=<JWT>` | Live events (access logs, intercom calls) for the user's condos and units |
+| `ws://…/ws/events/?kiosk_token=<token>` | Live state of the kiosk's own calls |
 
 Set `DEV_BIND` in `.env` to the server's Tailscale IP to reach the dev API remotely.
 
@@ -49,6 +50,32 @@ the site plus `tailscale set --accept-routes` here). Otherwise use cloud, or "lo
 When enabled: a registered resident plate opens the gate; a plate on a valid invitation opens it and
 counts an entry (unless the invitation requires face verification); anything else is logged as denied.
 Repeat reads of the same plate within `LPR_DEBOUNCE_SECONDS` (20 s) are ignored.
+
+## Video intercom (LiveKit)
+
+Primary visitor flow: the visitor picks a unit on the kiosk, the residents' phones ring, a resident
+answers (video) and **swipes to unlock**, which opens the kiosk's gate.
+
+| Who | Call | Purpose |
+|---|---|---|
+| Kiosk | `GET /v1/kiosk/me/` | Config + heartbeat |
+| Kiosk | `GET /v1/kiosk/directory/?q=05-12` | Units that take calls (no resident names) |
+| Kiosk | `POST /v1/kiosk/calls/` (`unit`, `visitor_name`, `snapshot` image) | Ring; returns LiveKit `url/room/token` |
+| Kiosk | `GET /v1/kiosk/calls/{id}/`, `POST …/hangup/` | Poll state / cancel |
+| Resident | `POST /v1/intercom-calls/{id}/answer/` | First answer wins; returns LiveKit connection |
+| Resident | `POST /v1/intercom-calls/{id}/unlock/` | Swipe to unlock (also allowed straight from the preview) |
+| Resident | `POST …/reject/`, `POST …/hangup/`, `GET …/snapshot/` | Decline / end / visitor photo |
+| Resident | `POST /v1/push-devices/` (`platform`, `token`) | Register the phone's FCM token |
+
+Kiosks authenticate with `Authorization: Kiosk <token>`; the token is shown once when the kiosk is
+created in Admin (action *Regenerate device token* issues a new one). Calls ring for the condo's
+*intercom ring timeout* (default 45 s), then become **missed**; a kiosk starting a new call cancels its
+previous one. Rejected, missed and approved calls are all in the access log. Security staff of the
+condo can also answer and unlock.
+
+Set `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` in `.env`, restart, and run
+`docker compose exec web python manage.py livekit_check`. Without them the kiosk gets HTTP 503 and
+nobody is rung. Push needs `FCM_SERVICE_ACCOUNT_FILE`; without it only open apps (WebSocket) ring.
 
 ## Production
 

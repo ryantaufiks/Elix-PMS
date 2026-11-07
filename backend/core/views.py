@@ -3,15 +3,15 @@ from io import BytesIO
 import qrcode
 from django.db import connection
 from django.db.models import Q
-from django.http import HttpResponse
+from django.http import FileResponse, HttpResponse
 from drf_spectacular.utils import OpenApiResponse, extend_schema
-from rest_framework import generics, status, viewsets
+from rest_framework import generics, mixins, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from . import access
+from . import access, intercom, livekit
 from . import models as m
 from . import serializers as s
 from .scoping import ADMIN, ALL_STAFF, resident_condo_ids, resident_unit_ids, staff_condo_ids
@@ -306,11 +306,103 @@ class InvitationViewSet(ScopedModelViewSet):
         return response
 
 
+def _call_error(exc):
+    return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+
+
+def _livekit_unavailable():
+    return Response({"detail": "Video intercom is not configured on the server."},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
 class IntercomCallViewSet(ScopedReadOnlyViewSet):
-    queryset = m.IntercomCall.objects.all()
+    """Calls to the user's units (residents) or condominium (staff), with the resident-side actions."""
+
+    queryset = m.IntercomCall.objects.select_related("unit__block", "kiosk")
     serializer_class = s.IntercomCallSerializer
     resident_unit_path = "unit"
     filterset_fields = ["condominium", "unit", "status", "kiosk"]
+
+    def _handled(self):
+        call = self.get_object()
+        if not intercom.can_handle(self.request.user, call):
+            raise PermissionDenied("You do not take intercom calls for this unit.")
+        return call
+
+    @extend_schema(request=None, responses=s.CallWithConnectionSerializer)
+    @action(detail=True, methods=["post"])
+    def answer(self, request, pk=None):
+        """Pick up the call; returns the LiveKit connection for this phone. Only the first answer wins."""
+        call = self._handled()
+        try:
+            call = intercom.answer(call, request.user)
+            connection = livekit.connection_info(call.room_name, f"user-{request.user.pk}",
+                                                 request.user.get_full_name() or request.user.get_username())
+        except intercom.CallError as exc:
+            return _call_error(exc)
+        except livekit.LiveKitNotConfigured:
+            return _livekit_unavailable()
+        return Response({"call": s.IntercomCallSerializer(call).data, "livekit": connection})
+
+    @extend_schema(request=None, responses=s.AccessLogSerializer)
+    @action(detail=True, methods=["post"])
+    def unlock(self, request, pk=None):
+        """Swipe to unlock: approve the visitor and open the gate at the calling kiosk."""
+        call = self._handled()
+        try:
+            call, log = intercom.unlock(call, request.user)
+        except intercom.CallError as exc:
+            return _call_error(exc)
+        return Response(s.AccessLogSerializer(log).data, status=status.HTTP_202_ACCEPTED)
+
+    @extend_schema(request=None, responses=s.IntercomCallSerializer)
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        call = self._handled()
+        try:
+            call = intercom.reject(call, request.user)
+        except intercom.CallError as exc:
+            return _call_error(exc)
+        return Response(s.IntercomCallSerializer(call).data)
+
+    @extend_schema(request=None, responses=s.IntercomCallSerializer)
+    @action(detail=True, methods=["post"])
+    def hangup(self, request, pk=None):
+        call = intercom.hang_up(self._handled(), m.IntercomCall.Status.CANCELLED)
+        return Response(s.IntercomCallSerializer(call).data)
+
+    @extend_schema(responses={(200, "image/jpeg"): OpenApiResponse(description="Visitor snapshot")})
+    @action(detail=True, methods=["get"])
+    def snapshot(self, request, pk=None):
+        """The kiosk's photo of the visitor, shown before answering. Personal data: never cached."""
+        call = self.get_object()
+        if not call.visitor_snapshot:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        response = FileResponse(call.visitor_snapshot.open("rb"))
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
+class PushDeviceViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.DestroyModelMixin,
+                        viewsets.GenericViewSet):
+    """Phones of the signed-in user that receive push notifications. Re-registering a token moves it here."""
+
+    serializer_class = s.PushDeviceSerializer
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return m.PushDevice.objects.none()
+        return m.PushDevice.objects.filter(user=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        device, created = m.PushDevice.objects.update_or_create(
+            token=serializer.validated_data["token"],
+            defaults={**serializer.validated_data, "user": request.user},
+        )
+        return Response(self.get_serializer(device).data,
+                        status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
 class AccessLogViewSet(ScopedReadOnlyViewSet):
