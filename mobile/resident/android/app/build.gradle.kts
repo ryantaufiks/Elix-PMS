@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -11,7 +13,7 @@ if (file("google-services.json").exists()) {
 }
 
 // Release signing from android/key.properties (kept out of git). Falls back to debug keys.
-val keyProperties = java.util.Properties().apply {
+val keyProperties = Properties().apply {
     val file = rootProject.file("key.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
