@@ -8,6 +8,7 @@ import 'api.dart';
 import 'models.dart';
 import 'push.dart';
 import 'realtime.dart';
+import 'session.dart';
 import 'ui/call_screen.dart';
 import 'ui/incoming_call_screen.dart';
 
@@ -21,6 +22,9 @@ class Calls {
 
   final _shown = <int>{};
   int? _active;
+  // Screens requested before the app could show them (launch from the lock screen, still signing in).
+  int? _pendingAnswer;
+  int? _pendingRing;
   final _updates = StreamController<IntercomCall>.broadcast();
   Stream<IntercomCall> get updates => _updates.stream;
 
@@ -58,22 +62,47 @@ class Calls {
     }
   }
 
+  NavigatorState? get _navigator => Session.instance.me == null ? null : navigatorKey.currentState;
+
   /// Show the in-app incoming call screen (app in the foreground).
   Future<void> _ring(int callId) async {
     if (_shown.contains(callId) || _active == callId) return;
+    final navigator = _navigator;
+    if (navigator == null) {
+      _pendingRing = callId;
+      return;
+    }
     _shown.add(callId);
     try {
       final call = IntercomCall(await Api.instance.get('/v1/intercom-calls/$callId/') as Map<String, dynamic>);
-      if (!call.isOpen || call.status != 'ringing') return;
-      navigatorKey.currentState?.push(MaterialPageRoute(builder: (_) => IncomingCallScreen(call: call), fullscreenDialog: true));
+      if (!call.isOpen || call.status != 'ringing' || _active == callId) return;
+      navigator.push(MaterialPageRoute(builder: (_) => IncomingCallScreen(call: call), fullscreenDialog: true));
     } catch (_) {}
   }
 
-  Future<void> answer(int callId) async {
+  /// Open the call screen (which answers the call). Queued until the app can show it.
+  void answer(int callId) {
     if (_active == callId) return;
-    _active = callId;
-    _shown.add(callId);
-    navigatorKey.currentState?.push(MaterialPageRoute(builder: (_) => CallScreen(callId: callId)));
+    _pendingAnswer = callId;
+    showPending();
+  }
+
+  /// Called once the home screen is up (and after sign-in) to show anything queued.
+  void showPending() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final navigator = _navigator;
+      if (navigator == null) return;
+      final answerId = _pendingAnswer;
+      final ringId = _pendingRing;
+      _pendingAnswer = _pendingRing = null;
+      if (answerId != null && _active != answerId) {
+        _active = answerId;
+        _shown.add(answerId);
+        navigator.push(MaterialPageRoute(builder: (_) => CallScreen(callId: answerId)));
+      } else if (ringId != null) {
+        _ring(ringId);
+      }
+    });
   }
 
   void finished(int callId) {

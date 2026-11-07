@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'api.dart';
 import 'models.dart';
@@ -13,14 +16,28 @@ class Session extends ChangeNotifier {
   Me? me;
   bool loading = true;
 
+  static const _storage = FlutterSecureStorage();
+
+  /// Signed-in users open straight onto the last known profile; it is refreshed from the server
+  /// in the background, so a slow or missing network never holds up the first screen.
   Future<void> restore() async {
     await Api.instance.load();
     Api.instance.onSignedOut = _signedOut;
     if (Api.instance.signedIn) {
+      final cached = await _storage.read(key: 'me');
+      if (cached != null) {
+        me = Me(jsonDecode(cached) as Map<String, dynamic>);
+        Realtime.instance.start();
+      }
+      loading = false;
+      notifyListeners();
       try {
         await _loadMe();
+        notifyListeners();
+      } on ApiException catch (e) {
+        if (e.status == 403) await logout();
       } catch (_) {
-        // Offline at start-up: stay signed in and retry on the next action.
+        // Offline: keep the cached profile; the next action retries.
       }
     }
     loading = false;
@@ -29,6 +46,7 @@ class Session extends ChangeNotifier {
 
   Future<void> _loadMe() async {
     final data = await Api.instance.get('/v1/auth/me/') as Map<String, dynamic>;
+    await _storage.write(key: 'me', value: jsonEncode(data));
     final user = Me(data);
     if (user.residencies.isEmpty) {
       await Api.instance.clear();

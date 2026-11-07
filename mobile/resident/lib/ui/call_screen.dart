@@ -18,7 +18,7 @@ class CallScreen extends StatefulWidget {
   State<CallScreen> createState() => _CallScreenState();
 }
 
-class _CallScreenState extends State<CallScreen> {
+class _CallScreenState extends State<CallScreen> with WidgetsBindingObserver {
   Room? _room;
   EventsListener<RoomEvent>? _listener;
   VideoTrack? _remoteVideo;
@@ -32,6 +32,7 @@ class _CallScreenState extends State<CallScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _start();
     _updates = Calls.instance.updates.listen((call) {
       if (call.id != widget.callId) return;
@@ -102,8 +103,15 @@ class _CallScreenState extends State<CallScreen> {
     Navigator.of(context).maybePop();
   }
 
+  /// The app is being closed mid-call: end the call so the kiosk does not keep waiting.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.detached && !_closing) _hangUp();
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _updates?.cancel();
     if (!_closing) {
       Calls.instance.finished(widget.callId);

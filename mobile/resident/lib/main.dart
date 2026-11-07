@@ -11,10 +11,12 @@ import 'ui/login_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Push.instance.init();
-  Calls.instance.start();
-  await Session.instance.restore();
+  // Draw the UI first: nothing below may keep the screen blank (slow network, waking from lock screen).
   runApp(const ElixApp());
+  await Session.instance.restore();
+  await Push.instance.init();
+  if (Session.instance.me != null) Push.instance.register();
+  Calls.instance.start();
 }
 
 class ElixApp extends StatefulWidget {

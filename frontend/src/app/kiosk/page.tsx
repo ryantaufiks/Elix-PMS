@@ -307,6 +307,19 @@ function Calling({ kiosk, unit, details, onDone }: { kiosk: KioskSelf; unit: Dir
       r.on(RoomEvent.TrackUnsubscribed, (track) => {
         if (track.kind === Track.Kind.Video) setHasRemoteVideo(false);
       });
+      // If the resident's phone drops out of the room (app closed, signal lost) and nobody is left,
+      // end the call instead of waiting for a hang-up that will never come.
+      let leftTimer: ReturnType<typeof setTimeout> | undefined;
+      r.on(RoomEvent.ParticipantConnected, () => clearTimeout(leftTimer));
+      r.on(RoomEvent.ParticipantDisconnected, () => {
+        clearTimeout(leftTimer);
+        if (r.remoteParticipants.size > 0) return;
+        leftTimer = setTimeout(async () => {
+          if (r.remoteParticipants.size > 0) return;
+          await kioskApi(`/v1/kiosk/calls/${started.call.id}/hangup/`, { method: "POST" }).catch(() => {});
+          finish({ tone: "info", title: "Call ended", detail: "The resident left the call." });
+        }, 8000);
+      });
       try {
         await r.connect(started.livekit.url, started.livekit.token);
         await r.localParticipant.enableCameraAndMicrophone();

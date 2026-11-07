@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../calls.dart';
+
 import 'home_tab.dart';
 import 'invitations_tab.dart';
 import 'profile_tab.dart';
@@ -13,6 +15,13 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    Calls.instance.showPending(); // e.g. "Answer" tapped on the lock screen while the app was closed
+  }
+
   static const _tabs = [HomeTab(), InvitationsTab(), VehiclesTab(), ProfileTab()];
 
   @override

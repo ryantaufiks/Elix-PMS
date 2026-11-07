@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -42,6 +43,19 @@ Future<void> showIncomingCall(Map<String, dynamic> data) async {
   ));
 }
 
+/// Native call-screen buttons pressed while the app is closed: tell the server, so the kiosk stops ringing.
+@pragma('vm:entry-point')
+Future<void> callkitBackgroundHandler(CallEvent event) async {
+  if (event is! CallEventActionCallDecline) return;
+  final id = callIdFromUuid(event.callKitParams.id);
+  if (id == null) return;
+  DartPluginRegistrant.ensureInitialized();
+  await Api.instance.load();
+  try {
+    await Api.instance.post('/v1/intercom-calls/$id/reject/');
+  } catch (_) {}
+}
+
 @pragma('vm:entry-point')
 Future<void> firebaseBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
@@ -68,6 +82,7 @@ class Push {
     try {
       await Firebase.initializeApp();
       FirebaseMessaging.onBackgroundMessage(firebaseBackgroundHandler);
+      await FlutterCallkitIncoming.onBackgroundMessage(callkitBackgroundHandler);
       FirebaseMessaging.onMessage.listen((m) => _foreground.add(m.data));
       FirebaseMessaging.instance.onTokenRefresh.listen((_) => register());
       available = true;
