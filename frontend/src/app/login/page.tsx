@@ -40,8 +40,6 @@ export default function LoginPage() {
     <main className="grid min-h-screen bg-surface lg:grid-cols-[1fr_1.1fr]">
       <div className="flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/elix-icon-64.png" alt="Elix" className="mb-8 h-12 w-12 rounded-xl shadow-primary" />
           <h1 className="text-3xl font-semibold tracking-tight text-ink">Welcome back</h1>
           <p className="mt-2 text-sm text-muted">Sign in to the Elix guardhouse and management console.</p>
           <form onSubmit={submit} className="mt-8 space-y-5">
