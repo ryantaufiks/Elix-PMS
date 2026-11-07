@@ -1,7 +1,7 @@
 # Elix-PMS
 
 Visitor Management & Access Control System for Singapore condominiums: multi-site, LPR (Dahua),
-gate relays (Sonoff eWeLink / Shelly) and LiveKit video intercom.
+gate relays (Sonoff eWeLink / Shelly), LiveKit video intercom and a staff dashboard.
 Full architecture notes: [readme-smartpms(helix).md](readme-smartpms(helix).md).
 
 ## Quick start (development)
@@ -25,6 +25,32 @@ docker compose exec web python manage.py test core
 
 The dev API listens on `127.0.0.1:8001` (`DEV_PORT`); port 8000 belongs to production. Set `DEV_BIND`
 in `.env` to the server's Tailscale IP to reach the dev API remotely.
+
+## Dashboard (staff)
+
+`frontend/` is a Next.js + TypeScript + Tailwind app for condo admins and security guards, exported
+as static files and served by the **gateway** (nginx), which also proxies `/v1`, `/ws` and `/static`
+to Django. Everything runs on one origin, so there is no CORS and the browser keeps one JWT session.
+
+| Page | Who | What |
+|---|---|---|
+| Overview | all staff | Today's counters, device issues, latest access (live), one-click gate opening |
+| Access log | all staff | Filter by gate, method, result, plate, date; camera snapshots; live updates |
+| Intercom | all staff | Ringing kiosk calls (ringtone + banner on every page), answer with video, swipe to open, reject; history |
+| Gates | all staff | Manual opening with reason (logged under the user) |
+| Invitations | all staff (create/cancel: admin) | Active/expired/cancelled invitations, QR code and share link |
+| Vehicles | all staff (edit: admin) | Resident vehicles used by LPR auto-open |
+| Residents | all staff | Who lives in which unit and who receives intercom calls |
+| Devices | admin | Relay errors, camera last event, kiosk online status |
+
+Staff sign in with their Django username and password; residents are refused (they use the app).
+Users with several condominiums get a site switcher. Times are shown and entered in SGT.
+
+Development with hot reload (proxies the API to the dev web service):
+
+```bash
+docker compose --profile frontend up -d frontend   # http://127.0.0.1:3000
+```
 
 ## Gate relays
 
@@ -102,7 +128,7 @@ ENV_FILE=.env.prod docker compose -f docker-compose.yml -f docker-compose.prod.y
 ENV_FILE=.env.prod docker compose -f docker-compose.yml -f docker-compose.prod.yml exec web python manage.py createsuperuser
 ```
 
-- The web service (daphne) listens on `127.0.0.1:8000` only.
+- The gateway (dashboard + proxy to daphne) listens on `127.0.0.1:8000` only; `web` is not published.
 - In Cloudflare Zero Trust → Networks → Tunnels → *Public hostname*, set the service to
   `HTTP` / `localhost:8000`. HTTPS and WebSockets are handled by Cloudflare.
 - In `.env.prod`, set `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS=https://<host>`,
@@ -110,8 +136,8 @@ ENV_FILE=.env.prod docker compose -f docker-compose.yml -f docker-compose.prod.y
 - Keep `FIELD_ENCRYPTION_KEY` safe: losing it makes every stored secret unreadable.
 - Recommended: protect `/v1/admin/` with a Cloudflare Access policy. If Bot Fight Mode is on, add a
   skip rule for `/v1/lpr-webhook/` so cameras are not challenged.
-- Without Cloudflare, add `--profile nginx` to run nginx on 80/443 with your own certificates in
-  `nginx/certs/`.
+- Without Cloudflare, put any TLS reverse proxy (Caddy, nginx + certbot) in front of
+  `127.0.0.1:8000` and have it set `X-Forwarded-Proto: https`.
 
 Dev and prod use separate Compose project names (`elix-vms-dev`, `elix-vms-prod`), so their
 databases and volumes never mix.
@@ -122,7 +148,7 @@ databases and volumes never mix.
 |---|---|---|
 | Superuser | everything | everything |
 | Condo admin | own condominium | own condominium, incl. device credentials |
-| Security | own condominium, except relays/cameras/kiosks/credentials | visitors |
+| Security | own condominium, except relays/cameras/kiosks/credentials | visitors, manual gate opening, intercom answers |
 | Resident | own units, condo gates/blocks | own vehicles and invitations |
 
 Third-party secrets (eWeLink, Shelly, camera, relay LAN passwords) are encrypted at rest with

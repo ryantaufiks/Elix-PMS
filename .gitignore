@@ -2,8 +2,6 @@
 .env
 .env.*
 !.env.example
-nginx/certs/*
-!nginx/certs/.gitkeep
 
 # Python
 __pycache__/

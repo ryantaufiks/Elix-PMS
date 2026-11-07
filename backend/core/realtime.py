@@ -14,6 +14,7 @@ from django.contrib.auth.models import AnonymousUser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 
+from .models import Condominium
 from .scoping import resident_unit_ids, staff_condo_ids
 
 
@@ -78,7 +79,9 @@ class EventsConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def _groups(self, user):
-        return [condo_group(c) for c in staff_condo_ids(user)] + [unit_group(u) for u in resident_unit_ids(user)]
+        condos = Condominium.objects.filter(is_active=True).values_list("pk", flat=True) if user.is_superuser \
+            else staff_condo_ids(user)
+        return [condo_group(c) for c in condos] + [unit_group(u) for u in resident_unit_ids(user)]
 
     async def event(self, message):
         await self.send_json(message["payload"])

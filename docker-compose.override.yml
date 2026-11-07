@@ -22,3 +22,21 @@ services:
     volumes:
       - ./backend:/app
       - media:/data/media
+
+  # Dashboard with hot reload: `docker compose --profile frontend up -d frontend`
+  # then open http://127.0.0.1:3000 (API calls are proxied to the dev web service).
+  frontend:
+    image: node:22-alpine
+    profiles: ["frontend"]
+    working_dir: /app
+    command: ["sh", "-c", "npm install --no-audit --no-fund && npm run dev"]
+    environment:
+      API_PROXY: http://web:8000
+      NEXT_PUBLIC_WS_BASE: ws://127.0.0.1:${DEV_PORT:-8001}
+      NEXT_TELEMETRY_DISABLED: "1"
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - web

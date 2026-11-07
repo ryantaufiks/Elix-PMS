@@ -13,9 +13,9 @@ Sistem ini menggunakan arsitektur terpisah (*Decoupled/Headless*):
 ## 📂 Struktur Repositori Utama
 ```text
 /opt/vms-project/
-├── docker-compose.yml       # Orkestrasi kontainer produksi di Tencent Cloud
-├── nginx/
-│   └── default.conf         # Konfigurasi reverse proxy SSL & routing API/WebSockets
+├── docker-compose.yml       # Layanan dasar (db, redis, web, worker, beat)
+├── docker-compose.prod.yml  # Produksi: gateway di 127.0.0.1:8000 untuk Cloudflare Tunnel
+├── frontend/                # Dashboard staf Next.js + TypeScript; Dockerfile + nginx.conf = gateway
 └── backend/
     ├── Dockerfile           # Blueprint kontainerisasi Django Engine
     ├── requirements.txt     # Dependensi library Python
@@ -31,7 +31,7 @@ Sistem ini menggunakan arsitektur terpisah (*Decoupled/Headless*):
 Pastikan perangkat lokal Anda telah terinstal:
 * Python 3.11+
 * Docker Desktop & Docker Compose
-* Node.js v18+ (untuk Next.js Dashboard)
+* Node.js 22 (untuk Next.js Dashboard; di server cukup lewat Docker `node:22-alpine`)
 * Flutter SDK v3.x (untuk Mobile/Tablet)
 
 ### 2. Setup Back-End (Django)

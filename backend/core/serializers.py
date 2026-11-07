@@ -123,10 +123,11 @@ class MeSerializer(serializers.ModelSerializer):
 
 class VehicleSerializer(ModelCleanSerializer):
     derived_fields = {"condominium"}
+    unit_display = serializers.CharField(source="unit.__str__", read_only=True)
 
     class Meta:
         model = m.Vehicle
-        fields = ["id", "condominium", "unit", "plate_number", "make", "model", "colour", "is_active", "notes"]
+        fields = ["id", "condominium", "unit", "unit_display", "plate_number", "make", "model", "colour", "is_active", "notes"]
         read_only_fields = ["condominium"]
 
 
@@ -223,12 +224,13 @@ class VisitorSerializer(ModelCleanSerializer):
 class InvitationSerializer(ModelCleanSerializer):
     derived_fields = {"condominium", "vehicle_plate"}
     share_url = serializers.CharField(read_only=True)
+    unit_display = serializers.CharField(source="unit.__str__", read_only=True)
     host_detail = UserSummarySerializer(source="host", read_only=True)
 
     class Meta:
         model = m.Invitation
         fields = [
-            "id", "condominium", "unit", "host", "host_detail", "visitor", "visitor_name", "visitor_phone",
+            "id", "condominium", "unit", "unit_display", "host", "host_detail", "visitor", "visitor_name", "visitor_phone",
             "purpose", "valid_from", "valid_until", "max_entries", "entry_count", "vehicle_plate", "require_face",
             "gates", "status", "notes", "share_url", "cancelled_at", "created_at",
         ]
@@ -315,10 +317,49 @@ class PushDeviceSerializer(serializers.ModelSerializer):
 
 
 class AccessLogSerializer(serializers.ModelSerializer):
+    gate_name = serializers.CharField(source="gate.name", read_only=True, default="")
+    unit_display = serializers.SerializerMethodField()
+    actor_name = serializers.SerializerMethodField()
+    visitor_name = serializers.SerializerMethodField()
+    has_snapshot = serializers.SerializerMethodField()
+
     class Meta:
         model = m.AccessLog
         fields = [
-            "id", "condominium", "gate", "occurred_at", "method", "result", "reason", "plate_number", "unit",
-            "vehicle", "invitation", "visitor", "intercom_call", "camera", "relay", "actor", "snapshot",
+            "id", "condominium", "gate", "gate_name", "occurred_at", "method", "result", "reason", "plate_number",
+            "unit", "unit_display", "vehicle", "invitation", "visitor", "visitor_name", "intercom_call", "camera",
+            "relay", "actor", "actor_name", "has_snapshot",
         ]
         read_only_fields = fields
+
+    def get_unit_display(self, obj) -> str:
+        # Not source="unit.__str__": None has __str__ too, so the default would never apply.
+        return str(obj.unit) if obj.unit else ""
+
+    def get_actor_name(self, obj) -> str:
+        return (obj.actor.get_full_name() or obj.actor.get_username()) if obj.actor else ""
+
+    def get_visitor_name(self, obj) -> str:
+        for source in (obj.visitor and obj.visitor.full_name, obj.invitation and obj.invitation.visitor_name,
+                       obj.intercom_call and obj.intercom_call.visitor_name):
+            if source:
+                return source
+        return ""
+
+    def get_has_snapshot(self, obj) -> bool:
+        return bool(obj.snapshot)
+
+
+class DashboardSummarySerializer(serializers.Serializer):
+    granted_today = serializers.IntegerField()
+    denied_today = serializers.IntegerField()
+    errors_today = serializers.IntegerField()
+    invitations_today = serializers.IntegerField()
+    open_calls = serializers.IntegerField()
+    relays_total = serializers.IntegerField()
+    relays_failing = serializers.IntegerField()
+    cameras_total = serializers.IntegerField()
+    cameras_offline = serializers.IntegerField()
+    kiosks_total = serializers.IntegerField()
+    kiosks_offline = serializers.IntegerField()
+    lpr_enabled = serializers.BooleanField(allow_null=True)

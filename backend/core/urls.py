@@ -27,6 +27,7 @@ urlpatterns = [
     path("auth/token/", TokenObtainPairView.as_view(), name="token-obtain"),
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
     path("auth/me/", views.MeView.as_view(), name="me"),
+    path("dashboard/summary/", views.DashboardSummaryView.as_view(), name="dashboard-summary"),
     path("kiosk/me/", kiosk_views.KioskMeView.as_view(), name="kiosk-me"),
     path("kiosk/directory/", kiosk_views.DirectoryView.as_view(), name="kiosk-directory"),
     path("kiosk/calls/", kiosk_views.StartCallView.as_view(), name="kiosk-call-start"),

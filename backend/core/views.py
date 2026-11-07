@@ -1,10 +1,12 @@
+from datetime import timedelta
 from io import BytesIO
 
 import qrcode
 from django.db import connection
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import FileResponse, HttpResponse
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from django.utils import timezone
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import generics, mixins, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import PermissionDenied
@@ -406,7 +408,7 @@ class PushDeviceViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.D
 
 
 class AccessLogViewSet(ScopedReadOnlyViewSet):
-    queryset = m.AccessLog.objects.all()
+    queryset = m.AccessLog.objects.select_related("gate", "unit__block", "actor", "visitor", "invitation", "intercom_call")
     serializer_class = s.AccessLogSerializer
     resident_unit_path = "unit"
     filterset_fields = {
@@ -414,3 +416,61 @@ class AccessLogViewSet(ScopedReadOnlyViewSet):
         "unit": ["exact"], "plate_number": ["exact"], "occurred_at": ["gte", "lte"],
     }
     search_fields = ["plate_number", "reason"]
+
+    @extend_schema(responses={(200, "image/jpeg"): OpenApiResponse(description="Camera snapshot")})
+    @action(detail=True, methods=["get"])
+    def snapshot(self, request, pk=None):
+        """Camera picture stored with the event. Personal data: never cached."""
+        log = self.get_object()
+        if not log.snapshot:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        response = FileResponse(log.snapshot.open("rb"))
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
+# --- Dashboard ---------------------------------------------------------------
+
+KIOSK_OFFLINE_AFTER = timedelta(minutes=5)
+CAMERA_OFFLINE_AFTER = timedelta(hours=24)
+
+
+class DashboardSummaryView(generics.GenericAPIView):
+    """Today's counters and device health for one condominium (staff of that condo only)."""
+
+    serializer_class = s.DashboardSummarySerializer
+
+    @extend_schema(parameters=[OpenApiParameter("condominium", int, required=True)])
+    def get(self, request):
+        try:
+            condo_id = int(request.query_params.get("condominium", ""))
+        except ValueError:
+            return Response({"condominium": "Required."}, status=status.HTTP_400_BAD_REQUEST)
+        if not request.user.is_superuser and condo_id not in staff_condo_ids(request.user, ALL_STAFF):
+            raise PermissionDenied("Only staff of this condominium can see its dashboard.")
+        now = timezone.now()
+        start_of_day = timezone.localtime(now).replace(hour=0, minute=0, second=0, microsecond=0)
+        logs = m.AccessLog.objects.filter(condominium_id=condo_id, occurred_at__gte=start_of_day)
+        counts = dict(logs.values_list("result").annotate(n=Count("id")))
+        relays = m.RelayController.objects.filter(gate__condominium_id=condo_id, is_active=True)
+        cameras = m.LprCamera.objects.filter(gate__condominium_id=condo_id, is_active=True)
+        kiosks = m.Kiosk.objects.filter(condominium_id=condo_id, is_active=True)
+        stale = lambda qs, after: qs.filter(Q(last_seen_at__isnull=True) | Q(last_seen_at__lt=now - after)).count()
+        data = {
+            "granted_today": counts.get(m.AccessLog.Result.GRANTED, 0),
+            "denied_today": counts.get(m.AccessLog.Result.DENIED, 0),
+            "errors_today": counts.get(m.AccessLog.Result.ERROR, 0),
+            "invitations_today": m.Invitation.objects.filter(
+                condominium_id=condo_id, status=m.Invitation.Status.ACTIVE,
+                valid_from__lte=now + timedelta(days=1), valid_until__gte=now).count(),
+            "open_calls": m.IntercomCall.objects.filter(
+                condominium_id=condo_id, status__in=m.IntercomCall.OPEN_STATUSES, ended_at__isnull=True).count(),
+            "relays_total": relays.count(),
+            "relays_failing": relays.exclude(last_error="").count(),
+            "cameras_total": cameras.count(),
+            "cameras_offline": stale(cameras, CAMERA_OFFLINE_AFTER),
+            "kiosks_total": kiosks.count(),
+            "kiosks_offline": stale(kiosks, KIOSK_OFFLINE_AFTER),
+            "lpr_enabled": m.Condominium.objects.filter(pk=condo_id).values_list("lpr_enabled", flat=True).first(),
+        }
+        return Response(self.get_serializer(data).data)
