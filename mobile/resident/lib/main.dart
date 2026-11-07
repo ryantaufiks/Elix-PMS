@@ -40,7 +40,10 @@ class _ElixAppState extends State<ElixApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) Realtime.instance.kick();
+    if (state == AppLifecycleState.resumed) {
+      Realtime.instance.kick();
+      Calls.instance.reconcile();
+    }
   }
 
   @override

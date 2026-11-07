@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'api.dart';
 import 'config.dart';
@@ -43,13 +44,36 @@ Future<void> showIncomingCall(Map<String, dynamic> data) async {
   ));
 }
 
-/// Native call-screen buttons pressed while the app is closed: tell the server, so the kiosk stops ringing.
+const _acceptedKey = 'accepted_call';
+
+/// Remember that "Answer" was pressed on the native call screen, for the app to pick up when it opens.
+Future<void> rememberAccepted(int callId) =>
+    const FlutterSecureStorage().write(key: _acceptedKey, value: '$callId:${DateTime.now().millisecondsSinceEpoch}');
+
+/// The call answered on the native screen in the last 2 minutes, if any (read once).
+Future<int?> takeAccepted() async {
+  const storage = FlutterSecureStorage();
+  final value = await storage.read(key: _acceptedKey);
+  if (value == null) return null;
+  await storage.delete(key: _acceptedKey);
+  final parts = value.split(':');
+  final at = DateTime.fromMillisecondsSinceEpoch(int.tryParse(parts.last) ?? 0);
+  return DateTime.now().difference(at) < const Duration(minutes: 2) ? int.tryParse(parts.first) : null;
+}
+
+/// Native call-screen buttons pressed while the app is closed: Decline goes straight to the server
+/// (so the kiosk stops ringing); Answer is remembered for the app, which the button also opens.
 @pragma('vm:entry-point')
 Future<void> callkitBackgroundHandler(CallEvent event) async {
+  DartPluginRegistrant.ensureInitialized();
+  if (event is CallEventActionCallAccept) {
+    final id = callIdFromUuid(event.callKitParams.id);
+    if (id != null) await rememberAccepted(id);
+    return;
+  }
   if (event is! CallEventActionCallDecline) return;
   final id = callIdFromUuid(event.callKitParams.id);
   if (id == null) return;
-  DartPluginRegistrant.ensureInitialized();
   await Api.instance.load();
   try {
     await Api.instance.post('/v1/intercom-calls/$id/reject/');

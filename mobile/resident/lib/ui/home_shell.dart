@@ -20,6 +20,7 @@ class _HomeShellState extends State<HomeShell> {
   void initState() {
     super.initState();
     Calls.instance.showPending(); // e.g. "Answer" tapped on the lock screen while the app was closed
+    Calls.instance.reconcile();
   }
 
   static const _tabs = [HomeTab(), InvitationsTab(), VehiclesTab(), ProfileTab()];

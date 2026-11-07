@@ -43,7 +43,10 @@ class Calls {
       switch (event) {
         case CallEventActionCallAccept(:final callKitParams):
           final id = callIdFromUuid(callKitParams.id);
-          if (id != null) answer(id);
+          if (id != null) {
+            rememberAccepted(id); // in case the screen cannot open yet
+            answer(id);
+          }
         case CallEventActionCallDecline(:final callKitParams):
           final id = callIdFromUuid(callKitParams.id);
           if (id != null) Api.instance.post('/v1/intercom-calls/$id/reject/').catchError((_) => null);
@@ -51,14 +54,38 @@ class Calls {
           break;
       }
     });
-    _resumeAcceptedFromBackground();
+    reconcile();
   }
 
-  /// The app was launched by tapping "Answer" on the native call screen.
-  Future<void> _resumeAcceptedFromBackground() async {
-    for (final call in await FlutterCallkitIncoming.activeCalls()) {
-      final id = callIdFromUuid(call.id);
-      if (id != null && call.isAccepted) answer(id);
+  bool _reconciling = false;
+
+  /// Called at start-up and whenever the app comes to the front. Whatever happened while it was
+  /// closed (Answer or a tap on the call notification, possibly before this code was running), the
+  /// app ends up on the right screen: the answered call, or the ringing call's incoming screen.
+  Future<void> reconcile() async {
+    if (_reconciling || Session.instance.me == null) return;
+    _reconciling = true;
+    try {
+      final accepted = await takeAccepted();
+      if (accepted != null) return answer(accepted);
+      for (final call in await FlutterCallkitIncoming.activeCalls()) {
+        final id = callIdFromUuid(call.id);
+        if (id != null && call.isAccepted) return answer(id);
+      }
+      final me = Session.instance.me!.id;
+      for (final row in await Api.instance.list('/v1/intercom-calls/?page_size=10')) {
+        final call = IntercomCall(row);
+        if (!call.isOpen) continue;
+        if (call.status == 'answered' && row['answered_by'] == me) return answer(call.id); // rejoin
+        if (call.status == 'ringing') {
+          FlutterCallkitIncoming.endCall(callUuid(call.id)); // the in-app screen rings instead
+          _ring(call.id);
+        }
+      }
+    } catch (_) {
+      // Offline: the next resume tries again.
+    } finally {
+      _reconciling = false;
     }
   }
 
@@ -96,6 +123,7 @@ class Calls {
       final ringId = _pendingRing;
       _pendingAnswer = _pendingRing = null;
       if (answerId != null && _active != answerId) {
+        takeAccepted(); // handled now; do not reopen it on the next resume
         _active = answerId;
         _shown.add(answerId);
         navigator.push(MaterialPageRoute(builder: (_) => CallScreen(callId: answerId)));

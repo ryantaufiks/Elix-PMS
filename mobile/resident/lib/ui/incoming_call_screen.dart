@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
+import 'package:vibration/vibration.dart';
 
 import '../api.dart';
 import '../calls.dart';
@@ -23,6 +25,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
   @override
   void initState() {
     super.initState();
+    _startRinging();
     _sub = Calls.instance.updates.listen((call) {
       if (call.id == widget.call.id && (!call.isOpen || call.status != 'ringing') && mounted) {
         Navigator.of(context).maybePop();
@@ -31,8 +34,24 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
     });
   }
 
+  /// The phone's own ringtone and a ring-like vibration (follows the phone's ring volume / silent mode).
+  Future<void> _startRinging() async {
+    try {
+      await FlutterRingtonePlayer().playRingtone(looping: true);
+    } catch (_) {}
+    try {
+      if (await Vibration.hasVibrator()) Vibration.vibrate(pattern: const [0, 900, 1100], repeat: 0);
+    } catch (_) {}
+  }
+
+  void _stopRinging() {
+    FlutterRingtonePlayer().stop().catchError((_) {});
+    Vibration.cancel().catchError((_) {});
+  }
+
   @override
   void dispose() {
+    _stopRinging();
     _sub?.cancel();
     super.dispose();
   }
