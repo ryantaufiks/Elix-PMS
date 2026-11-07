@@ -147,6 +147,8 @@ SPECTACULAR_SETTINGS = {
     "ENUM_NAME_OVERRIDES": {
         "InvitationStatusEnum": "core.models.visitors.Invitation.Status",
         "IntercomCallStatusEnum": "core.models.access.IntercomCall.Status",
+        "InvitationPurposeEnum": "core.models.visitors.Invitation.Purpose",
+        "VisitPurposeEnum": "core.models.visitors.VisitPurpose",
     },
 }
 
@@ -167,6 +169,10 @@ CELERY_BEAT_SCHEDULE = {
     "expire-invitations": {
         "task": "core.tasks.expire_invitations",
         "schedule": crontab(minute="*/10"),
+    },
+    "purge-visitor-data": {
+        "task": "core.tasks.purge_visitor_data",
+        "schedule": crontab(hour=3, minute=30),
     },
 }
 

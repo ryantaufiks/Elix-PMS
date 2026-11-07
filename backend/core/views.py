@@ -15,7 +15,7 @@ from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 
-from . import access, intercom, livekit, push, relays
+from . import access, intercom, livekit, privacy, push, relays
 from . import models as m
 from . import serializers as s
 from .scoping import ADMIN, ALL_STAFF, resident_condo_ids, resident_unit_ids, staff_condo_ids
@@ -317,10 +317,17 @@ class VisitorViewSet(ScopedModelViewSet):
     staff_write_roles = ALL_STAFF
     filterset_fields = ["condominium", "is_blacklisted"]
     search_fields = ["full_name", "phone", "id_partial", "company"]
+    ordering_fields = ["last_visit_at", "created_at", "full_name"]
 
     def perform_create(self, serializer):
         self.check_write(serializer.validated_data)
         serializer.save(created_by=self.request.user)
+
+    def perform_destroy(self, instance):
+        """PDPA erasure request: also removes the visitor's photos and details from calls and invitations."""
+        if not self.request.user.is_superuser and instance.condominium_id not in staff_condo_ids(self.request.user, (ADMIN,)):
+            raise PermissionDenied("Only condo admins can erase visitor data.")
+        privacy.erase_visitor(instance)
 
 
 class InvitationViewSet(ScopedModelViewSet):

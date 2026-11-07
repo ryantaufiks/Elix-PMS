@@ -18,11 +18,12 @@ Future<void> showIncomingCall(Map<String, dynamic> data) async {
   final callId = int.parse('${data['call_id']}');
   final timeout = int.tryParse('${data['timeout'] ?? 45}') ?? 45;
   final visitor = '${data['visitor'] ?? ''}'.trim();
+  final purpose = ['${data['purpose'] ?? ''}', '${data['company'] ?? ''}'].where((s) => s.trim().isNotEmpty).join(' · ');
   await FlutterCallkitIncoming.showCallkitIncoming(CallKitParams(
     id: callUuid(callId),
-    nameCaller: visitor.isEmpty ? 'Visitor at ${data['kiosk']}' : '$visitor at ${data['kiosk']}',
+    nameCaller: visitor.isEmpty ? 'Visitor at ${data['kiosk']}' : visitor,
     appName: 'Elix',
-    handle: '${data['unit']}',
+    handle: [if (purpose.isNotEmpty) purpose, '${data['kiosk']}', '${data['unit']}'].join(' · '),
     type: 1,
     duration: timeout * 1000,
     extra: {'call_id': callId},

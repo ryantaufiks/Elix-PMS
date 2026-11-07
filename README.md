@@ -127,8 +127,15 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
 
 - **Kiosk** (`/kiosk/` on the dashboard site, full-screen on any tablet browser): add a kiosk under
   Gates & devices → Kiosks, open `/kiosk/` on the tablet and enter the one-time device token. Visitors
-  either **call a resident** (unit directory, snapshot, LiveKit video both ways; the gate opens when the
-  resident or guard swipes) or **scan their invitation QR** with the tablet camera. Invitations that
+  either **call a resident** (unit directory, then their details and photo, LiveKit video both ways; the
+  gate opens when the resident or guard swipes) or **scan their invitation QR** with the tablet camera.
+- **Visitor details before a call** (per site, Site settings → Visitor kiosk; both on by default):
+  *Ask visitors for their details* (name, purpose such as parcel/food delivery with the company, and
+  optionally mobile and last 4 of NRIC/FIN) and *Take the visitor's photo* (explicit photo with preview
+  and retake). The resident sees all of it on the incoming call and in the push notification. Returning
+  visitors type their mobile or NRIC last 4 and only see a masked name ("B\*\*\* S\*\*\*") before
+  continuing, so the kiosk cannot be used to look people up. Blocked visitors (Community → Visitors) are
+  sent to the guardhouse and the attempt is logged. Invitations that
   require a face check make the kiosk take a photo, stored with the access-log entry for review (it is
   not matched automatically). Tap the empty area under the two buttons five times to sign the kiosk out.
 - **Visitor pass** (`/i/<token>`, the invitation's share link): shows the QR code, validity, the unit and
@@ -136,6 +143,7 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
 
 | Who | Endpoint | Purpose |
 |---|---|---|
+| Kiosk | `POST /v1/kiosk/visitors/lookup/` (`phone` or `id_partial`) | Returning visitor: masked name, last purpose and a short-lived reference |
 | Kiosk | `POST /v1/kiosk/checkin/lookup/` (`code`) | Who the QR belongs to and whether a face photo is needed (no logging) |
 | Kiosk | `POST /v1/kiosk/checkin/` (`code`, optional `plate`, `face_photo`) | Check in; opens the kiosk's gate when granted |
 | Public | `GET /v1/public/invitations/<token>/`, `…/qr/` | Visitor pass data and QR PNG (rate-limited) |
@@ -169,6 +177,21 @@ optionally `GOOGLE_SERVICES_JSON_BASE64`; optional variable `API_BASE`.
 - **Signing:** the release key is `mobile/resident/android/elix-release.jks` with its password in
   `android/key.properties` (both git-ignored, on the server). Back them up: Android only installs
   updates signed with the same key.
+
+## Privacy (PDPA)
+
+- **Notification and consent:** the kiosk shows the site's privacy notice before taking any details or
+  photo, and the visitor must tap *Agree & call*; the same notice is on visitor passes. Each site can
+  write its own notice (Site settings → Privacy notice); the standard text states the purpose, who sees
+  the data, the retention period and the management office contact.
+- **Data minimisation:** only the last 4 characters of the NRIC/FIN are stored; without consent the
+  kiosk keeps no photo; visitor records hold no face photo, only the call does.
+- **Retention:** a daily job (`core.tasks.purge_visitor_data`, 03:30 SGT) removes visitor names,
+  contact details, photos, camera payloads and visitor plates older than the site's *Keep visitor data
+  for (days)*, and deletes visitor records not seen since. Blocked visitors are kept for security.
+  Check with `docker compose exec web python manage.py purge_visitor_data --dry-run`.
+- **Access / erasure requests:** Community → Visitors → *Erase data* (condo admins) removes the person
+  and their photos and details from calls and invitations.
 
 ## System settings
 

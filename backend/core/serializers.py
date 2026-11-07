@@ -62,7 +62,8 @@ class CondominiumSerializer(ModelCleanSerializer):
         fields = [
             "id", "name", "code", "address", "postal_code", "timezone", "contact_phone", "is_active", "lpr_enabled",
             "invitation_max_days", "intercom_ring_timeout_seconds", "face_verification_enabled",
-            "visitor_data_retention_days", "created_at", "updated_at",
+            "visitor_data_retention_days", "kiosk_visitor_form", "kiosk_photo_required", "visitor_privacy_notice",
+            "created_at", "updated_at",
         ]
 
 
@@ -226,10 +227,10 @@ class VisitorSerializer(ModelCleanSerializer):
     class Meta:
         model = m.Visitor
         fields = [
-            "id", "condominium", "full_name", "phone", "id_partial", "company", "face_photo", "face_consent_at",
+            "id", "condominium", "full_name", "phone", "id_partial", "company", "face_consent_at", "last_visit_at",
             "is_blacklisted", "blacklist_reason", "created_by", "created_at",
         ]
-        read_only_fields = ["created_by"]
+        read_only_fields = ["created_by", "face_consent_at", "last_visit_at"]
 
 
 class InvitationSerializer(ModelCleanSerializer):
@@ -269,18 +270,22 @@ class IntercomCallSerializer(serializers.ModelSerializer):
     kiosk_name = serializers.CharField(source="kiosk.name", read_only=True, default="")
     is_open = serializers.BooleanField(read_only=True)
     has_snapshot = serializers.SerializerMethodField()
+    visitor_phone = serializers.SerializerMethodField()
 
     class Meta:
         model = m.IntercomCall
         fields = [
             "id", "condominium", "unit", "unit_display", "kiosk", "kiosk_name", "gate", "status", "is_open",
-            "visitor_name", "has_snapshot", "answered_by", "answered_at", "decided_by", "decided_at", "ended_at",
+            "visitor_name", "visitor_purpose", "visitor_company", "visitor_phone", "has_snapshot", "answered_by", "answered_at", "decided_by", "decided_at", "ended_at",
             "created_at",
         ]
         read_only_fields = fields
 
     def get_has_snapshot(self, obj) -> bool:
         return bool(obj.visitor_snapshot)
+
+    def get_visitor_phone(self, obj) -> str:
+        return str(obj.visitor.phone) if obj.visitor and obj.visitor.phone else ""
 
 
 class LiveKitConnectionSerializer(serializers.Serializer):
@@ -296,8 +301,31 @@ class CallWithConnectionSerializer(serializers.Serializer):
 
 class StartCallSerializer(serializers.Serializer):
     unit = serializers.PrimaryKeyRelatedField(queryset=m.Unit.objects.filter(is_active=True))
+    visitor_ref = serializers.CharField(required=False, allow_blank=True, default="",
+                                        help_text="From /kiosk/visitors/lookup/ for a returning visitor.")
     visitor_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
+    visitor_phone = serializers.CharField(max_length=30, required=False, allow_blank=True, default="")
+    visitor_id_partial = serializers.CharField(max_length=8, required=False, allow_blank=True, default="",
+                                               help_text="Last 3 digits and letter of the NRIC/FIN only.")
+    purpose = serializers.ChoiceField(choices=m.VisitPurpose.choices, required=False, allow_blank=True, default="")
+    company = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
+    consent = serializers.BooleanField(required=False, default=False,
+                                       help_text="The visitor accepted the privacy notice.")
     snapshot = serializers.ImageField(required=False)
+
+
+class VisitorLookupSerializer(serializers.Serializer):
+    phone = serializers.CharField(max_length=30, required=False, allow_blank=True, default="")
+    id_partial = serializers.CharField(max_length=8, required=False, allow_blank=True, default="")
+
+
+class VisitorLookupResultSerializer(serializers.Serializer):
+    found = serializers.BooleanField()
+    blocked = serializers.BooleanField()
+    ref = serializers.CharField(allow_blank=True)
+    masked_name = serializers.CharField(allow_blank=True)
+    company = serializers.CharField(allow_blank=True)
+    purpose = serializers.CharField(allow_blank=True)
 
 
 class DirectoryUnitSerializer(serializers.ModelSerializer):
@@ -313,10 +341,14 @@ class KioskSelfSerializer(serializers.ModelSerializer):
     condominium_name = serializers.CharField(source="condominium.name")
     gate_name = serializers.CharField(source="gate.name", default="")
     ring_timeout_seconds = serializers.IntegerField(source="condominium.intercom_ring_timeout_seconds")
+    visitor_form = serializers.BooleanField(source="condominium.kiosk_visitor_form")
+    photo_required = serializers.BooleanField(source="condominium.kiosk_photo_required")
+    privacy_notice = serializers.CharField(source="condominium.privacy_notice")
 
     class Meta:
         model = m.Kiosk
-        fields = ["id", "name", "condominium", "condominium_name", "gate", "gate_name", "ring_timeout_seconds"]
+        fields = ["id", "name", "condominium", "condominium_name", "gate", "gate_name", "ring_timeout_seconds",
+                  "visitor_form", "photo_required", "privacy_notice"]
 
 
 class PushDeviceSerializer(serializers.ModelSerializer):
@@ -575,6 +607,7 @@ class InvitationPassSerializer(serializers.ModelSerializer):
     condominium_address = serializers.CharField(source="condominium.address")
     unit_display = serializers.CharField(source="unit.__str__")
     host_first_name = serializers.SerializerMethodField()
+    privacy_notice = serializers.CharField(source="condominium.privacy_notice")
     entries_left = serializers.SerializerMethodField()
     usable = serializers.SerializerMethodField()
     problem = serializers.SerializerMethodField()
@@ -584,6 +617,7 @@ class InvitationPassSerializer(serializers.ModelSerializer):
         fields = [
             "visitor_name", "purpose", "condominium_name", "condominium_address", "unit_display", "host_first_name",
             "valid_from", "valid_until", "status", "vehicle_plate", "require_face", "entries_left", "usable", "problem",
+            "privacy_notice",
         ]
 
     def get_host_first_name(self, obj) -> str:

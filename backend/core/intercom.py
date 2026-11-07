@@ -48,7 +48,7 @@ def _notify(call):
 
 
 @transaction.atomic
-def start(kiosk, unit, visitor_name="", snapshot=None):
+def start(kiosk, unit, visitor_name="", snapshot=None, visitor=None, purpose="", company=""):
     from .tasks import end_call_room, expire_call, finish_call, push_incoming_call
 
     if not recipients(unit).exists():
@@ -63,7 +63,8 @@ def start(kiosk, unit, visitor_name="", snapshot=None):
         transaction.on_commit(lambda room=stale.room_name: end_call_room.delay(room))
 
     call = IntercomCall(condominium_id=kiosk.condominium_id, unit=unit, kiosk=kiosk, gate=kiosk.gate,
-                        visitor_name=visitor_name, room_name=f"call-{kiosk.condominium_id}-{secrets.token_hex(8)}")
+                        visitor=visitor, visitor_name=visitor_name, visitor_purpose=purpose, visitor_company=company,
+                        room_name=f"call-{kiosk.condominium_id}-{secrets.token_hex(8)}")
     if snapshot:
         call.visitor_snapshot = snapshot
     call.save()
@@ -105,6 +106,7 @@ def unlock(call, user):
         call.answered_by, call.answered_at = user, now
     call.save(update_fields=["status", "decided_by", "decided_at", "answered_by", "answered_at", "updated_at"])
     log = access.grant(call.gate, AccessLog.Method.INTERCOM, actor=user, unit=call.unit, intercom_call=call,
+                       visitor=call.visitor,
                        reason=f"Approved by {user.get_full_name() or user.get_username()}")
     _notify(call)
     return call, log
@@ -122,7 +124,7 @@ def reject(call, user):
     call.save(update_fields=["status", "decided_by", "decided_at", "ended_at", "updated_at"])
     AccessLog.objects.create(condominium_id=call.condominium_id, gate=call.gate, method=AccessLog.Method.INTERCOM,
                              result=AccessLog.Result.DENIED, actor=user, unit=call.unit, intercom_call=call,
-                             reason="Rejected by resident")
+                             visitor=call.visitor, reason="Rejected by resident")
     _notify(call)
     transaction.on_commit(lambda: end_call_room.delay(call.room_name))
     return call

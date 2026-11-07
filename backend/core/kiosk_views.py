@@ -4,10 +4,12 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
+from rest_framework.settings import api_settings
 from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
 
 from . import access, intercom, livekit
+from . import visitor_identity as identity
 from . import models as m
 from . import serializers as s
 from .kiosk_auth import IsKiosk, KioskTokenAuthentication
@@ -26,6 +28,11 @@ class KioskCallThrottle(SimpleRateThrottle):
     """Limits how fast one kiosk can ring units (prank protection)."""
 
     scope = "kiosk_call"
+
+    @property
+    def THROTTLE_RATES(self):
+        # Read at request time (not import time) so settings overrides apply.
+        return api_settings.DEFAULT_THROTTLE_RATES
 
     def get_cache_key(self, request, view):
         return self.cache_format % {"scope": self.scope, "ident": f"kiosk-{request.auth.pk}"}
@@ -68,13 +75,48 @@ class StartCallView(KioskView):
         """Ring a unit. Returns the call and this kiosk's LiveKit connection; join the room straight away."""
         body = s.StartCallSerializer(data=request.data)
         body.is_valid(raise_exception=True)
-        unit = body.validated_data["unit"]
+        data = body.validated_data
+        unit = data["unit"]
+        condo = self.kiosk.condominium
         if unit.condominium_id != self.kiosk.condominium_id:
             return Response({"unit": ["Unknown unit."]}, status=status.HTTP_400_BAD_REQUEST)
         try:
+            phone = identity.normalize_phone(data["visitor_phone"])
+            id_partial = identity.normalize_id_partial(data["visitor_id_partial"])
+        except identity.InvalidIdentity as exc:
+            field = "visitor_phone" if "mobile" in str(exc) else "visitor_id_partial"
+            return Response({field: [str(exc)]}, status=status.HTTP_400_BAD_REQUEST)
+        name = data["visitor_name"].strip()
+        returning = identity.visitor_from_ref(self.kiosk, data["visitor_ref"]) if data["visitor_ref"] else None
+        errors = {}
+        if condo.kiosk_visitor_form:
+            if not name and returning is None:
+                errors["visitor_name"] = ["Please enter your name."]
+            if not data["purpose"]:
+                errors["purpose"] = ["Please choose the purpose of your visit."]
+        if condo.kiosk_photo_required and not data.get("snapshot"):
+            errors["snapshot"] = ["A photo is required at this site."]
+        collects = condo.kiosk_visitor_form or condo.kiosk_photo_required
+        if collects and not data["consent"]:
+            errors["consent"] = ["Please accept the privacy notice."]
+        if errors:
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Personal data is kept only with the visitor's consent (the kiosk shows the privacy notice).
+        consented = data["consent"]
+        visitor = identity.record_visit(self.kiosk, ref=data["visitor_ref"] if returning else "", name=name,
+                                        phone=phone, id_partial=id_partial, company=data["company"].strip(),
+                                        consent=True) if consented else None
+        if visitor is not None and visitor.is_blacklisted:
+            if self.kiosk.gate_id:
+                access.deny(self.kiosk.gate, m.AccessLog.Method.INTERCOM, reason="Blocked visitor tried to call a unit",
+                            unit=unit, visitor=visitor)
+            return Response({"detail": "Please see the guardhouse.", "blocked": True}, status=status.HTTP_403_FORBIDDEN)
+        try:
             livekit.ensure_configured()  # Fail before ringing anyone.
-            call = intercom.start(self.kiosk, unit, body.validated_data["visitor_name"],
-                                  body.validated_data.get("snapshot"))
+            call = intercom.start(self.kiosk, unit, name or (visitor.full_name if visitor else ""),
+                                  data.get("snapshot") if consented else None, visitor=visitor,
+                                  purpose=data["purpose"], company=data["company"].strip())
             connection = livekit.connection_info(call.room_name, f"kiosk-{self.kiosk.pk}", self.kiosk.name)
         except livekit.LiveKitNotConfigured:
             return Response({"detail": "Video intercom is not configured on the server."},
@@ -151,3 +193,30 @@ class QrCheckInView(KioskView):
         if invitation is not None:
             invitation.refresh_from_db()
         return Response({"result": log.result, "reason": log.reason, "invitation": _pass(invitation)})
+
+
+class VisitorLookupView(KioskView):
+    throttle_classes = [KioskCheckInThrottle]
+
+    @extend_schema(request=s.VisitorLookupSerializer, responses=s.VisitorLookupResultSerializer)
+    def post(self, request):
+        """Find a returning visitor by mobile number or last 4 of NRIC/FIN. Only a masked name is returned."""
+        body = s.VisitorLookupSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        try:
+            phone = identity.normalize_phone(body.validated_data["phone"])
+            id_partial = identity.normalize_id_partial(body.validated_data["id_partial"])
+        except identity.InvalidIdentity as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        visitor = identity.find_returning(self.kiosk.condominium_id, phone, id_partial)
+        if visitor is None:
+            return Response({"found": False, "blocked": False, "ref": "", "masked_name": "", "company": "", "purpose": ""})
+        last_call = visitor.calls.exclude(visitor_purpose="").order_by("-created_at").first()
+        return Response({
+            "found": True,
+            "blocked": visitor.is_blacklisted,
+            "ref": "" if visitor.is_blacklisted else identity.make_ref(self.kiosk, visitor),
+            "masked_name": identity.mask_name(visitor.full_name),
+            "company": visitor.company,
+            "purpose": last_call.visitor_purpose if last_call else "",
+        })

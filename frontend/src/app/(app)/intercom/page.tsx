@@ -8,7 +8,7 @@ import { SwipeToUnlock } from "@/components/SwipeToUnlock";
 import { VideoCall } from "@/components/VideoCall";
 import { Button, Card, CardHeader, Empty, Loading, PageHeader, Pagination, Table, Td, Th, useToast } from "@/components/ui";
 import { api, ApiError, query } from "@/lib/api";
-import { formatDateTime, formatTime } from "@/lib/format";
+import { formatDateTime, formatTime, visitPurpose } from "@/lib/format";
 import { useLiveEvents } from "@/lib/live";
 import { useSession } from "@/lib/session";
 import type { IntercomCall, LiveKitConnection, Page } from "@/lib/types";
@@ -75,9 +75,10 @@ function ActiveCall({ call, connection, onAnswered, onDone }: {
       <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
         <div>
           <div className="text-base font-semibold text-ink">{call.unit_display}</div>
-          <div className="text-sm text-muted">
-            {call.kiosk_name || "Kiosk"} · {call.visitor_name || "Visitor"} · {elapsed}
-          </div>
+          <div className="text-sm text-muted">{call.kiosk_name || "Kiosk"} · {elapsed}</div>
+          <div className="mt-1 text-sm font-medium text-ink">{call.visitor_name || "Visitor"}</div>
+          {visitPurpose(call.visitor_purpose, call.visitor_company) && <div className="text-sm text-body">{visitPurpose(call.visitor_purpose, call.visitor_company)}</div>}
+          {call.visitor_phone && <div className="text-sm text-muted">{call.visitor_phone}</div>}
         </div>
         <CallStatusBadge status={call.status} />
       </div>
@@ -165,7 +166,7 @@ export default function IntercomPage() {
         ) : (
           <Table>
             <thead>
-              <tr><Th>Started</Th><Th>Unit</Th><Th>Kiosk</Th><Th>Visitor</Th><Th>Status</Th><Th>Answered</Th><Th>Decided</Th></tr>
+              <tr><Th>Started</Th><Th>Unit</Th><Th>Kiosk</Th><Th>Visitor</Th><Th>Purpose</Th><Th>Status</Th><Th>Answered</Th><Th>Decided</Th></tr>
             </thead>
             <tbody className="divide-y divide-line">
               {history.data.results.map((call) => (
@@ -174,6 +175,7 @@ export default function IntercomPage() {
                   <Td className="whitespace-nowrap">{call.unit_display}</Td>
                   <Td>{call.kiosk_name || "—"}</Td>
                   <Td>{call.visitor_name || "—"}</Td>
+                  <Td>{visitPurpose(call.visitor_purpose, call.visitor_company) || "—"}</Td>
                   <Td><CallStatusBadge status={call.status} /></Td>
                   <Td className="tabular-nums">{call.answered_at ? formatTime(call.answered_at) : "—"}</Td>
                   <Td className="tabular-nums">{call.decided_at ? formatTime(call.decided_at) : "—"}</Td>

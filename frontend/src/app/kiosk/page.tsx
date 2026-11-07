@@ -7,7 +7,10 @@ import { Room, RoomEvent, Track, type RemoteTrack } from "livekit-client";
 
 import { ApiError, wsUrl } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
-import { type CheckInResult, type DirectoryUnit, kioskApi, type KioskSelf, kioskToken, type VisitorPass } from "@/lib/kiosk";
+import {
+  type CheckInResult, type DirectoryUnit, kioskApi, type KioskSelf, kioskToken, PURPOSES, type VisitorDetails, type VisitorLookup,
+  type VisitorPass,
+} from "@/lib/kiosk";
 import type { IntercomCall, LiveKitConnection } from "@/lib/types";
 
 type Outcome = { tone: "good" | "bad" | "info"; title: string; detail?: string };
@@ -15,7 +18,10 @@ type Screen =
   | { name: "setup" }
   | { name: "home" }
   | { name: "directory" }
-  | { name: "calling"; unit: DirectoryUnit }
+  | { name: "identify"; unit: DirectoryUnit }
+  | { name: "details"; unit: DirectoryUnit; details: VisitorDetails }
+  | { name: "photo"; unit: DirectoryUnit; details: VisitorDetails }
+  | { name: "calling"; unit: DirectoryUnit; details: VisitorDetails }
   | { name: "scan" }
   | { name: "face"; code: string; pass: VisitorPass }
   | { name: "result"; outcome: Outcome };
@@ -213,9 +219,8 @@ function Home({ kiosk, onCall, onScan, onAdmin }: { kiosk: KioskSelf; onCall: ()
   );
 }
 
-function Directory({ kiosk, onPick, onBack }: { kiosk: KioskSelf; onPick: (unit: DirectoryUnit, visitor: string) => void; onBack: () => void }) {
+function Directory({ kiosk, onPick, onBack }: { kiosk: KioskSelf; onPick: (unit: DirectoryUnit) => void; onBack: () => void }) {
   const [q, setQ] = useState("");
-  const [visitor, setVisitor] = useState("");
   const [units, setUnits] = useState<DirectoryUnit[] | null>(null);
   useEffect(() => {
     const id = setTimeout(() => {
@@ -227,17 +232,15 @@ function Directory({ kiosk, onPick, onBack }: { kiosk: KioskSelf; onPick: (unit:
     <Frame kiosk={kiosk} onBack={onBack}>
       <div className="w-full max-w-4xl">
         <h1 className="text-3xl font-semibold">Which unit are you visiting?</h1>
-        <div className="mt-6 grid gap-4 sm:grid-cols-[2fr_1fr]">
+        <div className="mt-6">
           <input value={q} onChange={(e) => setQ(e.target.value)} autoFocus inputMode="text" placeholder="Unit number, e.g. 05-12"
-            className="rounded-2xl border border-white/20 bg-navy-950/60 px-5 py-4 text-2xl text-white placeholder:text-slate-500 focus:border-primary-400 focus:outline-none" />
-          <input value={visitor} onChange={(e) => setVisitor(e.target.value)} placeholder="Your name (optional)" maxLength={150}
-            className="rounded-2xl border border-white/20 bg-navy-950/60 px-5 py-4 text-xl text-white placeholder:text-slate-500 focus:border-primary-400 focus:outline-none" />
+            className={INPUT} />
         </div>
         <div className="mt-6 grid max-h-[50vh] grid-cols-2 gap-3 overflow-y-auto sm:grid-cols-4">
           {units === null ? <p className="col-span-full text-slate-400">Loading…</p>
             : units.length === 0 ? <p className="col-span-full text-slate-400">No unit found. Check the number, or call the guardhouse.</p>
             : units.map((u) => (
-              <button key={u.id} onClick={() => onPick(u, visitor.trim())} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-5 text-left hover:border-primary-400/60 hover:bg-white/10">
+              <button key={u.id} onClick={() => onPick(u)} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-5 text-left hover:border-primary-400/60 hover:bg-white/10">
                 <div className="text-sm text-slate-400">{u.block || "Unit"}</div>
                 <div className="text-2xl font-semibold">{u.label}</div>
               </button>
@@ -248,11 +251,10 @@ function Directory({ kiosk, onPick, onBack }: { kiosk: KioskSelf; onPick: (unit:
   );
 }
 
-function Calling({ kiosk, unit, visitor, onDone }: { kiosk: KioskSelf; unit: DirectoryUnit; visitor: string; onDone: (o: Outcome) => void }) {
+function Calling({ kiosk, unit, details, onDone }: { kiosk: KioskSelf; unit: DirectoryUnit; details: VisitorDetails; onDone: (o: Outcome) => void }) {
   const remote = useRef<HTMLVideoElement>(null);
   const self = useRef<HTMLVideoElement>(null);
   const audio = useRef<HTMLDivElement>(null);
-  const preview = useCamera(true);
   const [call, setCall] = useState<IntercomCall | null>(null);
   const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
   const [seconds, setSeconds] = useState(kiosk.ring_timeout_seconds);
@@ -268,26 +270,30 @@ function Calling({ kiosk, unit, visitor, onDone }: { kiosk: KioskSelf; unit: Dir
     done.current(outcome);
   }, []);
 
-  // Start: snapshot from the preview camera, ring the unit, then join the LiveKit room.
+  // Ring the unit with the visitor's details, then join the LiveKit room.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      await new Promise((r) => setTimeout(r, 900)); // let the camera settle for a usable snapshot
-      const photo = await snapshot(preview.video.current);
       const form = new FormData();
       form.set("unit", String(unit.id));
-      form.set("visitor_name", visitor);
-      if (photo) form.set("snapshot", photo, "visitor.jpg");
+      form.set("visitor_ref", details.ref);
+      form.set("visitor_name", details.name);
+      form.set("visitor_phone", details.phone);
+      form.set("visitor_id_partial", details.idPartial);
+      form.set("purpose", details.purpose);
+      form.set("company", details.company);
+      form.set("consent", details.consent ? "true" : "false");
+      if (details.photo) form.set("snapshot", details.photo, "visitor.jpg");
       let started: { call: IntercomCall; livekit: LiveKitConnection };
       try {
         started = await kioskApi("/v1/kiosk/calls/", { method: "POST", body: form });
       } catch (err) {
+        if (err instanceof ApiError && err.status === 403) return finish({ tone: "bad", title: "Please see the guardhouse", detail: "The security team will help you." });
         const msg = err instanceof ApiError && err.status === 503 ? "Video intercom is not available right now." : (err as Error).message;
         return finish({ tone: "bad", title: "Could not place the call", detail: msg });
       }
       if (cancelled) return;
       setCall(started.call);
-      (preview.video.current?.srcObject as MediaStream | null)?.getTracks().forEach((t) => t.stop());
       const r = new Room({ adaptiveStream: true, dynacast: true });
       room.current = r;
       r.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
@@ -368,7 +374,6 @@ function Calling({ kiosk, unit, visitor, onDone }: { kiosk: KioskSelf; unit: Dir
               <span className="text-slate-300">{answered ? "Connected. The resident can see and hear you." : "Ringing…"}</span>
             </div>
           )}
-          <video ref={preview.video} autoPlay playsInline muted className={call ? "hidden" : "absolute right-4 top-4 h-24 rounded-xl border border-white/20 object-cover"} />
           <video ref={self} autoPlay playsInline muted className={call ? "absolute right-4 top-4 h-24 rounded-xl border border-white/20 object-cover" : "hidden"} />
           <div ref={audio} hidden />
         </div>
@@ -378,6 +383,177 @@ function Calling({ kiosk, unit, visitor, onDone }: { kiosk: KioskSelf; unit: Dir
           <div className="mt-1 text-xl text-slate-300">{unit.block}</div>
           {!answered && <div className="mt-6 text-slate-400">Waiting for an answer · {seconds}s</div>}
           <div className="mt-10"><BigButton tone="danger" onClick={hangUp}>End call</BigButton></div>
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
+const INPUT = "w-full rounded-2xl border border-white/20 bg-navy-950/60 px-5 py-4 text-2xl text-white placeholder:text-slate-500 focus:border-primary-400 focus:outline-none";
+const ID_PARTIAL = /^\d{3}[A-Za-z]$/;
+
+const emptyDetails = (): VisitorDetails => ({ ref: "", maskedName: "", name: "", phone: "", idPartial: "", purpose: "", company: "", consent: false, photo: null });
+
+/** "Been here before?" Mobile number or the last 4 characters of NRIC/FIN; only a masked name comes back. */
+function Identify({ kiosk, onFound, onNew, onBlocked, onBack }: {
+  kiosk: KioskSelf;
+  onFound: (d: VisitorDetails) => void;
+  onNew: (d: VisitorDetails) => void;
+  onBlocked: () => void;
+  onBack: () => void;
+}) {
+  const [value, setValue] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [match, setMatch] = useState<{ lookup: VisitorLookup; details: VisitorDetails } | null>(null);
+
+  async function find() {
+    const v = value.trim();
+    const details = { ...emptyDetails(), ...(ID_PARTIAL.test(v) ? { idPartial: v.toUpperCase() } : { phone: v }) };
+    setBusy(true);
+    setError("");
+    try {
+      const lookup = await kioskApi<VisitorLookup>("/v1/kiosk/visitors/lookup/", {
+        method: "POST", body: ID_PARTIAL.test(v) ? { id_partial: v } : { phone: v },
+      });
+      if (lookup.blocked) return onBlocked();
+      if (!lookup.found) return onNew(details);
+      setMatch({ lookup, details: { ...details, ref: lookup.ref, maskedName: lookup.masked_name, company: lookup.company, purpose: lookup.purpose } });
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (match) {
+    return (
+      <Frame kiosk={kiosk} onBack={() => setMatch(null)}>
+        <h1 className="text-center text-4xl font-semibold">Welcome back</h1>
+        <p className="mt-4 text-center text-3xl tracking-wide text-primary-200">{match.lookup.masked_name}</p>
+        <p className="mt-3 text-center text-lg text-slate-300">Is this you?</p>
+        <div className="mt-10 flex flex-wrap justify-center gap-4">
+          <BigButton tone="ghost" onClick={() => onNew({ ...emptyDetails(), phone: match.details.phone, idPartial: match.details.idPartial })}>No, it&apos;s not me</BigButton>
+          <BigButton onClick={() => onFound(match.details)}>Yes, continue</BigButton>
+        </div>
+      </Frame>
+    );
+  }
+  return (
+    <Frame kiosk={kiosk} onBack={onBack}>
+      <div className="w-full max-w-2xl">
+        <h1 className="text-3xl font-semibold">Been here before?</h1>
+        <p className="mt-2 text-lg text-slate-300">Enter your mobile number or the last 4 characters of your NRIC/FIN to skip the form.</p>
+        <input value={value} onChange={(e) => setValue(e.target.value)} autoFocus inputMode="text" placeholder="9123 4567 or 567A"
+          onKeyDown={(e) => e.key === "Enter" && value.trim() && find()} className={`${INPUT} mt-6`} />
+        {error && <p className="mt-3 text-rose-300">{error}</p>}
+        <div className="mt-8 flex flex-wrap gap-4">
+          <BigButton onClick={find} disabled={busy || !value.trim()}>{busy ? "Checking…" : "Continue"}</BigButton>
+          <BigButton tone="ghost" onClick={() => onNew(emptyDetails())}>First time here</BigButton>
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
+function Notice({ kiosk }: { kiosk: KioskSelf }) {
+  return (
+    <div className="max-h-40 overflow-y-auto rounded-2xl border border-white/10 bg-white/5 p-4 text-sm leading-relaxed text-slate-300">
+      <div className="mb-1 font-semibold text-white">How we use your data</div>
+      {kiosk.privacy_notice}
+    </div>
+  );
+}
+
+/** Name, purpose and (optionally) contact details. Consent is asked here when no photo step follows. */
+function Details({ kiosk, unit, initial, onNext, onBack }: {
+  kiosk: KioskSelf; unit: DirectoryUnit; initial: VisitorDetails; onNext: (d: VisitorDetails) => void; onBack: () => void;
+}) {
+  const [d, setD] = useState(initial);
+  const set = (patch: Partial<VisitorDetails>) => setD((cur) => ({ ...cur, ...patch }));
+  const purpose = PURPOSES.find((p) => p.value === d.purpose);
+  const finalStep = !kiosk.photo_required;
+  const ready = (d.ref || d.name.trim()) && d.purpose;
+  return (
+    <Frame kiosk={kiosk} onBack={onBack}>
+      <div className="w-full max-w-4xl">
+        <h1 className="text-3xl font-semibold">{d.ref ? `Hi ${d.maskedName}` : "Tell the resident who you are"}</h1>
+        <p className="mt-1 text-lg text-slate-300">Visiting {unit.label}{unit.block ? `, ${unit.block}` : ""}</p>
+        {!d.ref && (
+          <input value={d.name} onChange={(e) => set({ name: e.target.value })} autoFocus placeholder="Your name" maxLength={150} className={`${INPUT} mt-6`} />
+        )}
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {PURPOSES.map((p) => (
+            <button key={p.value} onClick={() => set({ purpose: p.value })}
+              className={`rounded-2xl border px-4 py-4 text-left text-lg font-medium transition ${d.purpose === p.value ? "border-primary-400 bg-primary-500/25 text-white" : "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"}`}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        {purpose?.company && (
+          <input value={d.company} onChange={(e) => set({ company: e.target.value })} placeholder={purpose.company} maxLength={100} className={`${INPUT} mt-4 text-xl`} />
+        )}
+        {!d.ref && (
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <input value={d.phone} onChange={(e) => set({ phone: e.target.value })} inputMode="tel" placeholder="Mobile (optional)" className={`${INPUT} text-xl`} />
+            <input value={d.idPartial} onChange={(e) => set({ idPartial: e.target.value.toUpperCase().slice(0, 4) })} placeholder="Last 4 of NRIC/FIN (optional)" className={`${INPUT} text-xl`} />
+            <p className="text-sm text-slate-400 sm:col-span-2">Optional: lets you skip this form on your next visit. Only the last 4 characters of your NRIC/FIN are kept.</p>
+          </div>
+        )}
+        {finalStep && <div className="mt-6"><Notice kiosk={kiosk} /></div>}
+        <div className="mt-8">
+          <BigButton onClick={() => onNext({ ...d, name: d.name.trim(), company: purpose?.company ? d.company.trim() : "", consent: finalStep || d.consent })} disabled={!ready}>
+            {finalStep ? "Agree & call" : "Next: photo"}
+          </BigButton>
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
+/** Explicit photo with preview and retake, then the privacy notice and consent. */
+function PhotoConsent({ kiosk, onNext, onBack }: { kiosk: KioskSelf; onNext: (photo: Blob) => void; onBack: () => void }) {
+  const [photo, setPhoto] = useState<{ blob: Blob; url: string } | null>(null);
+  const { video, error } = useCamera(!photo);
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => () => { if (photo) URL.revokeObjectURL(photo.url); }, [photo]);
+  useEffect(() => {
+    if (count === null) return;
+    if (count === 0) {
+      snapshot(video.current).then((b) => b && setPhoto({ blob: b, url: URL.createObjectURL(b) }));
+      setCount(null);
+      return;
+    }
+    const id = setTimeout(() => setCount(count - 1), 1000);
+    return () => clearTimeout(id);
+  }, [count, video]);
+  return (
+    <Frame kiosk={kiosk} onBack={onBack}>
+      <div className="grid w-full max-w-5xl items-start gap-8 lg:grid-cols-[1.2fr_1fr]">
+        <div className="relative aspect-[4/3] overflow-hidden rounded-3xl border border-white/10 bg-navy-950">
+          {photo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={photo.url} alt="Your photo" className="h-full w-full scale-x-[-1] object-cover" />
+          ) : (
+            <video ref={video} autoPlay playsInline muted className="h-full w-full scale-x-[-1] object-cover" />
+          )}
+          {count !== null && count > 0 && <div className="absolute inset-0 flex items-center justify-center text-8xl font-bold">{count}</div>}
+          {error && <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-rose-300">{error}</div>}
+        </div>
+        <div>
+          <h1 className="text-3xl font-semibold">{photo ? "Happy with this photo?" : "A quick photo please"}</h1>
+          <p className="mt-2 text-lg text-slate-300">The resident sees it before answering.</p>
+          <div className="mt-6"><Notice kiosk={kiosk} /></div>
+          <div className="mt-8 flex flex-wrap gap-4">
+            {photo ? (
+              <>
+                <BigButton tone="ghost" onClick={() => setPhoto(null)}>Retake</BigButton>
+                <BigButton onClick={() => onNext(photo.blob)}>Agree &amp; call</BigButton>
+              </>
+            ) : (
+              <BigButton onClick={() => setCount(3)} disabled={count !== null || !!error}>Take photo</BigButton>
+            )}
+          </div>
         </div>
       </div>
     </Frame>
@@ -451,7 +627,6 @@ function Result({ kiosk, outcome, onDone }: { kiosk: KioskSelf; outcome: Outcome
 export default function KioskPage() {
   const [kiosk, setKiosk] = useState<KioskSelf | null>(null);
   const [screen, setScreen] = useState<Screen>({ name: "home" });
-  const [visitor, setVisitor] = useState("");
   const [booted, setBooted] = useState(false);
   const home = useCallback(() => setScreen({ name: "home" }), []);
 
@@ -524,9 +699,24 @@ export default function KioskPage() {
           onAdmin={() => { if (window.confirm("Sign this kiosk out?")) { kioskToken.clear(); setKiosk(null); setScreen({ name: "setup" }); } }} />
       );
     case "directory":
-      return <Directory kiosk={kiosk} onBack={home} onPick={(unit, name) => { setVisitor(name); setScreen({ name: "calling", unit }); }} />;
+      return <Directory kiosk={kiosk} onBack={home} onPick={(unit) => {
+        if (kiosk.visitor_form) setScreen({ name: "identify", unit });
+        else if (kiosk.photo_required) setScreen({ name: "photo", unit, details: { ...emptyDetails(), consent: true } });
+        else setScreen({ name: "calling", unit, details: emptyDetails() });
+      }} />;
+    case "identify":
+      return <Identify kiosk={kiosk} onBack={() => setScreen({ name: "directory" })}
+        onBlocked={() => setScreen({ name: "result", outcome: { tone: "bad", title: "Please see the guardhouse", detail: "The security team will help you." } })}
+        onFound={(details) => setScreen({ name: "details", unit: screen.unit, details })}
+        onNew={(details) => setScreen({ name: "details", unit: screen.unit, details })} />;
+    case "details":
+      return <Details kiosk={kiosk} unit={screen.unit} initial={screen.details} onBack={() => setScreen({ name: "identify", unit: screen.unit })}
+        onNext={(details) => setScreen(kiosk.photo_required ? { name: "photo", unit: screen.unit, details } : { name: "calling", unit: screen.unit, details })} />;
+    case "photo":
+      return <PhotoConsent kiosk={kiosk} onBack={() => setScreen(kiosk.visitor_form ? { name: "details", unit: screen.unit, details: screen.details } : { name: "directory" })}
+        onNext={(photo) => setScreen({ name: "calling", unit: screen.unit, details: { ...screen.details, photo, consent: true } })} />;
     case "calling":
-      return <Calling kiosk={kiosk} unit={screen.unit} visitor={visitor} onDone={(outcome) => setScreen({ name: "result", outcome })} />;
+      return <Calling kiosk={kiosk} unit={screen.unit} details={screen.details} onDone={(outcome) => setScreen({ name: "result", outcome })} />;
     case "scan":
       return <Scan kiosk={kiosk} onBack={home} onCode={(code) => checkIn(code)} />;
     case "face":

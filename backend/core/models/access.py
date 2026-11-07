@@ -6,7 +6,7 @@ from .base import TimeStampedModel
 from .devices import AccessGate, Kiosk, LprCamera, RelayController
 from .tenancy import Condominium, Unit
 from .vehicles import Vehicle
-from .visitors import Invitation, Visitor
+from .visitors import Invitation, Visitor, VisitPurpose
 
 
 class IntercomCall(TimeStampedModel):
@@ -26,7 +26,10 @@ class IntercomCall(TimeStampedModel):
     gate = models.ForeignKey(AccessGate, on_delete=models.SET_NULL, null=True, blank=True, related_name="calls")
     room_name = models.CharField(max_length=100, unique=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.RINGING)
+    visitor = models.ForeignKey(Visitor, on_delete=models.SET_NULL, null=True, blank=True, related_name="calls")
     visitor_name = models.CharField(max_length=150, blank=True)
+    visitor_purpose = models.CharField(max_length=20, choices=VisitPurpose.choices, blank=True)
+    visitor_company = models.CharField(max_length=100, blank=True)
     visitor_snapshot = models.ImageField(upload_to="intercom/%Y/%m/", blank=True)
     answered_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"

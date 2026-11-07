@@ -73,9 +73,21 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
             const SizedBox(height: 12),
             const Text('Visitor at the gate', style: TextStyle(color: Color(0xFF94A3B8), letterSpacing: 1)),
             const SizedBox(height: 6),
-            Text(call.kioskName, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w600)),
-            Text(call.visitorName.isEmpty ? call.unitDisplay : '${call.visitorName} · ${call.unitDisplay}',
-                style: const TextStyle(color: Colors.white70, fontSize: 16)),
+            Text(call.visitorName.isEmpty ? 'Visitor' : call.visitorName,
+                textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w600)),
+            if (call.purposeLine.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(color: brandBlue.withValues(alpha: 0.25), borderRadius: BorderRadius.circular(20)),
+                  child: Text(call.purposeLine, style: const TextStyle(color: Colors.white, fontSize: 15)),
+                ),
+              ),
+            const SizedBox(height: 6),
+            Text('${call.kioskName} · ${call.unitDisplay}', style: const TextStyle(color: Colors.white70, fontSize: 15)),
+            if (call.visitorPhone.isNotEmpty)
+              Text(call.visitorPhone, style: const TextStyle(color: Colors.white54, fontSize: 14)),
             const SizedBox(height: 24),
             Expanded(
               child: ClipRRect(

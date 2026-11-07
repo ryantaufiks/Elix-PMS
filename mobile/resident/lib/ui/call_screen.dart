@@ -128,8 +128,14 @@ class _CallScreenState extends State<CallScreen> {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(children: [
-              Text(_call?.kioskName ?? 'Visitor', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w600)),
-              Text(_call == null ? _state : '${_call!.unitDisplay} · $_state', style: const TextStyle(color: Colors.white60)),
+              Text(_call == null || _call!.visitorName.isEmpty ? (_call?.kioskName ?? 'Visitor') : _call!.visitorName,
+                  style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w600)),
+              Text(
+                  _call == null
+                      ? _state
+                      : [if (_call!.purposeLine.isNotEmpty) _call!.purposeLine, _call!.kioskName, _state].join(' · '),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white60)),
               const SizedBox(height: 16),
               Expanded(
                 child: ClipRRect(

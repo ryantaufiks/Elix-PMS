@@ -15,6 +15,15 @@ from .devices import AccessGate
 from .tenancy import Condominium, Unit
 
 
+class VisitPurpose(models.TextChoices):
+    GUEST = "guest", "Guest"
+    DELIVERY = "delivery", "Parcel delivery"
+    FOOD = "food", "Food delivery"
+    CONTRACTOR = "contractor", "Contractor"
+    PICKUP = "pickup", "Pick-up / drop-off"
+    OTHER = "other", "Other"
+
+
 class Visitor(TimeStampedModel):
     """A person who has visited (or is expected at) a condominium.
 
@@ -31,6 +40,7 @@ class Visitor(TimeStampedModel):
     company = models.CharField(max_length=100, blank=True)
     face_photo = models.ImageField(upload_to="visitors/faces/%Y/%m/", blank=True)
     face_consent_at = models.DateTimeField(null=True, blank=True)
+    last_visit_at = models.DateTimeField(null=True, blank=True, help_text="Used for the PDPA retention period.")
     is_blacklisted = models.BooleanField(default=False)
     blacklist_reason = models.CharField(max_length=255, blank=True)
     created_by = models.ForeignKey(

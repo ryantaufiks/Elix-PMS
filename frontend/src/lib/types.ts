@@ -45,6 +45,23 @@ export type Condominium = {
   intercom_ring_timeout_seconds: number;
   face_verification_enabled: boolean;
   visitor_data_retention_days: number;
+  kiosk_visitor_form: boolean;
+  kiosk_photo_required: boolean;
+  visitor_privacy_notice: string;
+};
+
+export type Visitor = {
+  id: number;
+  condominium: number;
+  full_name: string;
+  phone: string;
+  id_partial: string;
+  company: string;
+  face_consent_at: string | null;
+  last_visit_at: string | null;
+  is_blacklisted: boolean;
+  blacklist_reason: string;
+  created_at: string;
 };
 
 export type Block = { id: number; condominium: number; name: string };
@@ -147,6 +164,9 @@ export type IntercomCall = {
   status: CallStatus;
   is_open: boolean;
   visitor_name: string;
+  visitor_purpose: string;
+  visitor_company: string;
+  visitor_phone: string;
   has_snapshot: boolean;
   answered_by: number | null;
   answered_at: string | null;

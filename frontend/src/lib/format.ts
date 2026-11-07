@@ -47,6 +47,16 @@ export const PURPOSE_LABEL: Record<string, string> = {
   guest: "Guest", delivery: "Delivery", contractor: "Contractor", pickup: "Pick-up / drop-off", other: "Other",
 };
 
+/** Purpose a visitor chose at the kiosk (intercom calls). */
+export const VISIT_PURPOSE_LABEL: Record<string, string> = {
+  guest: "Guest", delivery: "Parcel delivery", food: "Food delivery", contractor: "Contractor",
+  pickup: "Pick-up / drop-off", other: "Other",
+};
+
+/** "Parcel delivery · Ninja Van" */
+export const visitPurpose = (purpose?: string, company?: string) =>
+  [purpose ? VISIT_PURPOSE_LABEL[purpose] ?? purpose : "", company ?? ""].filter(Boolean).join(" · ");
+
 export const RESIDENT_TYPE_LABEL: Record<string, string> = {
   owner: "Owner", tenant: "Tenant", family: "Family", helper: "Helper",
 };

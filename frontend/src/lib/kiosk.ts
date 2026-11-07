@@ -47,7 +47,34 @@ export type KioskSelf = {
   gate: number | null;
   gate_name: string;
   ring_timeout_seconds: number;
+  visitor_form: boolean;
+  photo_required: boolean;
+  privacy_notice: string;
 };
+
+export type VisitorLookup = { found: boolean; blocked: boolean; ref: string; masked_name: string; company: string; purpose: string };
+
+/** What the visitor told the kiosk before ringing a unit. */
+export type VisitorDetails = {
+  ref: string;
+  maskedName: string;
+  name: string;
+  phone: string;
+  idPartial: string;
+  purpose: string;
+  company: string;
+  consent: boolean;
+  photo: Blob | null;
+};
+
+export const PURPOSES: { value: string; label: string; company?: string }[] = [
+  { value: "guest", label: "Visiting a resident" },
+  { value: "delivery", label: "Parcel delivery", company: "Courier company, e.g. Ninja Van" },
+  { value: "food", label: "Food delivery", company: "e.g. GrabFood, foodpanda, Deliveroo" },
+  { value: "contractor", label: "Contractor / service", company: "Company name" },
+  { value: "pickup", label: "Pick-up / drop-off", company: "e.g. Grab, Gojek, taxi" },
+  { value: "other", label: "Other" },
+];
 
 export type DirectoryUnit = { id: number; block: string; floor: string; unit_number: string; label: string };
 
@@ -66,6 +93,7 @@ export type VisitorPass = {
   entries_left: number | null;
   usable: boolean;
   problem: string;
+  privacy_notice: string;
 };
 
 export type CheckInResult = { result: "granted" | "denied" | "face_required"; reason: string; invitation: VisitorPass | null };

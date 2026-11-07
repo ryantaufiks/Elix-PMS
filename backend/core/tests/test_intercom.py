@@ -32,7 +32,10 @@ def jpeg():
 class IntercomFlowTests(APITestCase):
     def setUp(self):
         cache.clear()
-        self.condo = make_condo("alpha", intercom_ring_timeout_seconds=30)
+        # Visitor details and photo are covered in test_visitor_privacy; this suite tests the call flow.
+        self.condo = make_condo("alpha", intercom_ring_timeout_seconds=30, kiosk_visitor_form=False,
+                                kiosk_photo_required=False)
+        # (A photo is still kept when the kiosk sends one with the visitor's consent; see ring().)
         self.unit, self.empty_unit = make_unit(self.condo, "05", "12"), make_unit(self.condo, "09", "01")
         self.gate = m.AccessGate.objects.create(condominium=self.condo, name="Lobby", gate_type="pedestrian")
         self.kiosk = m.Kiosk(condominium=self.condo, gate=self.gate, name="Lobby kiosk")
@@ -55,8 +58,8 @@ class IntercomFlowTests(APITestCase):
         return response
 
     def ring(self, **data):
-        response = self.kiosk_post("/v1/kiosk/calls/", {"unit": self.unit.id, "visitor_name": "Grab driver", **data},
-                                   format="multipart")
+        response = self.kiosk_post("/v1/kiosk/calls/", {"unit": self.unit.id, "visitor_name": "Grab driver",
+                                                        "consent": "true", **data}, format="multipart")
         self.assertEqual(response.status_code, 201, response.data)
         return response
 
@@ -192,14 +195,8 @@ class IntercomFlowTests(APITestCase):
     @override_settings(REST_FRAMEWORK={**__import__("django.conf").conf.settings.REST_FRAMEWORK,
                                        "DEFAULT_THROTTLE_RATES": {"kiosk_call": "2/min"}})
     def test_kiosk_call_rate_limit(self, *mocks):
-        from rest_framework.settings import api_settings
-        from core.kiosk_views import KioskCallThrottle
-        KioskCallThrottle.THROTTLE_RATES = api_settings.DEFAULT_THROTTLE_RATES
-        try:
-            self.ring(); self.ring()
-            self.assertEqual(self.kiosk_post("/v1/kiosk/calls/", {"unit": self.unit.id}).status_code, 429)
-        finally:
-            KioskCallThrottle.THROTTLE_RATES = api_settings.user_settings.get("DEFAULT_THROTTLE_RATES", {})
+        self.ring(); self.ring()
+        self.assertEqual(self.kiosk_post("/v1/kiosk/calls/", {"unit": self.unit.id}).status_code, 429)
 
 
 class PushTests(APITestCase):

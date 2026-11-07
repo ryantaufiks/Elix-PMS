@@ -79,12 +79,15 @@ def push_incoming_call(call_id: int) -> int:
     users = intercom.recipients(call.unit).values_list("user_id", flat=True)
     devices = PushDevice.objects.filter(user_id__in=list(users))
     where = call.kiosk.name if call.kiosk else call.condominium.name
+    purpose = call.get_visitor_purpose_display() if call.visitor_purpose else ""
+    who = " · ".join(p for p in (purpose, call.visitor_company) if p)
     return push.send(
         devices,
         data={"type": "intercom_call", "call_id": call.pk, "unit": str(call.unit), "kiosk": where,
-              "visitor": call.visitor_name, "timeout": call.condominium.intercom_ring_timeout_seconds},
+              "visitor": call.visitor_name, "purpose": purpose, "company": call.visitor_company,
+              "timeout": call.condominium.intercom_ring_timeout_seconds},
         title=f"Visitor at {where}",
-        body=call.visitor_name or "Someone is calling your unit",
+        body=": ".join(p for p in (who, call.visitor_name) if p) or "Someone is calling your unit",
         ttl_seconds=call.condominium.intercom_ring_timeout_seconds,
     )
 
@@ -99,3 +102,13 @@ def push_call_ended(call_id: int) -> int:
     devices = PushDevice.objects.filter(user_id__in=list(users))
     return push.send(devices, data={"type": "intercom_call_ended", "call_id": call.pk, "status": call.status},
                      title="", body="", ttl_seconds=60)
+
+
+@shared_task
+def purge_visitor_data() -> dict:
+    """PDPA retention: daily purge of visitor personal data past each site's retention period."""
+    from . import privacy
+
+    results = privacy.purge_all()
+    logger.info("Visitor data purge: %s", results)
+    return results

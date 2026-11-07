@@ -76,6 +76,12 @@ export default function VisitorPassPage() {
             </>
           )}
         </div>
+        {pass?.privacy_notice && (
+          <details className="mt-4 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-body">
+            <summary className="cursor-pointer font-medium text-ink">How your data is used</summary>
+            <p className="mt-2 leading-relaxed">{pass.privacy_notice}</p>
+          </details>
+        )}
         <p className="mt-6 text-center text-xs text-muted">Keep this link private: anyone with it can use your invitation.</p>
       </main>
     </div>

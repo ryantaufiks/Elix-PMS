@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 
 import { query } from "@/lib/api";
+import { visitPurpose } from "@/lib/format";
 import { useLiveEvents, useLiveStatus } from "@/lib/live";
 import { useSession } from "@/lib/session";
 import type { IntercomCall, Page } from "@/lib/types";
@@ -31,6 +32,7 @@ const NAV: { title: string; items: NavItem[] }[] = [
     title: "Community",
     items: [
       { href: "/residents/", label: "Residents", icon: "users" },
+      { href: "/visitors/", label: "Visitors", icon: "idcard" },
       { href: "/vehicles/", label: "Vehicles", icon: "car" },
       { href: "/staff/", label: "Staff", icon: "shield", admin: true },
     ],
@@ -243,7 +245,8 @@ function IncomingCalls() {
           {ringing.map((call) => (
             <div key={call.id}>
               <strong>{call.unit_display}</strong> is being called from {call.kiosk_name || "a kiosk"}
-              {call.visitor_name && <> · visitor {call.visitor_name}</>}
+              {call.visitor_name && <> · {call.visitor_name}</>}
+              {visitPurpose(call.visitor_purpose, call.visitor_company) && <> ({visitPurpose(call.visitor_purpose, call.visitor_company)})</>}
             </div>
           ))}
         </div>

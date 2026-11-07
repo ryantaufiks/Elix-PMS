@@ -71,9 +71,19 @@ class IntercomCall {
   String get unitDisplay => json['unit_display'] as String? ?? '';
   String get kioskName => json['kiosk_name'] as String? ?? '';
   String get visitorName => json['visitor_name'] as String? ?? '';
+  String get visitorPhone => json['visitor_phone'] as String? ?? '';
+  String get visitorCompany => json['visitor_company'] as String? ?? '';
+  String get visitorPurpose => visitPurposeLabel[json['visitor_purpose']] ?? '';
+
+  /// "Parcel delivery · Ninja Van"
+  String get purposeLine => [visitorPurpose, visitorCompany].where((s) => s.isNotEmpty).join(' · ');
   bool get hasSnapshot => json['has_snapshot'] as bool? ?? false;
   DateTime get createdAt => DateTime.parse(json['created_at'] as String).toLocal();
 }
 
 const methodLabel = {'lpr': 'Licence plate', 'qr': 'Invitation QR', 'intercom': 'Intercom', 'app': 'App', 'manual': 'Guardhouse'};
+const visitPurposeLabel = {
+  'guest': 'Guest', 'delivery': 'Parcel delivery', 'food': 'Food delivery', 'contractor': 'Contractor',
+  'pickup': 'Pick-up / drop-off', 'other': 'Other',
+};
 const purposeLabel = {'guest': 'Guest', 'delivery': 'Delivery', 'contractor': 'Contractor', 'pickup': 'Pick-up / drop-off', 'other': 'Other'};
