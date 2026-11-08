@@ -59,6 +59,25 @@ const NAV: { title: string; items: NavItem[] }[] = [
   },
 ];
 
+const COLLAPSED_KEY = "elix.sidebar-collapsed";
+
+/** Desktop sidebar shrunk to icons; remembered per browser. */
+function useCollapsed(): [boolean, () => void] {
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem(COLLAPSED_KEY) === "1");
+    } catch {}
+  }, []);
+  const toggle = () => setCollapsed((current) => {
+    try {
+      localStorage.setItem(COLLAPSED_KEY, current ? "0" : "1");
+    } catch {}
+    return !current;
+  });
+  return [collapsed, toggle];
+}
+
 function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") || "?";
 }
@@ -70,6 +89,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [theme, toggleTheme] = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
+  const [collapsed, toggleCollapsed] = useCollapsed();
   useEffect(() => {
     setMenuOpen(false);
     setUserOpen(false);
@@ -84,14 +104,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const name = [me.first_name, me.last_name].filter(Boolean).join(" ") || me.username;
   const roleLabel = me.is_superuser ? "Platform admin" : role === "admin" ? "Condo admin" : "Security";
 
-  const sidebar = (
+  /** `mini` is the collapsed desktop rail: icons only, labels as tooltips. */
+  const sidebar = (mini: boolean) => (
     <nav className="sidebar-bg flex h-full flex-col text-slate-300">
-      <div className="flex h-16 shrink-0 items-center px-6">
+      <div className={cx("flex h-16 shrink-0 items-center", mini ? "justify-center" : "px-6")}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/elix-logo.png" alt="Elix" className="h-7 w-auto drop-shadow-[0_0_12px_rgba(47,111,255,0.45)]" />
-        <span className="ml-2.5 mt-1 rounded border border-white/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">PMS</span>
+        <img src={mini ? "/brand/elix-icon-64.png" : "/brand/elix-logo.png"} alt="Elix" className="h-7 w-auto drop-shadow-[0_0_12px_rgba(47,111,255,0.45)]" />
+        {!mini && <span className="ml-2.5 mt-1 rounded border border-white/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">PMS</span>}
       </div>
-      <div className="mx-4 mb-2 rounded-lg border border-white/10 bg-white/5 p-1">
+      {!mini && <div className="mx-4 mb-2 rounded-lg border border-white/10 bg-white/5 p-1">
         {condos.length > 1 ? (
           <select
             value={condo.id}
@@ -104,11 +125,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
         ) : (
           <div className="truncate px-2 py-1.5 text-sm font-medium text-white">{condo.name}</div>
         )}
-      </div>
-      <div className="flex-1 overflow-y-auto px-3 py-3">
+      </div>}
+      <div className={cx("flex-1 overflow-y-auto py-3", mini ? "px-2" : "px-3")}>
         {groups.map((group) => (
           <div key={group.title} className="mb-5">
-            <div className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{group.title}</div>
+            {mini
+              ? <div className="mx-2 mb-2 border-t border-white/10" />
+              : <div className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{group.title}</div>}
             <ul className="space-y-0.5">
               {group.items.map((item) => {
                 const active = isActive(item.href);
@@ -117,14 +140,17 @@ export function Shell({ children }: { children: React.ReactNode }) {
                     <Link
                       href={item.href}
                       aria-current={active ? "page" : undefined}
+                      title={mini ? item.label : undefined}
+                      aria-label={mini ? item.label : undefined}
                       className={cx(
-                        "relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                        "relative flex items-center gap-3 rounded-md py-2 text-sm font-medium transition-colors",
+                        mini ? "justify-center px-0" : "px-3",
                         active ? "bg-primary-500/15 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white",
                       )}
                     >
                       {active && <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-r bg-primary-400 shadow-[0_0_10px_rgba(91,147,255,0.9)]" />}
                       <Icon name={item.icon} className={cx("h-[18px] w-[18px] shrink-0", active ? "text-primary-300" : "text-slate-500")} />
-                      {item.label}
+                      {!mini && item.label}
                     </Link>
                   </li>
                 );
@@ -133,22 +159,30 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </div>
         ))}
       </div>
-      <div className="border-t border-white/10 px-6 py-4 text-xs text-slate-500">
-        Elix PMS · Singapore
+      <div className={cx("flex items-center border-t border-white/10 py-3 text-xs text-slate-500", mini ? "justify-center" : "justify-between pl-6 pr-3")}>
+        {!mini && "Elix PMS · Singapore"}
+        <button
+          onClick={toggleCollapsed}
+          className="hidden rounded-md p-1.5 text-slate-400 hover:bg-white/5 hover:text-white lg:block"
+          aria-label={mini ? "Expand sidebar" : "Collapse sidebar"}
+          title={mini ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          <Icon name="chevron" className={cx("h-4 w-4 transition-transform", !mini && "rotate-180")} />
+        </button>
       </div>
     </nav>
   );
 
   return (
     <div className="min-h-screen bg-canvas">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 lg:block">{sidebar}</aside>
+      <aside className={cx("fixed inset-y-0 left-0 z-30 hidden transition-[width] lg:block", collapsed ? "w-[72px]" : "w-64")}>{sidebar(collapsed)}</aside>
       {menuOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-slate-950/50" onClick={() => setMenuOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-72 shadow-xl">{sidebar}</aside>
+          <aside className="absolute inset-y-0 left-0 w-72 shadow-xl">{sidebar(false)}</aside>
         </div>
       )}
-      <div className="lg:pl-64">
+      <div className={cx("transition-[padding]", collapsed ? "lg:pl-[72px]" : "lg:pl-64")}>
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line bg-surface/85 px-4 backdrop-blur sm:px-8">
           <button className="rounded-md p-1.5 text-muted hover:bg-surface-3 lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu">
             <Icon name="menu" />
