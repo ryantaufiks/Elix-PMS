@@ -54,6 +54,7 @@
   /* Chart roles (validated: dataviz validator, light surface #ffffff) */
   --series-1: #2a78d6;
   --series-2: #eb6834;
+  --series-3: #8e99ad;
   --grid: #e9ecf2;
   --axis: #c5ccd8;
 }
@@ -73,6 +74,7 @@
   /* Dark steps of the same hues (validated against #0f1a2e) */
   --series-1: #3987e5;
   --series-2: #d95926;
+  --series-3: #6d7c9b;
   --grid: #1c2a45;
   --axis: #2c3d61;
 }

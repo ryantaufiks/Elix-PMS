@@ -28,6 +28,7 @@ const NAV: { title: string; items: NavItem[] }[] = [
       { href: "/visits/", label: "Visitor list", icon: "clipboard" },
       { href: "/gates/", label: "Open gates", icon: "unlock" },
       { href: "/invitations/", label: "Invitations", icon: "ticket" },
+      { href: "/reports/", label: "Reports", icon: "report" },
     ],
   },
   {

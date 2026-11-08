@@ -128,7 +128,7 @@ export function ErrorNote({ error }: { error: unknown }) {
 const inputClass =
   "block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/15 disabled:bg-surface-2";
 
-export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
+export function Input(props: React.ComponentProps<"input">) {
   return <input {...props} className={cx(inputClass, props.className)} />;
 }
 

@@ -1,0 +1,318 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import useSWR from "swr";
+
+import { BarList, DailyChart } from "@/components/charts";
+import { Icon, type IconName } from "@/components/icons";
+import { ReportPrint } from "@/components/ReportPrint";
+import {
+  Badge, Button, Card, CardHeader, cx, Empty, ErrorNote, Field, Input, Loading, PageHeader, Pagination, Select, Table, Td, Th, useToast,
+} from "@/components/ui";
+import { api, ApiError, query } from "@/lib/api";
+import {
+  badgeTone, dayLabel, formatCell, formatKpi, parseSearch, type Preset, PRESETS, presetRange, type ReportCatalog, type ReportData,
+} from "@/lib/reports";
+import { useSession } from "@/lib/session";
+
+const PAGE_SIZE = 50;
+const REPORT_KEY = "elix.report";
+
+function useDebounced<T>(value: T, ms = 400) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), ms);
+    return () => clearTimeout(id);
+  }, [value, ms]);
+  return debounced;
+}
+
+/** Superusers pick any number of sites; everyone else reports on one of their own. */
+function SitePicker({ catalog, value, onChange }: { catalog: ReportCatalog; value: number[] | "all"; onChange: (v: number[] | "all") => void }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
+    window.addEventListener("pointerdown", close);
+    return () => window.removeEventListener("pointerdown", close);
+  }, [open]);
+
+  if (!catalog.can_combine) {
+    return (
+      <Select value={value === "all" ? "" : value[0]} onChange={(e) => onChange([Number(e.target.value)])} disabled={catalog.sites.length < 2}>
+        {catalog.sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+      </Select>
+    );
+  }
+  const selected = value === "all" ? catalog.sites.map((s) => s.id) : value;
+  const label = value === "all" ? `All sites (${catalog.sites.length})`
+    : selected.length === 1 ? catalog.sites.find((s) => s.id === selected[0])?.name ?? "1 site" : `${selected.length} sites`;
+  const toggle = (id: number) => {
+    const next = selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id];
+    if (next.length) onChange(next.length === catalog.sites.length ? "all" : next);
+  };
+  return (
+    <div ref={box} className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
+        className="flex h-10 w-full items-center justify-between gap-2 rounded-md border border-line bg-surface px-3 text-left text-sm text-ink hover:bg-surface-2">
+        <span className="truncate">{label}</span><Icon name="chevron" className="h-4 w-4 rotate-90 text-muted" />
+      </button>
+      {open && (
+        <div className="absolute z-30 mt-1 max-h-72 w-full min-w-60 overflow-y-auto rounded-lg border border-line bg-surface p-1.5 shadow-card">
+          <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-ink hover:bg-surface-2">
+            <input type="checkbox" checked={value === "all"} onChange={() => onChange(value === "all" ? [catalog.sites[0].id] : "all")} className="h-4 w-4" />
+            All sites (consolidated)
+          </label>
+          <div className="my-1 border-t border-line" />
+          {catalog.sites.map((s) => (
+            <label key={s.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-body hover:bg-surface-2">
+              <input type="checkbox" checked={selected.includes(s.id)} onChange={() => toggle(s.id)} className="h-4 w-4" />
+              {s.name}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function ReportsPage() {
+  const { condo } = useSession();
+  const toast = useToast();
+  const { data: catalog, error: catalogError } = useSWR<ReportCatalog>("/v1/reports/");
+  const [reportKey, setReportKey] = useState("visits");
+  const [sites, setSites] = useState<number[] | "all">([condo.id]);
+  const [preset, setPreset] = useState<Preset>("7d");
+  const [range, setRange] = useState(() => presetRange("7d")!);
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [busy, setBusy] = useState<"" | "print" | "csv" | "xlsx">("");
+  const [printData, setPrintData] = useState<ReportData | null>(null);
+  const searchBox = useRef<HTMLInputElement>(null);
+  const q = useDebounced(search);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(REPORT_KEY);
+      if (saved) setReportKey(saved);
+    } catch {}
+  }, []);
+  useEffect(() => setSites([condo.id]), [condo.id]);
+
+  const report = catalog?.reports.find((r) => r.key === reportKey) ?? catalog?.reports[0];
+  const params = useMemo(() => ({
+    condominium: sites === "all" ? "all" : sites.join(","),
+    date_from: range.from, date_to: range.to, q: q.trim(),
+    ...Object.fromEntries((report?.filters ?? []).map((f) => [f.name, filters[f.name] ?? ""])),
+  }), [sites, range, q, filters, report]);
+  useEffect(() => setPage(1), [params]);
+
+  const path = report ? `/v1/reports/${report.key}/` : null;
+  const { data, error, isLoading } = useSWR<ReportData>(path ? `${path}${query({ ...params, page, page_size: PAGE_SIZE })}` : null, { keepPreviousData: true });
+
+  function choose(key: string) {
+    setReportKey(key);
+    setFilters({});
+    setSearch("");
+    try { localStorage.setItem(REPORT_KEY, key); } catch {}
+  }
+
+  function pickPreset(p: Preset) {
+    setPreset(p);
+    const r = presetRange(p);
+    if (r) setRange(r);
+  }
+
+  async function download(kind: "csv" | "xlsx") {
+    if (!path) return;
+    setBusy(kind);
+    try {
+      const response = await api<Response>(`${path}${query({ ...params, export: kind })}`, { raw: true });
+      const name = /filename="([^"]+)"/.exec(response.headers.get("Content-Disposition") ?? "")?.[1] ?? `report.${kind}`;
+      const url = URL.createObjectURL(await response.blob());
+      const a = Object.assign(document.createElement("a"), { href: url, download: name });
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (err) {
+      toast("error", err instanceof ApiError ? err.message : "Export failed.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function print() {
+    if (!path) return;
+    setBusy("print");
+    try {
+      setPrintData(await api<ReportData>(`${path}${query({ ...params, page_size: "print" })}`));
+    } catch (err) {
+      toast("error", err instanceof ApiError ? err.message : "Could not prepare the report.");
+      setBusy("");
+    }
+  }
+  const printReady = useCallback(() => {
+    window.print();
+    setPrintData(null);
+    setBusy("");
+  }, []);
+
+  const parsed = parseSearch(search);
+  const known = new Set(report?.tokens.map((t) => t.key));
+  const removeToken = (raw: string) => setSearch((s) => s.replace(raw, "").replace(/\s+/g, " ").trim());
+  const addToken = (key: string) => {
+    setSearch((s) => `${s.trim()} ${key}:`.trimStart());
+    setTimeout(() => searchBox.current?.focus(), 0);
+  };
+
+  if (catalogError) return <><PageHeader title="Reports" /><ErrorNote error={catalogError} /></>;
+  if (!catalog || !report) return <Loading />;
+
+  return (
+    <>
+      <PageHeader
+        title="Reports"
+        description={catalog.can_combine
+          ? "Consolidated reports across your sites. Pick a report, the sites and the period, then print or export."
+          : `Reports for ${condo.name}. Pick a report and the period, then print or export.`}
+        action={
+          <>
+            <Button onClick={print} busy={busy === "print"} disabled={!!busy || !data}><Icon name="printer" className="h-4 w-4" /> Print / PDF</Button>
+            <Button onClick={() => download("xlsx")} busy={busy === "xlsx"} disabled={!!busy || !data}><Icon name="download" className="h-4 w-4" /> Excel</Button>
+            <Button variant="ghost" onClick={() => download("csv")} busy={busy === "csv"} disabled={!!busy || !data}>CSV</Button>
+          </>
+        }
+      />
+
+      {/* Report types */}
+      <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        {catalog.reports.map((r) => {
+          const active = r.key === report.key;
+          return (
+            <button key={r.key} type="button" onClick={() => choose(r.key)} aria-pressed={active} title={r.description}
+              className={cx("flex items-start gap-3 rounded-xl border p-3.5 text-left transition-colors",
+                active ? "border-primary-500 bg-primary-500/5 ring-1 ring-primary-500/40" : "border-line bg-surface hover:border-primary-400/50 hover:bg-surface-2")}>
+              <span className={cx("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", active ? "bg-primary-500 text-white" : "bg-surface-3 text-body")}>
+                <Icon name={r.icon as IconName} className="h-[18px] w-[18px]" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-ink">{r.title}</span>
+                <span className="mt-0.5 line-clamp-2 block text-xs text-muted">{r.description}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Filters */}
+      <Card className="mb-5">
+        <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Field label={catalog.can_combine ? "Sites" : "Site"}><SitePicker catalog={catalog} value={sites} onChange={setSites} /></Field>
+          <Field label="Period">
+            <Select value={preset} onChange={(e) => pickPreset(e.target.value as Preset)}>
+              {PRESETS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+            </Select>
+          </Field>
+          <Field label="From">
+            <Input type="date" value={range.from} max={range.to} onChange={(e) => { setPreset("custom"); setRange((r) => ({ ...r, from: e.target.value })); }} />
+          </Field>
+          <Field label="To">
+            <Input type="date" value={range.to} min={range.from} onChange={(e) => { setPreset("custom"); setRange((r) => ({ ...r, to: e.target.value })); }} />
+          </Field>
+          {report.filters.map((f) => (
+            <Field key={f.name} label={f.label}>
+              <Select value={filters[f.name] ?? ""} onChange={(e) => setFilters((v) => ({ ...v, [f.name]: e.target.value }))}>
+                <option value="">All</option>
+                {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </Select>
+            </Field>
+          ))}
+        </div>
+        <div className="border-t border-line p-4">
+          <div className="relative">
+            <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <Input ref={searchBox} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9"
+              placeholder={`Smart search: any words, or ${report.tokens.slice(0, 3).map((t) => `${t.key}:…`).join(" ")}`} aria-label="Smart search" />
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
+            {parsed.tokens.map((t) => (
+              <button key={t.raw} type="button" onClick={() => removeToken(t.raw)} title="Remove"
+                className={cx("inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-medium ring-1 ring-inset",
+                  known.has(t.key) ? "bg-primary-500/10 text-primary-700 ring-primary-600/25 dark:text-primary-300" : "bg-amber-500/10 text-amber-800 ring-amber-600/25 dark:text-amber-300")}>
+                {t.key}: {t.value || "…"}{!known.has(t.key) && " (searched as text)"} <Icon name="x" className="h-3 w-3" />
+              </button>
+            ))}
+            {parsed.words.map((w, i) => <span key={`${w}-${i}`} className="rounded-full bg-surface-3 px-2.5 py-1 text-body">“{w}”</span>)}
+            {(parsed.tokens.length > 0 || parsed.words.length > 0) && <span className="mx-1 h-4 w-px bg-line" />}
+            <span className="text-muted">Search by:</span>
+            {report.tokens.map((t) => (
+              <button key={t.key} type="button" onClick={() => addToken(t.key)} title={t.help}
+                className="rounded-full border border-line px-2.5 py-1 font-mono text-body hover:border-primary-400 hover:text-ink">{t.key}:</button>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      {error && <div className="mb-5"><ErrorNote error={error} /></div>}
+      {!data ? (isLoading ? <Loading /> : null) : (
+        <div className={cx("space-y-5 transition-opacity", isLoading && "opacity-60")}>
+          {/* Key figures */}
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+            {data.summary.kpis.map((k) => (
+              <Card key={k.key} className="p-4">
+                <div className="text-xs font-medium text-muted">{k.label}</div>
+                <div className="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-ink">{formatKpi(k)}</div>
+              </Card>
+            ))}
+          </div>
+
+          <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
+            <Card>
+              <CardHeader title={`Daily trend · ${data.period.label}`} />
+              <div className="p-5"><DailyChart points={data.summary.trend.points} series={data.summary.trend.series} label={dayLabel} /></div>
+            </Card>
+            <div className="grid gap-5 sm:grid-cols-2">
+              {data.summary.breakdowns.slice(0, 4).map((b) => (
+                <Card key={b.key}>
+                  <CardHeader title={b.title} />
+                  <div className="p-5">{b.rows.length ? <BarList rows={b.rows.slice(0, 6)} /> : <p className="text-sm text-muted">No data.</p>}</div>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          <Card>
+            <CardHeader
+              title={<>Details <span className="ml-1 text-sm font-normal text-muted">{data.count.toLocaleString("en-SG")} record{data.count === 1 ? "" : "s"}</span></>}
+              action={<span className="text-xs text-muted">{data.sites.length > 1 ? `${data.sites.length} sites · ` : ""}{data.period.label}</span>}
+            />
+            {data.rows.length === 0 ? <Empty>Nothing matches this period and these filters.</Empty> : (
+              <Table>
+                <thead><tr>{data.columns.map((c) => <Th key={c.key} className={c.kind === "number" ? "text-right" : undefined}>{c.label}</Th>)}</tr></thead>
+                <tbody className="divide-y divide-line">
+                  {data.rows.map((row, i) => (
+                    <tr key={i}>
+                      {data.columns.map((c) => {
+                        const text = formatCell(row[c.key], c.kind);
+                        return (
+                          <Td key={c.key} className={cx(c.kind === "number" && "text-right tabular-nums", (c.kind === "datetime" || c.kind === "date") && "whitespace-nowrap",
+                            c.key === "pass" && "font-mono font-semibold text-ink", c.key === "notes" && "max-w-xs truncate")}>
+                            {c.kind === "badge" && text !== "—" ? <Badge tone={badgeTone(text)}>{text}</Badge> : text}
+                          </Td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+            <Pagination page={page} count={data.count} pageSize={PAGE_SIZE} onPage={setPage} />
+          </Card>
+        </div>
+      )}
+
+      {printData && <ReportPrint data={printData} onReady={printReady} />}
+    </>
+  );
+}

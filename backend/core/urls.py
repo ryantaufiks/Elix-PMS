@@ -2,7 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from . import kiosk_views, views
+from . import kiosk_views, report_views, views
 
 router = DefaultRouter()
 router.register("condominiums", views.CondominiumViewSet)
@@ -33,6 +33,8 @@ urlpatterns = [
     path("system-settings/test-livekit/", views.test_livekit, name="system-settings-test-livekit"),
     path("system-settings/test-fcm/", views.test_fcm, name="system-settings-test-fcm"),
     path("dashboard/summary/", views.DashboardSummaryView.as_view(), name="dashboard-summary"),
+    path("reports/", report_views.ReportCatalogView.as_view(), name="report-catalog"),
+    path("reports/<slug:key>/", report_views.ReportView.as_view(), name="report"),
     path("kiosk/me/", kiosk_views.KioskMeView.as_view(), name="kiosk-me"),
     path("kiosk/directory/", kiosk_views.DirectoryView.as_view(), name="kiosk-directory"),
     path("kiosk/calls/", kiosk_views.StartCallView.as_view(), name="kiosk-call-start"),

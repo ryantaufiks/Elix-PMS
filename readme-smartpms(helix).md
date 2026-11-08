@@ -92,6 +92,13 @@ Pastikan perangkat lokal Anda telah terinstal:
 * **Visitor list (officer):** semua tamu tercatat sebagai *visit* dengan nomor pass harian yang sama: walk-in kiosk, walk-in yang didaftarkan guard (*Register visitor*, foto webcam opsional), check-in invitation (QR atau plat LPR; kamera exit otomatis check-out), dan gerbang yang dibuka lewat intercom. Officer bisa melihat jam check-in/check-out, *Print slip* dari printer pos jaga, *Edit* catatan, dan *Check out* satu per satu atau bulk. PIN tamu on site tampil di bawah nomor pass. Halaman **Visitor records** menampilkan check-in dan check-out terakhir tiap orang, dan tombol *Visits* membuka riwayat lengkapnya.
 * Printer: jadikan printer 58 mm sebagai default printer di PC kiosk (ukuran kertas roll 58 mm) dan jalankan Chrome dengan `--kiosk --kiosk-printing` agar slip langsung tercetak tanpa dialog. Kiosk tanpa printer: hilangkan centang *Receipt printer connected* di *Gates & devices → Kiosks*, maka nomor pass dan QR ditampilkan di layar.
 
+### 5. Report Center
+* Menu **Operations → Reports** untuk semua staff (termasuk guard). Officer hanya melihat site/kondo masing-masing; super admin bisa memilih beberapa site atau *All sites* untuk laporan gabungan (konsolidasi).
+* Jenis laporan: *Consolidated summary* (per site per hari), *Visitor*, *Access*, *Vehicle* (LPR), *Intercom*, *Invitation*. Masing-masing punya angka kunci, grafik tren harian, breakdown, dan tabel detail.
+* Filter periode (Today, Yesterday, 7/30 hari, bulan ini/lalu, tahun ini, custom maks. 366 hari), filter per laporan, dan **smart search**: kata bebas mencari di semua kolom teks, token `key:value` untuk satu kolom, contoh `unit:05-12 plate:SGX1234 status:denied "Ace Aircon"`.
+* **Print / PDF:** layout A4 landscape profesional (kop, periode, site, filter, angka kunci, tren, breakdown, semua baris s/d 5.000, nomor halaman, kolom tanda tangan Prepared/Reviewed/Approved). Pilih *Save as PDF* di dialog print.
+* **Excel / CSV:** semua baris (s/d 50.000); Excel berisi sheet *Summary* dan *Details*.
+
 ---
 
 ## 🚀 Panduan Deployment Produksi (Tencent Cloud Debian)

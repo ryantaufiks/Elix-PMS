@@ -51,6 +51,7 @@ On first sign-in with no condominium, the platform admin is guided through creat
 | | Visitor list | all staff | Every visitor on site and past visits (kiosk / guardhouse walk-ins, invitations, intercom) with check-in and check-out time, photo, notes; *Register visitor* at the guardhouse (webcam photo, slip printed), *Print slip*, *Edit* notes, *Check out* one or many; a toast on every page when a kiosk walk-in registers |
 | | Open gates | all staff | Manual opening with reason (logged under the user) |
 | | Invitations | all staff (create/cancel: admin) | QR code and share link, status filters |
+| | Reports | all staff (several sites: superusers) | Report Center: consolidated summary, visitor, access, vehicle, intercom and invitation reports with period presets, filters and smart search; *Print / PDF* (A4) and *Excel* / *CSV* export |
 | Community | Residents | all staff (manage: admin) | Add residents with their app login, unit role, intercom on/off, password reset, move out |
 | | Vehicles | all staff (edit: admin) | Resident plates used by LPR auto-open |
 | | Staff | admin | Create guard / condo-admin accounts, change role, reset password, remove |
@@ -184,6 +185,38 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
 | Staff | `PATCH /v1/visits/{id}/` (`visitor_name`, `company`, `notes`), `GET …/slip/`, `GET …/snapshot/` | Edit, slip data to print, photo |
 | Staff | `POST /v1/visits/{id}/check_out/`, `POST /v1/visits/bulk_check_out/` (`ids`) | Check out one or many |
 | Public | `GET /v1/public/invitations/<token>/`, `…/qr/` | Visitor pass data and QR PNG (rate-limited) |
+
+## Report Center
+
+*Operations → Reports*, for every staff member. Officers report on their own site; superusers can
+pick several sites or *All sites* for one consolidated report (a *Site* column and a *Visits by site*
+breakdown appear).
+
+| Report | Rows | Key figures |
+|---|---|---|
+| Consolidated summary | one per site and day | visits, walk-ins, not checked out, entries granted / denied / errors, intercom calls, missed calls, invitations |
+| Visitor report | every visit | total, checked out, still on site, not checked out, average stay, identified visitors |
+| Access report | every gate decision | granted, denied, errors, grant rate, distinct plates; top denial reasons |
+| Vehicle report | every plate read | resident / invited / unknown vehicles, distinct plates, most frequent and unknown plates |
+| Intercom report | every kiosk call | opened, declined, missed, answer rate, average time to answer |
+| Invitation report | every invitation | used, use rate, active, expired, cancelled |
+
+- **Period:** Today, Yesterday, Last 7 / 30 days, This / last month, This year or a custom range
+  (at most 366 days), in Singapore time. Each report also has its own filters (category, status,
+  method, vehicle type…) and a daily trend chart.
+- **Smart search:** free words match any text column (name, company, plate, notes, unit…), and
+  `key:value` tokens target one field, e.g. `unit:05-12 plate:SGX1234 status:denied "Ace Aircon"`.
+  The chips under the search box list each report's tokens.
+- **Print / PDF:** an A4 layout (landscape) with letterhead, period, sites and filters, key figures,
+  trend, breakdowns, every row (up to 5,000; export Excel for more), page numbers and a
+  prepared / reviewed / approved sign-off. Choose *Save as PDF* in the print dialog for a file.
+- **Excel / CSV:** every row (up to 50,000). The Excel file has a *Summary* sheet (period, filters,
+  key figures, breakdowns, daily trend) and a *Details* sheet with frozen headers and filters.
+
+| Who | Endpoint | Purpose |
+|---|---|---|
+| Staff | `GET /v1/reports/` | Reports, their filters and search tokens, and the sites the user can report on |
+| Staff | `GET /v1/reports/<key>/?condominium=<id \| ids \| all>&date_from=&date_to=&q=&<filter>=&page=` | Summary and rows; `page_size=print` for every row (≤5,000); `export=xlsx\|csv` downloads |
 
 ## Resident app (Flutter, Android)
 
