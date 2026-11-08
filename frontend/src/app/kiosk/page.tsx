@@ -1,6 +1,7 @@
 "use client";
 
-// Web kiosk for a tablet at the gate: call a resident (LiveKit video) or check in with an invitation QR.
+// Web kiosk for a tablet at the gate: call a resident (LiveKit video), register as a walk-in, check in with an
+// invitation QR, or check out with the pass QR or PIN.
 import { useCallback, useEffect, useRef, useState } from "react";
 import jsQR from "jsqr";
 import { Room, RoomEvent, Track, type RemoteTrack } from "livekit-client";
@@ -27,6 +28,8 @@ type Screen =
   | { name: "photo"; mode: Mode; unit: DirectoryUnit; details: VisitorDetails }
   | { name: "calling" | "walkin"; unit: DirectoryUnit; details: VisitorDetails }
   | { name: "scan" }
+  | { name: "checkout" }
+  | { name: "pass"; slip: WalkInSlip; unit: DirectoryUnit }
   | { name: "face"; code: string; pass: VisitorPass }
   | { name: "result"; outcome: Outcome };
 
@@ -190,13 +193,17 @@ function Setup({ onReady }: { onReady: (kiosk: KioskSelf, token: string) => void
   );
 }
 
-function Home({ kiosk, onCall, onWalkIn, onScan, onAdmin }: { kiosk: KioskSelf; onCall: () => void; onWalkIn: () => void; onScan: () => void; onAdmin: () => void }) {
+function Home({ kiosk, onCall, onWalkIn, onScan, onCheckOut, onAdmin }: {
+  kiosk: KioskSelf; onCall: () => void; onWalkIn: () => void; onScan: () => void; onCheckOut: () => void; onAdmin: () => void;
+}) {
   const taps = useRef<number[]>([]);
+  const buttons = 2 + Number(kiosk.walk_in) + Number(kiosk.checkout);
+  const grid = buttons === 4 ? "max-w-6xl sm:grid-cols-2 xl:grid-cols-4" : buttons === 3 ? "max-w-5xl sm:grid-cols-3" : "max-w-3xl sm:grid-cols-2";
   return (
     <Frame kiosk={kiosk}>
       <h1 className="text-center text-4xl font-semibold tracking-tight sm:text-5xl">Welcome</h1>
       <p className="mt-3 text-center text-lg text-slate-300">How would you like to enter{kiosk.gate_name ? ` through ${kiosk.gate_name}` : ""}?</p>
-      <div className={`mt-12 grid w-full gap-6 ${kiosk.walk_in ? "max-w-5xl sm:grid-cols-3" : "max-w-3xl sm:grid-cols-2"}`}>
+      <div className={`mt-12 grid w-full gap-6 ${grid}`}>
         <button onClick={onCall} className="group rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
           <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
             <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" /></svg>
@@ -218,8 +225,17 @@ function Home({ kiosk, onCall, onWalkIn, onScan, onAdmin }: { kiosk: KioskSelf; 
             <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" /></svg>
           </div>
           <div className="text-2xl font-semibold">I have an invitation</div>
-          <div className="mt-2 text-slate-400">{kiosk.walk_in ? "Show your invitation QR, or scan your walk-in slip when you leave." : "Show the QR code from your invitation."}</div>
+          <div className="mt-2 text-slate-400">{kiosk.walk_in && !kiosk.checkout ? "Show your invitation QR, or scan your walk-in slip when you leave." : "Show the QR code from your invitation."}</div>
         </button>
+        {kiosk.checkout && (
+          <button onClick={onCheckOut} className="group rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
+              <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 8l-4 4 4 4M6 12h10" /></svg>
+            </div>
+            <div className="text-2xl font-semibold">Check out</div>
+            <div className="mt-2 text-slate-400">Leaving? Scan your pass QR or enter its PIN.</div>
+          </button>
+        )}
       </div>
       <button
         aria-label="Kiosk settings"
@@ -266,7 +282,9 @@ function Directory({ kiosk, walkIn, onPick, onBack }: { kiosk: KioskSelf; walkIn
   );
 }
 
-function Calling({ kiosk, unit, details, onDone }: { kiosk: KioskSelf; unit: DirectoryUnit; details: VisitorDetails; onDone: (o: Outcome) => void }) {
+function Calling({ kiosk, unit, details, onDone, onPass }: {
+  kiosk: KioskSelf; unit: DirectoryUnit; details: VisitorDetails; onDone: (o: Outcome) => void; onPass: (slip: WalkInSlip) => void;
+}) {
   const remote = useRef<HTMLVideoElement>(null);
   const self = useRef<HTMLVideoElement>(null);
   const audio = useRef<HTMLDivElement>(null);
@@ -277,6 +295,8 @@ function Calling({ kiosk, unit, details, onDone }: { kiosk: KioskSelf; unit: Dir
   const finished = useRef(false);
   const done = useRef(onDone);
   done.current = onDone;
+  const pass = useRef(onPass);
+  pass.current = onPass;
 
   const finish = useCallback((outcome: Outcome) => {
     if (finished.current) return;
@@ -354,7 +374,14 @@ function Calling({ kiosk, unit, details, onDone }: { kiosk: KioskSelf; unit: Dir
   // Follow the call: WebSocket pushes, polling as a fallback.
   const apply = useCallback((c: IntercomCall) => {
     setCall(c);
-    if (c.status === "approved") finish({ tone: "good", title: "Welcome!", detail: `${unit.label} has opened the gate for you.` });
+    if (c.status === "approved" && !finished.current) {
+      // Show the visitor pass (QR + PIN for check-out); fall back to a plain welcome if it is not ready.
+      finished.current = true;
+      room.current?.disconnect();
+      kioskApi<WalkInSlip>(`/v1/kiosk/calls/${c.id}/pass/`)
+        .then((slip) => pass.current(slip))
+        .catch(() => done.current({ tone: "good", title: "Welcome!", detail: `${unit.label} has opened the gate for you.` }));
+    }
     else if (c.status === "rejected") finish({ tone: "bad", title: "The resident declined", detail: "Please contact the guardhouse if you need help." });
     else if (c.status === "missed") finish({ tone: "info", title: "No answer", detail: "Nobody picked up. You can try again or call the guardhouse." });
     else if (c.status === "cancelled" && c.ended_at) finish({ tone: "info", title: "Call ended" });
@@ -658,7 +685,6 @@ function WalkIn({ kiosk, unit, details, onDone, onFail }: {
   kiosk: KioskSelf; unit: DirectoryUnit; details: VisitorDetails; onDone: () => void; onFail: (o: Outcome) => void;
 }) {
   const [slip, setSlip] = useState<WalkInSlip | null>(null);
-  const printed = useRef(false);
   const fail = useRef(onFail);
   fail.current = onFail;
 
@@ -681,15 +707,6 @@ function WalkIn({ kiosk, unit, details, onDone, onFail }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Back to the welcome screen on its own; longer without a printer so the visitor can photograph the QR.
-  useEffect(() => {
-    if (!slip) return;
-    const id = setTimeout(onDone, kiosk.prints_slips ? 25_000 : 60_000);
-    return () => clearTimeout(id);
-  }, [slip, kiosk.prints_slips, onDone]);
-
-  const print = () => window.print();
-
   if (!slip) {
     return (
       <Frame kiosk={kiosk}>
@@ -698,33 +715,163 @@ function WalkIn({ kiosk, unit, details, onDone, onFail }: {
       </Frame>
     );
   }
+  return <PassView kiosk={kiosk} slip={slip} autoPrint={kiosk.prints_slips} onDone={onDone} />;
+}
+
+/** The visitor pass on screen: pass number, PIN and QR, with a reminder to keep a photo of it.
+ * ``autoPrint`` prints the slip straight away (walk-ins); otherwise printing is a button (approved calls). */
+function PassView({ kiosk, slip, title, autoPrint, onDone }: {
+  kiosk: KioskSelf; slip: WalkInSlip; title?: string; autoPrint: boolean; onDone: () => void;
+}) {
+  const [printing, setPrinting] = useState(autoPrint);
+  const [printed, setPrinted] = useState(false);
+  // Back to the welcome screen on its own; longer without a printout so the visitor can take a photo.
+  const seconds = autoPrint ? 25 : 60;
+  const [left, setLeft] = useState(seconds);
+
+  useEffect(() => {
+    if (left <= 0) {
+      onDone();
+      return;
+    }
+    const id = setTimeout(() => setLeft(left - 1), 1000);
+    return () => clearTimeout(id);
+  }, [left, onDone]);
+
+  const print = () => {
+    setLeft(seconds);
+    if (printed) window.print();
+    else setPrinting(true); // Prints once the slip's QR has loaded.
+  };
+
   return (
     <Frame kiosk={kiosk}>
-      {kiosk.prints_slips && <PrintSlip slip={slip} onReady={() => { if (!printed.current) { printed.current = true; print(); } }} />}
-      <div className={`grid w-full items-center gap-10 ${kiosk.prints_slips ? "max-w-2xl" : "max-w-5xl lg:grid-cols-[1fr_auto]"}`}>
-        <div className={kiosk.prints_slips ? "text-center" : ""}>
+      {printing && <PrintSlip slip={slip} onReady={() => { if (!printed) { setPrinted(true); window.print(); } }} />}
+      <div className="grid w-full max-w-5xl items-center gap-10 lg:grid-cols-[1fr_auto]">
+        <div>
+          {title && <div className="mb-4 text-3xl font-semibold text-emerald-300">{title}</div>}
           <div className="text-lg text-slate-400">Your pass number</div>
-          <div className="mt-2 font-mono text-8xl font-bold tracking-wider text-white">{slip.pass_number}</div>
-          <div className="mt-4 text-2xl font-medium">{slip.visitor_name}</div>
+          <div className="mt-1 font-mono text-7xl font-bold tracking-wider text-white">{slip.pass_number}</div>
+          <div className="mt-3 text-2xl font-medium">{slip.visitor_name}</div>
           <div className="mt-1 text-lg text-slate-300">{[slip.purpose_display, slip.company].filter(Boolean).join(" · ")} · Visiting {slip.unit_display}</div>
-          <p className="mt-8 text-xl text-slate-200">
-            {kiosk.prints_slips
-              ? "Please take your slip from the printer and show it to security."
-              : "Please show this pass to security, and take a photo of the QR code."}
-          </p>
-          <p className="mt-2 text-lg text-slate-400">When you leave, scan the QR code here under “I have an invitation”. Valid today until {clock(slip.valid_until)}.</p>
-          <div className={`mt-10 flex flex-wrap gap-4 ${kiosk.prints_slips ? "justify-center" : ""}`}>
-            {kiosk.prints_slips && <BigButton tone="ghost" onClick={print}>Print again</BigButton>}
+          {slip.pin && (
+            <div className="mt-6 flex items-center gap-4">
+              <span className="text-lg text-slate-400">PIN</span>
+              <span className="flex gap-2">
+                {slip.pin.split("").map((d, i) => (
+                  <span key={i} className="flex h-16 w-14 items-center justify-center rounded-xl border border-white/20 bg-white/10 font-mono text-4xl font-bold">{d}</span>
+                ))}
+              </span>
+            </div>
+          )}
+          <div className="mt-8 flex gap-4 rounded-2xl border border-amber-300/40 bg-amber-400/10 p-5 text-amber-100">
+            <svg viewBox="0 0 24 24" className="mt-0.5 h-8 w-8 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>
+            <div>
+              <div className="text-xl font-semibold">{autoPrint ? "Take your slip from the printer" : "Take a photo or screenshot of this screen"}</div>
+              <div className="mt-1 text-lg text-amber-100/80">
+                {title ? "" : "Show it to security. "}You need the QR code or PIN to check out at the kiosk when you leave, and to get to the unit where the building has unit access control. Valid today until {clock(slip.valid_until)}.
+              </div>
+            </div>
+          </div>
+          <div className="mt-8 flex flex-wrap items-center gap-4">
+            {kiosk.prints_slips && <BigButton tone="ghost" onClick={print}>{printed ? "Print again" : "Print slip"}</BigButton>}
             <BigButton onClick={onDone}>Done</BigButton>
+            <span className="text-slate-400">Back to the start in {left}s</span>
           </div>
         </div>
-        {!kiosk.prints_slips && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={slip.qr} alt={`QR code for pass ${slip.pass_number}`} className="h-72 w-72 rounded-2xl bg-white p-3" />
-        )}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={slip.qr} alt={`QR code for pass ${slip.pass_number}`} className="h-72 w-72 justify-self-center rounded-2xl bg-white p-3" />
       </div>
     </Frame>
   );
+}
+
+const KEYPAD = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"];
+
+/** Check out: scan the pass QR with the camera, or type its 4-digit PIN. */
+function CheckOut({ kiosk, onDone, onBack }: { kiosk: KioskSelf; onDone: (o: Outcome) => void; onBack: () => void }) {
+  const { video, error } = useCamera(true);
+  const [pin, setPin] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState("");
+
+  const submit = useCallback(async (body: { code: string } | { pin: string }) => {
+    setBusy(true);
+    setProblem("");
+    const outcome = await checkOut(body);
+    // A wrong PIN stays here so the visitor can try again; everything else shows the result.
+    if (outcome.retry) {
+      setBusy(false);
+      setPin("");
+      setProblem(outcome.detail ?? "");
+    } else onDone(outcome);
+  }, [onDone]);
+
+  useQrScanner(video, !busy, (code) => submit({ code }));
+
+  function press(key: string) {
+    if (busy) return;
+    setProblem("");
+    if (key === "clear") return setPin("");
+    if (key === "back") return setPin((p) => p.slice(0, -1));
+    const next = (pin + key).slice(0, 4);
+    setPin(next);
+    if (next.length === 4) submit({ pin: next });
+  }
+
+  return (
+    <Frame kiosk={kiosk} onBack={onBack}>
+      <h1 className="text-center text-4xl font-semibold">Check out</h1>
+      <p className="mt-2 text-center text-lg text-slate-300">Scan the QR code on your pass, or enter its 4-digit PIN.</p>
+      <div className="mt-10 grid w-full max-w-5xl items-start gap-10 lg:grid-cols-2">
+        <div>
+          <div className="mb-3 text-xl font-semibold">Scan QR</div>
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-3xl border border-white/10 bg-navy-950">
+            <video ref={video} autoPlay playsInline muted className="h-full w-full scale-x-[-1] object-cover" />
+            <div className="pointer-events-none absolute inset-[18%] rounded-2xl border-4 border-primary-400/80 shadow-[0_0_0_9999px_rgba(7,15,36,0.45)]" />
+            {error && <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-rose-300">{error}</div>}
+          </div>
+          <p className="mt-3 text-slate-400">Hold your slip, or the photo of your pass, up to the camera.</p>
+        </div>
+        <div>
+          <div className="mb-3 text-xl font-semibold">Enter PIN</div>
+          <div className="flex justify-center gap-3">
+            {[0, 1, 2, 3].map((i) => (
+              <span key={i} className={`flex h-20 w-16 items-center justify-center rounded-2xl border bg-white/5 font-mono text-5xl font-bold ${pin.length === i && !busy ? "border-primary-400" : "border-white/20"}`}>
+                {pin[i] ?? ""}
+              </span>
+            ))}
+          </div>
+          <div className="mt-3 h-7 text-center text-lg text-rose-300">{busy ? <span className="text-slate-300">Checking…</span> : problem}</div>
+          <div className="mx-auto mt-2 grid max-w-sm grid-cols-3 gap-3">
+            {KEYPAD.map((key) => (
+              <button key={key} type="button" onClick={() => press(key)} disabled={busy}
+                className="h-20 rounded-2xl border border-white/10 bg-white/10 text-3xl font-semibold transition hover:bg-white/20 active:bg-primary-500/40 disabled:opacity-50">
+                {key === "clear" ? <span className="text-lg">Clear</span> : key === "back" ? <span aria-label="Delete">⌫</span> : key}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
+/** Check a visitor out with their pass QR or PIN, as the outcome to show. ``retry`` = wrong PIN, let them try again. */
+async function checkOut(body: { code: string } | { pin: string }): Promise<Outcome & { retry?: boolean }> {
+  try {
+    const r = await kioskApi<WalkInCheckOut>("/v1/kiosk/checkout/", { method: "POST", body });
+    const at = clock(r.walk_in.checked_out_at ?? new Date().toISOString());
+    return r.result === "checked_out"
+      ? { tone: "good", title: `Goodbye, ${r.walk_in.visitor_name}!`, detail: `Pass ${r.walk_in.pass_number} checked out at ${at}. Thank you for visiting.` }
+      : { tone: "info", title: "Already checked out", detail: `Pass ${r.walk_in.pass_number} was checked out at ${at}.` };
+  } catch (err) {
+    const status = err instanceof ApiError ? err.status : 0;
+    if ("pin" in body && status === 404) return { tone: "bad", title: "Wrong PIN", detail: "That PIN does not match anyone on site. Please try again.", retry: true };
+    if (status === 429) return { tone: "bad", title: "Too many attempts", detail: "Please wait a minute, or see the guardhouse." };
+    if (status === 404) return { tone: "bad", title: "Unknown pass", detail: "Please see the guardhouse." };
+    return { tone: "bad", title: "Something went wrong", detail: (err as Error).message };
+  }
 }
 
 // --- App ---------------------------------------------------------------------
@@ -779,15 +926,7 @@ export default function KioskPage() {
 
   const checkIn = useCallback(async (code: string, photo?: Blob) => {
     if (isWalkInCode(code)) {
-      try {
-        const r = await kioskApi<WalkInCheckOut>("/v1/kiosk/walk-ins/checkout/", { method: "POST", body: { code } });
-        const at = clock(r.walk_in.checked_out_at ?? new Date().toISOString());
-        setScreen({ name: "result", outcome: r.result === "checked_out"
-          ? { tone: "good", title: `Goodbye, ${r.walk_in.visitor_name}!`, detail: `Pass ${r.walk_in.pass_number} checked out at ${at}. Thank you for visiting.` }
-          : { tone: "info", title: "Already checked out", detail: `Pass ${r.walk_in.pass_number} was checked out at ${at}.` } });
-      } catch (err) {
-        setScreen({ name: "result", outcome: { tone: "bad", title: err instanceof ApiError && err.status === 404 ? "Unknown pass" : "Something went wrong", detail: err instanceof ApiError && err.status === 404 ? "Please see the guardhouse." : (err as Error).message } });
-      }
+      setScreen({ name: "result", outcome: await checkOut({ code }) });
       return;
     }
     const form = new FormData();
@@ -814,6 +953,7 @@ export default function KioskPage() {
           onCall={() => { document.documentElement.requestFullscreen?.().catch(() => {}); setScreen({ name: "directory", mode: "call" }); }}
           onWalkIn={() => { document.documentElement.requestFullscreen?.().catch(() => {}); setScreen({ name: "directory", mode: "walkin" }); }}
           onScan={() => { document.documentElement.requestFullscreen?.().catch(() => {}); setScreen({ name: "scan" }); }}
+          onCheckOut={() => { document.documentElement.requestFullscreen?.().catch(() => {}); setScreen({ name: "checkout" }); }}
           onAdmin={() => { if (window.confirm("Sign this kiosk out?")) { kioskToken.clear(); setKiosk(null); setScreen({ name: "setup" }); } }} />
       );
     case "directory": {
@@ -842,7 +982,12 @@ export default function KioskPage() {
         onNext={(photo) => setScreen({ name: mode === "walkin" ? "walkin" : "calling", unit, details: { ...details, photo, consent: true } })} />;
     }
     case "calling":
-      return <Calling kiosk={kiosk} unit={screen.unit} details={screen.details} onDone={(outcome) => setScreen({ name: "result", outcome })} />;
+      return <Calling kiosk={kiosk} unit={screen.unit} details={screen.details} onDone={(outcome) => setScreen({ name: "result", outcome })}
+        onPass={(slip) => setScreen({ name: "pass", slip, unit: screen.unit })} />;
+    case "pass":
+      return <PassView kiosk={kiosk} slip={screen.slip} title={`Welcome! ${screen.unit.label} has opened the gate for you.`} autoPrint={false} onDone={home} />;
+    case "checkout":
+      return <CheckOut kiosk={kiosk} onBack={home} onDone={(outcome) => setScreen({ name: "result", outcome })} />;
     case "walkin":
       return <WalkIn kiosk={kiosk} unit={screen.unit} details={screen.details} onDone={home} onFail={(outcome) => setScreen({ name: "result", outcome })} />;
     case "scan":

@@ -52,12 +52,14 @@ export type KioskSelf = {
   privacy_notice: string;
   walk_in: boolean;
   walk_in_photo: boolean;
+  checkout: boolean;
   prints_slips: boolean;
 };
 
-/** A visit as printed on the slip. ``qr`` is a PNG data URI. */
+/** A visit as printed on the slip. ``qr`` is a PNG data URI; ``pin`` also checks the visitor out. */
 export type WalkInSlip = {
   pass_number: string;
+  pin: string;
   visitor_name: string;
   purpose: string;
   purpose_display: string;

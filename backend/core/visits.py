@@ -7,6 +7,7 @@ security has one list of who is on site.
 import base64
 import io
 import logging
+import secrets
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -28,6 +29,21 @@ def local_day(condo, at=None):
     return day, datetime.combine(day + timedelta(days=1), time.min, tzinfo=tz) - timedelta(seconds=1)
 
 
+def on_site(condominium_id):
+    return Visit.objects.filter(condominium_id=condominium_id, checked_out_at__isnull=True, valid_until__gte=timezone.now())
+
+
+def new_pin(condominium_id):
+    """A random 4-digit PIN that no visitor on site at the condominium holds."""
+    taken = set(on_site(condominium_id).values_list("pin", flat=True))
+    for _ in range(50):
+        pin = f"{secrets.randbelow(10_000):04d}"
+        if pin not in taken:
+            return pin
+    free = sorted(set(f"{n:04d}" for n in range(10_000)) - taken)  # Practically never: thousands on site.
+    return secrets.choice(free) if free else ""
+
+
 @transaction.atomic
 def create(condominium_id, *, unit, purpose, name, source, snapshot=None, **fields):
     """Record a visitor arriving, with the next pass number of the day for their purpose."""
@@ -38,7 +54,8 @@ def create(condominium_id, *, unit, purpose, name, source, snapshot=None, **fiel
     last = (Visit.objects.filter(condominium=condo, issued_on=day, pass_number__startswith=prefix)
             .aggregate(n=Max("sequence"))["n"] or 0)
     visit = Visit(condominium=condo, unit=unit, purpose=purpose, visitor_name=name or "Visitor", source=source,
-                  issued_on=day, sequence=last + 1, pass_number=f"{prefix}{last + 1:03d}", valid_until=end, **fields)
+                  issued_on=day, sequence=last + 1, pass_number=f"{prefix}{last + 1:03d}", valid_until=end,
+                  pin=new_pin(condo.pk), **fields)
     if snapshot is not None:
         visit.visitor_snapshot.save(f"visit-{condo.pk}.jpg", snapshot, save=False)
     visit.save()
@@ -53,8 +70,7 @@ def issue(kiosk, unit, purpose, name, company="", visitor=None, snapshot=None):
 
 
 def _open_for(invitation):
-    return (Visit.objects.select_for_update()
-            .filter(invitation=invitation, checked_out_at__isnull=True, valid_until__gte=timezone.now()).first())
+    return on_site(invitation.condominium_id).select_for_update().filter(invitation=invitation).first()
 
 
 def _safely(record):
@@ -107,6 +123,17 @@ def find(condominium_id, code, lock=False):
     if lock:
         qs = qs.select_for_update(of=("self",))
     return qs.filter(condominium_id=condominium_id, token=code[len(Visit.QR_PREFIX):]).first()
+
+
+def find_by_pin(condominium_id, pin, lock=False):
+    """The visitor on site holding ``pin``, or None."""
+    pin = (pin or "").strip()
+    if len(pin) != 4 or not pin.isdigit():
+        return None
+    qs = on_site(condominium_id).select_related("unit__block")
+    if lock:
+        qs = qs.select_for_update(of=("self",))
+    return qs.filter(pin=pin).first()
 
 
 def check_out(visit, user=None):

@@ -1,6 +1,9 @@
+from datetime import datetime
+
 from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers
 
 from . import models as m
@@ -62,7 +65,7 @@ class CondominiumSerializer(ModelCleanSerializer):
         fields = [
             "id", "name", "code", "address", "postal_code", "timezone", "contact_phone", "is_active", "lpr_enabled",
             "invitation_max_days", "intercom_ring_timeout_seconds", "face_verification_enabled",
-            "visitor_data_retention_days", "kiosk_visitor_form", "kiosk_photo_required", "kiosk_walk_in", "kiosk_walk_in_photo",
+            "visitor_data_retention_days", "kiosk_visitor_form", "kiosk_photo_required", "kiosk_walk_in", "kiosk_walk_in_photo", "kiosk_checkout",
             "visitor_privacy_notice",
             "created_at", "updated_at",
         ]
@@ -225,13 +228,34 @@ class KioskSerializer(ModelCleanSerializer):
 # --- Visitors & access -------------------------------------------------------
 
 class VisitorSerializer(ModelCleanSerializer):
+    """``last_check_in`` / ``last_check_out`` / ``on_site`` come from their latest visit (see VisitorViewSet)."""
+
+    last_check_in = serializers.SerializerMethodField()
+    last_check_out = serializers.SerializerMethodField()
+    on_site = serializers.SerializerMethodField()
+    visit_count = serializers.SerializerMethodField()
+
     class Meta:
         model = m.Visitor
         fields = [
             "id", "condominium", "full_name", "phone", "id_partial", "company", "face_consent_at", "last_visit_at",
-            "is_blacklisted", "blacklist_reason", "created_by", "created_at",
+            "last_check_in", "last_check_out", "on_site", "visit_count", "is_blacklisted", "blacklist_reason",
+            "created_by", "created_at",
         ]
         read_only_fields = ["created_by", "face_consent_at", "last_visit_at"]
+
+    def get_last_check_in(self, obj) -> datetime | None:
+        return getattr(obj, "last_check_in", None)
+
+    def get_last_check_out(self, obj) -> datetime | None:
+        return getattr(obj, "last_check_out", None)
+
+    def get_on_site(self, obj) -> bool:
+        until = getattr(obj, "last_valid_until", None)
+        return bool(until and not getattr(obj, "last_check_out", None) and until >= timezone.now())
+
+    def get_visit_count(self, obj) -> int:
+        return getattr(obj, "visit_count", 0) or 0
 
 
 class InvitationSerializer(ModelCleanSerializer):
@@ -340,7 +364,7 @@ class VisitSerializer(ModelCleanSerializer):
         fields = [
             "id", "condominium", "unit", "unit_display", "source", "source_display", "kiosk", "kiosk_name", "gate",
             "gate_name", "invitation", "intercom_call", "visitor", "visitor_name", "visitor_phone", "purpose", "company",
-            "vehicle_plate", "notes", "has_snapshot", "pass_number", "issued_on", "valid_until", "state",
+            "vehicle_plate", "notes", "has_snapshot", "pass_number", "pin", "issued_on", "valid_until", "state",
             "checked_out_at", "checked_out_by", "checked_out_by_name", "created_by", "created_by_name", "created_at",
         ]
         read_only_fields = sorted(set(fields) - {"visitor_name", "company", "notes"})
@@ -398,13 +422,25 @@ class VisitSlipSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = m.Visit
-        fields = ["pass_number", "visitor_name", "purpose", "purpose_display", "company", "vehicle_plate", "unit_display",
+        fields = ["pass_number", "pin", "visitor_name", "purpose", "purpose_display", "company", "vehicle_plate", "unit_display",
                   "condominium_name", "created_at", "valid_until", "state", "checked_out_at", "qr"]
 
     def get_qr(self, obj) -> str:
         from .visits import qr_data_uri
 
         return qr_data_uri(obj)
+
+
+class KioskCheckOutSerializer(serializers.Serializer):
+    """The QR on the pass, or its 4-digit PIN."""
+
+    code = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+    pin = serializers.RegexField(r"^\d{4}$", required=False, allow_blank=True, default="")
+
+    def validate(self, attrs):
+        if not attrs["code"].strip() and not attrs["pin"]:
+            raise serializers.ValidationError("Scan the QR code or enter the PIN.")
+        return attrs
 
 
 class WalkInCheckOutResultSerializer(serializers.Serializer):
@@ -444,11 +480,12 @@ class KioskSelfSerializer(serializers.ModelSerializer):
     privacy_notice = serializers.CharField(source="condominium.privacy_notice")
     walk_in = serializers.BooleanField(source="condominium.kiosk_walk_in")
     walk_in_photo = serializers.BooleanField(source="condominium.kiosk_walk_in_photo")
+    checkout = serializers.BooleanField(source="condominium.kiosk_checkout")
 
     class Meta:
         model = m.Kiosk
         fields = ["id", "name", "condominium", "condominium_name", "gate", "gate_name", "ring_timeout_seconds",
-                  "visitor_form", "photo_required", "privacy_notice", "walk_in", "walk_in_photo", "prints_slips"]
+                  "visitor_form", "photo_required", "privacy_notice", "walk_in", "walk_in_photo", "checkout", "prints_slips"]
 
 
 class PushDeviceSerializer(serializers.ModelSerializer):

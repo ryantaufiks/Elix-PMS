@@ -36,6 +36,12 @@ export function PrintSlip({ slip, onReady }: { slip: WalkInSlip; onReady: () => 
       <div style={{ borderTop: "1px dashed #000", margin: "2.5mm 0" }} />
       <div style={{ textAlign: "center", fontFamily: "ui-monospace, Menlo, Consolas, monospace", fontWeight: 800, fontSize: "26pt", lineHeight: 1.1 }}>{slip.pass_number}</div>
       <div style={{ textAlign: "center", fontWeight: 600, marginTop: "1mm" }}>{slip.purpose_display}</div>
+      {slip.pin && (
+        <div style={{ textAlign: "center", marginTop: "2mm" }}>
+          <span style={{ fontSize: "8pt" }}>PIN </span>
+          <span style={{ fontFamily: "ui-monospace, Menlo, Consolas, monospace", fontWeight: 800, fontSize: "16pt", letterSpacing: "0.2em" }}>{slip.pin}</span>
+        </div>
+      )}
       <div style={{ borderTop: "1px dashed #000", margin: "2.5mm 0" }} />
       <div style={row}><span>Name</span><b style={{ textAlign: "right" }}>{slip.visitor_name}</b></div>
       {slip.company && <div style={row}><span>Company</span><b style={{ textAlign: "right" }}>{slip.company}</b></div>}
@@ -45,7 +51,7 @@ export function PrintSlip({ slip, onReady }: { slip: WalkInSlip; onReady: () => 
       <div style={row}><span>Valid until</span><b style={{ textAlign: "right" }}>Today {clock(slip.valid_until)}</b></div>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={slip.qr} alt="" onLoad={onReady} style={{ display: "block", width: "34mm", height: "34mm", margin: "3mm auto 1mm" }} />
-      <div style={{ textAlign: "center", fontSize: "8pt" }}>Show this slip to security.<br />Scan the QR at the kiosk when you leave.</div>
+      <div style={{ textAlign: "center", fontSize: "8pt" }}>Show this slip to security.<br />When you leave, scan the QR or enter the PIN at the kiosk.</div>
       <div style={{ borderTop: "1px dashed #000", margin: "2.5mm 0" }} />
       <div style={{ textAlign: "center", fontSize: "6.5pt", lineHeight: 1.4 }}>Supported by Smart City Technologies Pte Ltd<br />© 2026 Elix PMS</div>
     </div>,

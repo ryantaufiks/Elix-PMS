@@ -3,6 +3,7 @@ import tempfile
 from datetime import timedelta
 from unittest import mock
 
+from django.core.cache import cache
 from django.test import override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient, APITestCase
@@ -137,6 +138,71 @@ class WalkInTests(APITestCase):
         privacy.erase_visitor(recent.visitor)
         recent.refresh_from_db()
         self.assertEqual((recent.visitor_name, recent.visitor, recent.visitor_snapshot.name), (privacy.REMOVED, None, ""))
+
+
+    def test_pins_unique_on_site_and_check_out_with_pin(self, _):
+        cache.clear()
+        self.addCleanup(cache.clear)
+        slips = [self.register(name=f"Visitor {i}").data for i in range(5)]
+        pins = [slip["pin"] for slip in slips]
+        self.assertTrue(all(len(p) == 4 and p.isdigit() for p in pins))
+        self.assertEqual(len(set(pins)), 5)
+
+        url = "/v1/kiosk/checkout/"
+        self.assertEqual(self.client.post(url, {}, format="json").status_code, 400)
+        response = self.client.post(url, {"pin": pins[0]}, format="json")
+        self.assertEqual((response.data["result"], response.data["walk_in"]["pass_number"]), ("checked_out", "V001"))
+        # A PIN only works while the visitor is on site; the QR still answers "already checked out".
+        self.assertEqual(self.client.post(url, {"pin": pins[0]}, format="json").status_code, 404)
+        qr = m.Visit.objects.get(pass_number="V001").qr_payload
+        self.assertEqual(self.client.post(url, {"code": qr}, format="json").data["result"], "already_checked_out")
+
+        self.condo.kiosk_checkout = False
+        self.condo.save()
+        self.assertEqual(self.client.post(url, {"pin": pins[1]}, format="json").status_code, 409)
+
+    def test_wrong_pins_lock_the_kiosk_for_a_minute(self, _):
+        cache.clear()
+        self.addCleanup(cache.clear)
+        pin = self.register().data["pin"]
+        wrong = f"{(int(pin) + 1) % 10_000:04d}"
+        url = "/v1/kiosk/checkout/"
+        for _attempt in range(5):
+            self.assertEqual(self.client.post(url, {"pin": wrong}, format="json").status_code, 404)
+        self.assertEqual(self.client.post(url, {"pin": pin}, format="json").status_code, 429)
+        self.assertIsNone(m.Visit.objects.get().checked_out_at)
+
+    def test_pass_shown_after_the_resident_opens_the_gate(self, _):
+        call = m.IntercomCall.objects.create(condominium=self.condo, unit=self.unit, kiosk=self.kiosk, gate=self.gate,
+                                             room_name="r-pass", visitor_name="Siti", visitor_purpose="guest")
+        url = f"/v1/kiosk/calls/{call.pk}/pass/"
+        self.assertEqual(self.client.get(url).status_code, 404)
+        intercom.unlock(call, make_resident("host", self.unit))
+        slip = self.client.get(url).data
+        self.assertEqual((slip["pass_number"], slip["visitor_name"], len(slip["pin"])), ("V001", "Siti", 4))
+        other = m.Kiosk.objects.create(condominium=self.condo, name="Side kiosk")
+        token = other.issue_token()
+        other.save()
+        self.client.credentials(HTTP_AUTHORIZATION=f"Kiosk {token}")
+        self.assertEqual(self.client.get(url).status_code, 404)  # Only the kiosk that placed the call.
+
+    def test_visitor_records_show_last_check_in_and_out(self, _):
+        self.register(visitor_phone="9123 4567")
+        visitor = m.Visitor.objects.get()
+        staff = make_staff("guard", self.condo, m.StaffAssignment.Role.SECURITY)
+        client = APIClient()
+        client.force_authenticate(staff)
+        row = client.get(f"/v1/visitors/?condominium={self.condo.pk}").data["results"][0]
+        self.assertTrue(row["on_site"])
+        self.assertIsNotNone(row["last_check_in"])
+        self.assertIsNone(row["last_check_out"])
+        self.assertEqual(row["visit_count"], 1)
+        visits.check_out(m.Visit.objects.get())
+        row = client.get(f"/v1/visitors/{visitor.pk}/").data
+        self.assertFalse(row["on_site"])
+        self.assertIsNotNone(row["last_check_out"])
+        history = client.get(f"/v1/visits/?visitor={visitor.pk}").data
+        self.assertEqual(history["count"], 1)
 
 
 @mock.patch("core.visits.broadcast")

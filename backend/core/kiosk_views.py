@@ -1,4 +1,5 @@
 """API for kiosk tablets (``Authorization: Kiosk <token>``)."""
+from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Exists, OuterRef, Q
 from drf_spectacular.utils import extend_schema
@@ -266,18 +267,47 @@ class WalkInView(KioskView):
         return Response(s.VisitSlipSerializer(visit).data, status=status.HTTP_201_CREATED)
 
 
+PIN_ATTEMPTS = 5
+PIN_LOCKOUT_SECONDS = 60
+
+
 class WalkInCheckOutView(KioskView):
     throttle_classes = [KioskCheckInThrottle]
 
-    @extend_schema(request=s.QrCodeSerializer, responses=s.WalkInCheckOutResultSerializer)
+    def _pin_failures(self):
+        return f"kiosk-pin-failures-{self.kiosk.pk}"
+
+    @extend_schema(request=s.KioskCheckOutSerializer, responses=s.WalkInCheckOutResultSerializer)
     def post(self, request):
-        """Check a visitor out with the QR on their slip."""
-        body = s.QrCodeSerializer(data=request.data)
+        """Check a visitor out with the QR on their pass, or its 4-digit PIN.
+
+        A PIN only matches a visitor still on site. After 5 wrong PINs the kiosk refuses PINs for a minute."""
+        body = s.KioskCheckOutSerializer(data=request.data)
         body.is_valid(raise_exception=True)
+        code, pin = body.validated_data["code"], body.validated_data["pin"]
+        condo = self.kiosk.condominium
+        if pin and not code:
+            if not condo.kiosk_checkout:
+                return Response({"detail": "Self check-out is turned off at this site."}, status=status.HTTP_409_CONFLICT)
+            if cache.get(self._pin_failures(), 0) >= PIN_ATTEMPTS:
+                return Response({"detail": "Too many wrong PINs. Please wait a minute or see the guardhouse."},
+                                status=status.HTTP_429_TOO_MANY_REQUESTS)
         with transaction.atomic():
-            visit = visits.find(self.kiosk.condominium_id, body.validated_data["code"], lock=True)
+            visit = visits.find(condo.pk, code, lock=True) if code else visits.find_by_pin(condo.pk, pin, lock=True)
             if visit is None:
-                return Response({"detail": "Unknown pass."}, status=status.HTTP_404_NOT_FOUND)
+                if not code:
+                    cache.set(self._pin_failures(), cache.get(self._pin_failures(), 0) + 1, PIN_LOCKOUT_SECONDS)
+                return Response({"detail": "Unknown PIN." if not code else "Unknown pass."}, status=status.HTTP_404_NOT_FOUND)
             done = visits.check_out(visit)
         return Response({"result": "checked_out" if done else "already_checked_out",
                          "walk_in": s.VisitSlipSerializer(visit).data})
+
+
+class KioskCallPassView(KioskCallView):
+    @extend_schema(responses=s.VisitSlipSerializer)
+    def get(self, request, pk):
+        """The visitor pass (QR and PIN) for a call the resident approved, to show on screen and optionally print."""
+        visit = self._call(pk).visits.order_by("-created_at").first()
+        if visit is None:
+            return Response({"detail": "No pass for this call."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(s.VisitSlipSerializer(visit).data)

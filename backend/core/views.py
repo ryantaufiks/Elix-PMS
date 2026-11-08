@@ -3,7 +3,7 @@ from io import BytesIO
 
 import qrcode
 from django.db import connection
-from django.db.models import Count, Q
+from django.db.models import Count, OuterRef, Q, Subquery
 from django.db.models.functions import ExtractHour
 from django.http import FileResponse, HttpResponse
 from django.utils import timezone
@@ -314,12 +314,24 @@ class KioskViewSet(ScopedModelViewSet):
 # --- Visitors & access -------------------------------------------------------
 
 class VisitorViewSet(ScopedModelViewSet):
+    """People who identified themselves. Each row carries their latest visit's check-in and check-out;
+    the full history is ``/visits/?visitor=<id>``."""
+
     queryset = m.Visitor.objects.all()
     serializer_class = s.VisitorSerializer
     staff_write_roles = ALL_STAFF
     filterset_fields = ["condominium", "is_blacklisted"]
     search_fields = ["full_name", "phone", "id_partial", "company"]
-    ordering_fields = ["last_visit_at", "created_at", "full_name"]
+    ordering_fields = ["last_visit_at", "created_at", "full_name", "last_check_in"]
+
+    def get_queryset(self):
+        latest = m.Visit.objects.filter(visitor=OuterRef("pk")).order_by("-created_at")
+        return super().get_queryset().annotate(
+            last_check_in=Subquery(latest.values("created_at")[:1]),
+            last_check_out=Subquery(latest.values("checked_out_at")[:1]),
+            last_valid_until=Subquery(latest.values("valid_until")[:1]),
+            visit_count=Count("visits", distinct=True),
+        ).order_by("-created_at")
 
     def perform_create(self, serializer):
         self.check_write(serializer.validated_data)
@@ -456,8 +468,8 @@ class VisitViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, ScopedReadO
     resident_unit_path = "unit"
     staff_write_roles = ALL_STAFF
     http_method_names = ["get", "post", "patch", "head", "options"]
-    filterset_fields = ["condominium", "unit", "purpose", "source", "issued_on", "kiosk", "gate"]
-    search_fields = ["pass_number", "visitor_name", "company", "vehicle_plate", "notes"]
+    filterset_fields = ["condominium", "unit", "purpose", "source", "issued_on", "kiosk", "gate", "visitor"]
+    search_fields = ["pass_number", "pin", "visitor_name", "company", "vehicle_plate", "notes"]
     ordering_fields = ["created_at", "pass_number", "checked_out_at"]
 
     @extend_schema(parameters=[

@@ -103,7 +103,7 @@ export default function VisitsPage() {
           ]}
         />
         <div className="flex flex-wrap items-center gap-2 border-b border-line p-4">
-          <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Pass number, name, company, plate, notes" />
+          <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Pass number, PIN, name, company, plate, notes" />
           <Select value={source} onChange={(e) => { setSource(e.target.value); setPage(1); }} className="sm:w-48" aria-label="Entry">
             {SOURCES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </Select>
@@ -143,7 +143,10 @@ export default function VisitsPage() {
                       <input type="checkbox" aria-label={`Select ${v.pass_number}`} checked={selected.has(v.id)} onChange={() => toggle(v.id)} className="h-4 w-4 rounded border-line" />
                     )}
                   </Td>
-                  <Td className="font-mono text-base font-semibold text-ink">{v.pass_number}</Td>
+                  <Td className="font-mono text-base font-semibold text-ink">
+                    {v.pass_number}
+                    {v.pin && v.state === "on_site" && <div className="text-xs font-normal text-muted">PIN {v.pin}</div>}
+                  </Td>
                   <Td>
                     <div className="flex items-start gap-3">
                       {v.has_snapshot ? (

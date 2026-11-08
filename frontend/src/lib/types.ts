@@ -61,6 +61,11 @@ export type Visitor = {
   company: string;
   face_consent_at: string | null;
   last_visit_at: string | null;
+  /** From their latest visit. */
+  last_check_in: string | null;
+  last_check_out: string | null;
+  on_site: boolean;
+  visit_count: number;
   is_blacklisted: boolean;
   blacklist_reason: string;
   created_at: string;
@@ -293,6 +298,7 @@ export type Visit = {
   notes: string;
   has_snapshot: boolean;
   pass_number: string;
+  pin: string;
   issued_on: string;
   valid_until: string;
   state: VisitState;

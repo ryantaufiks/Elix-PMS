@@ -172,8 +172,8 @@ class Visit(TimeStampedModel):
 
     Recorded for every way in: a walk-in registered at a kiosk or by security, an invitation QR or
     plate, or a gate opened over the intercom. Every visit gets a pass number that restarts each
-    day per condominium, one series per purpose (V001 visitor, C001 contractor, ...), and a QR
-    (``qr_payload``) that checks the visitor out at a kiosk. The gate is never opened by a visit.
+    day per condominium, one series per purpose (V001 visitor, C001 contractor, ...), a QR
+    (``qr_payload``) and a 4-digit PIN that check the visitor out at a kiosk. The gate is never opened by a visit.
     """
 
     class Source(models.TextChoices):
@@ -214,6 +214,9 @@ class Visit(TimeStampedModel):
     pass_number = models.CharField(max_length=12)
     valid_until = models.DateTimeField(help_text="End of the day it was issued.")
     token = models.CharField(max_length=64, unique=True, default=generate_invitation_token, editable=False)
+    pin = models.CharField(
+        max_length=4, blank=True, editable=False,
+        help_text="4 digits on the pass, unique among visitors on site; checks out at the kiosk (and later unit doors).")
     checked_out_at = models.DateTimeField(null=True, blank=True)
     checked_out_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",

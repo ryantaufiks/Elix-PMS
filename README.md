@@ -142,16 +142,26 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
 - **Walk in** (per site, Site settings → *Offer walk-in registration*, on by default): for visitors who
   are not calling anyone. They pick the unit (any active unit), enter the same details as for a call,
   take a photo (*Take the walk-in visitor's photo*, can be turned off) and accept the notice. The kiosk
-  prints a **58 mm slip** with the pass number, details, validity and a check-out QR. Pass numbers
+  prints a **58 mm slip** with the pass number, a **4-digit PIN**, details, validity and a check-out QR. Pass numbers
   restart daily per site, one series per purpose: **V**001 visitor, **D** parcel, **F** food, **C**
   contractor, **P** pick-up, **O** other. The gate does **not** open: the visitor shows the slip to
-  security, and scans its QR under *I have an invitation* when leaving (or a guard checks them out on
-  the Visitor list). Passes are valid until the end of the day.
+  security, and checks out under *Check out* when leaving (or a guard checks them out on the Visitor
+  list). Passes are valid until the end of the day.
+- **Check out** (per site, Site settings → *Offer self check-out at the kiosk*, on by default): the
+  kiosk's fourth button. The visitor scans the QR on their slip or screenshot, or types the PIN on the
+  keypad. Every visit gets a PIN unique among the visitors on site; a PIN only works while the visitor
+  is on site, and after 5 wrong PINs the kiosk refuses PINs for a minute. Check-out by face is planned
+  (matched on the kiosk PC, optional per site). PINs are meant for unit access control later too.
+- **After a resident opens the gate** (Call a resident), the kiosk shows the visitor's pass: pass
+  number, PIN and QR, with a reminder to photograph or screenshot it for check-out, and a *Print slip*
+  button when the kiosk has a printer.
 - **Visitor list:** every way in records a *visit* with the same daily pass number series: kiosk
   walk-ins, walk-ins registered by security, invitation check-ins (QR at the kiosk or plate at an LPR
   camera; re-entries the same day reuse the visit, and an exit camera checks the vehicle out) and
   gates opened over the intercom. Security can print any visit's slip from the dashboard (the
-  guardhouse PC's default printer), add notes and check visitors out one by one or in bulk.
+  guardhouse PC's default printer), add notes and check visitors out one by one or in bulk. The PIN of
+  visitors on site is shown under the pass number (and is searchable). *Visitor records* (Community)
+  shows each person's last check-in and check-out, and *Visits* opens their full history.
 - **Slip printer:** connect the receipt printer to the kiosk PC, make it the default printer with a
   58 mm roll paper size, and start Chrome with `--kiosk --kiosk-printing` so slips print without a
   dialog. A kiosk without a printer (Gates & devices → Kiosks → untick *Receipt printer connected*)
@@ -166,8 +176,9 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
 | Kiosk | `POST /v1/kiosk/checkin/` (`code`, optional `plate`, `face_photo`) | Check in; opens the kiosk's gate when granted |
 | Kiosk | `GET /v1/kiosk/directory/?walk_in=1` | Every active unit (walk-ins ring nobody) |
 | Kiosk | `POST /v1/kiosk/walk-ins/` (`unit`, `purpose`, visitor details, `consent`, `snapshot`) | Register a walk-in; returns the slip (pass number, QR as a data URI) |
-| Kiosk | `POST /v1/kiosk/walk-ins/checkout/` (`code` = slip QR, `ELIX-WALKIN:<token>`) | Check out |
-| Staff | `GET /v1/visits/?state=on_site&source=&date_from=&date_to=` | Visitor list (`source`: kiosk, staff, invitation, intercom) |
+| Kiosk | `POST /v1/kiosk/checkout/` (`code` = pass QR `ELIX-WALKIN:<token>`, or `pin`) | Check out (`/v1/kiosk/walk-ins/checkout/` still works); 429 after 5 wrong PINs |
+| Kiosk | `GET /v1/kiosk/calls/{id}/pass/` | The visitor pass (QR, PIN) after the resident opened the gate |
+| Staff | `GET /v1/visits/?state=on_site&source=&date_from=&date_to=&visitor=` | Visitor list (`source`: kiosk, staff, invitation, intercom); `visitor` = one person's history |
 | Staff | `POST /v1/visits/` (`unit`, `visitor_name`, `purpose`, optional `company`, `visitor_phone`, `visitor_id_partial`, `vehicle_plate`, `notes`, `snapshot`; `consent`) | Register a walk-in at the guardhouse |
 | Staff | `PATCH /v1/visits/{id}/` (`visitor_name`, `company`, `notes`), `GET …/slip/`, `GET …/snapshot/` | Edit, slip data to print, photo |
 | Staff | `POST /v1/visits/{id}/check_out/`, `POST /v1/visits/bulk_check_out/` (`ids`) | Check out one or many |
