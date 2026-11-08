@@ -12,6 +12,7 @@ import { useSession } from "@/lib/session";
 import type { IntercomCall, Page } from "@/lib/types";
 
 import { Icon, type IconName } from "./icons";
+import { NotificationBell } from "./Notifications";
 import { useTheme } from "@/lib/theme";
 
 import { cx, useToast } from "./ui";
@@ -202,6 +203,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <span className={cx("h-1.5 w-1.5 rounded-full", live ? "bg-emerald-500" : "animate-pulse bg-amber-500")} />
               {live ? "Live" : "Reconnecting"}
             </span>
+            <NotificationBell />
             <button
               onClick={toggleTheme}
               className="rounded-md p-2 text-muted hover:bg-surface-3 hover:text-ink"

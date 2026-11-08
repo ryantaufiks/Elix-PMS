@@ -20,7 +20,7 @@ docker compose exec web python manage.py test core
 | http://127.0.0.1:8001/v1/auth/token/ | JWT login |
 | `POST /v1/lpr-webhook/` | Dahua LPR events (Basic Auth per camera) |
 | `POST /v1/gates/{id}/open/` | Manual gate opening (security / condo admin) |
-| `ws://…/ws/events/?token=<JWT>` | Live events (access logs, intercom calls) for the user's condos and units |
+| `ws://…/ws/events/?token=<JWT>` | Live events (access logs, intercom calls, visits, bookings; feedback for staff) for the user's condos and units |
 | `ws://…/ws/events/?kiosk_token=<token>` | Live state of the kiosk's own calls |
 
 The dev API listens on `127.0.0.1:8001` (`DEV_PORT`); port 8000 belongs to production. Set `DEV_BIND`
@@ -39,6 +39,10 @@ chart colours were checked with a colour-blind-safety validator for both themes.
 `frontend/public/brand/` and `frontend/src/app/icon.png` / `apple-icon.png` (cropped from the source
 artwork `elix-logo.zip`, which is kept out of git). The dashboard home shows today's KPIs, an hourly
 traffic chart (with table view), live activity, gate health and entry methods.
+The sidebar collapses to an icon rail (button at its bottom, remembered per browser). The **bell** in
+the top bar lists live activity for the selected condo as it happens: visitors in and out, intercom
+calls and their outcome, gate openings and denials, bookings and new feedback. The last 50 are kept
+in the browser; opening the bell marks them read.
 
 **All day-to-day setup is done here; Django admin is only an advanced fallback for the platform admin.**
 On first sign-in with no condominium, the platform admin is guided through creating one.

@@ -1,4 +1,5 @@
 """Resident services: facilities and bookings (with HitPay payment), feedback, and remote gate opening."""
+import logging
 from datetime import timedelta
 
 from django.db.models import Avg, Count, Q
@@ -18,8 +19,11 @@ from rest_framework.views import APIView
 from . import bookings, payments
 from . import models as m
 from . import serializers as s
+from .realtime import broadcast
 from .scoping import ADMIN, ALL_STAFF, resident_unit_ids, staff_condo_ids
 from .views import ScopedModelViewSet, ScopedReadOnlyViewSet
+
+log = logging.getLogger(__name__)
 
 RETURN_PATH = "/v1/payments/hitpay/return/"
 WEBHOOK_PATH = "/v1/payments/hitpay/webhook/"
@@ -351,7 +355,12 @@ class FeedbackViewSet(mixins.CreateModelMixin, ScopedReadOnlyViewSet):
                             status=status.HTTP_429_TOO_MANY_REQUESTS)
         feedback = m.Feedback.objects.create(condominium_id=unit.condominium_id, unit=unit, user=request.user,
                                              rating=data["rating"], category=data["category"], comment=data["comment"])
-        return Response(s.FeedbackSerializer(feedback).data, status=status.HTTP_201_CREATED)
+        row = s.FeedbackSerializer(feedback).data
+        try:
+            broadcast(feedback.condominium_id, None, "feedback", row)  # Staff only: residents are not in condo groups.
+        except Exception:  # Redis trouble must not lose the feedback.
+            log.exception("Failed to broadcast feedback %s", feedback.pk)
+        return Response(row, status=status.HTTP_201_CREATED)
 
     @extend_schema(request=s.FeedbackReplySerializer, responses=s.FeedbackSerializer)
     @action(detail=True, methods=["post"])

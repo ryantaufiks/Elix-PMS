@@ -101,7 +101,11 @@ Pastikan perangkat lokal Anda telah terinstal:
 * **Feedback:** resident memberi rating 1–5 bintang per kategori + komentar; admin membalas di menu **Feedback** (rata-rata dan distribusi rating), balasan tampil di aplikasi.
 * Setup HitPay: isi API key dan salt (terenkripsi) di *Online payments*; biarkan *Sandbox* tercentang untuk uji coba, hilangkan centang untuk live.
 
-### 6. Report Center
+### 6. Sidebar & notifikasi dashboard
+* Sidebar bisa diciutkan menjadi ikon saja (tombol panah di bawah sidebar); pilihan diingat per browser.
+* **Bell notifikasi** di top bar menampilkan aktivitas baru secara realtime untuk site yang dipilih: tamu masuk/keluar, panggilan intercom dan hasilnya, gerbang terbuka/ditolak, booking dan feedback baru. Badge merah menunjukkan jumlah yang belum dibaca; 50 notifikasi terakhir disimpan di browser.
+
+### 7. Report Center
 * Menu **Operations → Reports** untuk semua staff (termasuk guard). Officer hanya melihat site/kondo masing-masing; super admin bisa memilih beberapa site atau *All sites* untuk laporan gabungan (konsolidasi).
 * Jenis laporan: *Consolidated summary* (per site per hari), *Visitor*, *Access*, *Vehicle* (LPR), *Intercom*, *Invitation*. Masing-masing punya angka kunci, grafik tren harian, breakdown, dan tabel detail.
 * Filter periode (Today, Yesterday, 7/30 hari, bulan ini/lalu, tahun ini, custom maks. 366 hari), filter per laporan, dan **smart search**: kata bebas mencari di semua kolom teks, token `key:value` untuk satu kolom, contoh `unit:05-12 plate:SGX1234 status:denied "Ace Aircon"`.

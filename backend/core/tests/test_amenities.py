@@ -241,6 +241,12 @@ class FeedbackTests(APITestCase):
         self.client.force_authenticate(self.alice)
         self.assertEqual(self.client.get(f"/v1/feedback/{response.data['id']}/").data["reply"], "Thank you!")
 
+    def test_new_feedback_is_sent_to_the_guardhouse(self):
+        self.client.force_authenticate(self.alice)
+        with mock.patch("core.amenity_views.broadcast") as broadcast:
+            response = self.client.post("/v1/feedback/", {"rating": 1, "category": "security"}, format="json")
+        broadcast.assert_called_once_with(self.condo.pk, None, "feedback", response.data)
+
     def test_staff_cannot_post_feedback(self):
         self.client.force_authenticate(self.guard)
         self.assertEqual(self.client.post("/v1/feedback/", {"rating": 5}, format="json").status_code, 403)

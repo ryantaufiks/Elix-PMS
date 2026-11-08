@@ -8,6 +8,7 @@ import { Icon } from "@/components/icons";
 import { Badge, Button, Card, cx, Empty, ErrorNote, Field, Loading, Modal, PageHeader, Pagination, Select, Textarea, useToast } from "@/components/ui";
 import { api, query } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
+import { useLiveEvents } from "@/lib/live";
 import { useSession } from "@/lib/session";
 import type { Feedback, FeedbackSummary, Page } from "@/lib/types";
 
@@ -77,6 +78,9 @@ export default function FeedbackPage() {
   const filters = { condominium: condo.id, category, status, rating, search };
   const { data, mutate } = useSWR<Page<Feedback>>(`/v1/feedback/${query({ ...filters, page })}`, { keepPreviousData: true });
   const { data: summary, mutate: refreshSummary } = useSWR<FeedbackSummary>(`/v1/feedback/summary/${query(filters)}`);
+  useLiveEvents((event) => {
+    if (event.type === "feedback") { mutate(); refreshSummary(); }
+  });
   const max = Math.max(1, ...Object.values(summary?.by_rating ?? {}));
   const reset = () => setPage(1);
 
