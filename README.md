@@ -149,7 +149,8 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
   the Walk-ins page). Passes are valid until the end of the day.
 - **Slip printer:** connect the receipt printer to the kiosk PC, make it the default printer with a
   58 mm roll paper size, and start Chrome with `--kiosk --kiosk-printing` so slips print without a
-  dialog. A kiosk without a printer (Gates & devices → Kiosks → untick *Receipt printer connected*)
+  dialog. The kiosk sets the page length to the slip's own length; if the printer still feeds blank
+  paper, pick a "receipt"/variable-length paper size in the driver and turn off "feed to page end". A kiosk without a printer (Gates & devices → Kiosks → untick *Receipt printer connected*)
   shows the pass number and QR on screen instead.
 - **Visitor pass** (`/i/<token>`, the invitation's share link): shows the QR code, validity, the unit and
   the host's first name only. Anyone with the link can use it, so the page sends no referrer.
