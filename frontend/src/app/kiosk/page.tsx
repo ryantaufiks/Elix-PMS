@@ -198,7 +198,7 @@ function Home({ kiosk, onCall, onWalkIn, onScan, onAdmin }: { kiosk: KioskSelf; 
       <p className="mt-3 text-center text-lg text-slate-300">How would you like to enter{kiosk.gate_name ? ` through ${kiosk.gate_name}` : ""}?</p>
       <div className={`mt-12 grid w-full gap-6 ${kiosk.walk_in ? "max-w-5xl sm:grid-cols-3" : "max-w-3xl sm:grid-cols-2"}`}>
         <button onClick={onCall} className="group rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
-          <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-500 shadow-primary">
+          <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
             <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" /></svg>
           </div>
           <div className="text-2xl font-semibold">Call a resident</div>
