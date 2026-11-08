@@ -131,21 +131,19 @@ class _Pager extends StatelessWidget {
   Widget build(BuildContext context) {
     final outline = Theme.of(context).colorScheme.outline;
     return Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: Row(children: [
-        IconButton.filledTonal(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        IconButton(
           tooltip: 'Previous page',
+          visualDensity: VisualDensity.compact,
           onPressed: loading || page <= 1 ? null : () => onPage(page - 1),
           icon: const Icon(Icons.chevron_left_rounded),
         ),
-        Expanded(
-          child: Column(children: [
-            Text('Page $page of $pages', style: const TextStyle(fontWeight: FontWeight.w600)),
-            Text('$count items', style: TextStyle(color: outline, fontSize: 12)),
-          ]),
-        ),
-        IconButton.filledTonal(
+        Text('Page $page of $pages', style: const TextStyle(fontWeight: FontWeight.w600)),
+        Text('  ·  $count items', style: TextStyle(color: outline, fontSize: 12)),
+        IconButton(
           tooltip: 'Next page',
+          visualDensity: VisualDensity.compact,
           onPressed: loading || page >= pages ? null : () => onPage(page + 1),
           icon: const Icon(Icons.chevron_right_rounded),
         ),

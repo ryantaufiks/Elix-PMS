@@ -14,7 +14,7 @@ class AuroraBackground extends StatefulWidget {
 }
 
 class _AuroraBackgroundState extends State<AuroraBackground> with SingleTickerProviderStateMixin {
-  late final _controller = AnimationController(vsync: this, duration: const Duration(seconds: 24))..repeat();
+  late final _controller = AnimationController(vsync: this, duration: const Duration(seconds: 16))..repeat();
 
   @override
   void dispose() {
@@ -48,10 +48,10 @@ class _Glow {
 }
 
 const _glows = [
-  _Glow(Color(0xFF2F6FFF), 0.55, 0.20, 0.18, 0.18, 0.10, 1, 0),
-  _Glow(Color(0xFF1B3B8F), 0.65, 0.85, 0.35, 0.12, 0.16, 1, 2.1),
-  _Glow(Color(0xFF00B4FF), 0.40, 0.50, 0.75, 0.22, 0.08, 2, 4.2),
-  _Glow(Color(0xFF5B3BFF), 0.35, 0.10, 0.85, 0.10, 0.12, 1, 1.3),
+  _Glow(Color(0xFF2F6FFF), 0.55, 0.25, 0.20, 0.32, 0.18, 1, 0),
+  _Glow(Color(0xFF2448C8), 0.60, 0.80, 0.40, 0.28, 0.26, 1, 2.1),
+  _Glow(Color(0xFF00B4FF), 0.42, 0.50, 0.75, 0.38, 0.16, 2, 4.2),
+  _Glow(Color(0xFF6D4BFF), 0.38, 0.15, 0.85, 0.24, 0.20, 1, 1.3),
 ];
 
 class _AuroraPainter extends CustomPainter {
@@ -65,12 +65,12 @@ class _AuroraPainter extends CustomPainter {
     for (final g in _glows) {
       final a = 2 * math.pi * t * g.speed + g.phase;
       final centre = Offset((g.x + g.dx * math.sin(a)) * size.width, (g.y + g.dy * math.cos(a * 0.8 + 1)) * size.height);
-      final radius = g.radius * longest * (1 + 0.08 * math.sin(a * 1.3));
+      final radius = g.radius * longest * (1 + 0.18 * math.sin(a * 1.3));
       canvas.drawCircle(
         centre,
         radius,
         Paint()
-          ..shader = RadialGradient(colors: [g.color.withValues(alpha: 0.45), g.color.withValues(alpha: 0)])
+          ..shader = RadialGradient(colors: [g.color.withValues(alpha: 0.6), g.color.withValues(alpha: 0)])
               .createShader(Rect.fromCircle(center: centre, radius: radius)),
       );
     }

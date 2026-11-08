@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
 
 import { SearchInput, UnitPicker } from "@/components/bits";
@@ -22,8 +22,21 @@ const residencyFields: FieldDef[] = [
   { name: "is_active", label: "Currently living here", type: "checkbox", wide: true },
 ];
 
+/** Link to the resident APK with its build in the query, so no cache serves an older copy. */
+function useApkLink() {
+  const [href, setHref] = useState("/downloads/elix-resident.apk");
+  useEffect(() => {
+    fetch(`/downloads/elix-resident.json?t=${Date.now()}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((info: { version?: string } | null) => { if (info?.version) setHref(`/downloads/elix-resident.apk?v=${info.version}`); })
+      .catch(() => {});
+  }, []);
+  return href;
+}
+
 export default function ResidentsPage() {
   const { condo, isManager } = useSession();
+  const apk = useApkLink();
   const [search, setSearch] = useState("");
   const [type, setType] = useState("");
   const [page, setPage] = useState(1);
@@ -43,7 +56,7 @@ export default function ResidentsPage() {
         title="Residents"
         description="Who lives in each unit, and who answers intercom calls on the Elix app."
         action={<>
-          <a href="/downloads/elix-resident.apk"><Button><Icon name="smartphone" className="h-4 w-4" /> Resident app (Android)</Button></a>
+          <a href={apk}><Button><Icon name="smartphone" className="h-4 w-4" /> Resident app (Android)</Button></a>
           {isManager && <Button variant="primary" onClick={() => setAdding(true)}><Icon name="plus" className="h-4 w-4" /> Add resident</Button>}
         </>}
       />

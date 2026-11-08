@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../session.dart';
@@ -50,52 +52,130 @@ class _LoginScreenState extends State<LoginScreen> {
                   const Text('Engage Link Identified Experience', textAlign: TextAlign.center,
                       style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, letterSpacing: 1.6)),
                   const SizedBox(height: 40),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: AutofillGroup(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                          Text('Sign in', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 4),
-                          Text('Use the login from your condo management.', style: TextStyle(color: Theme.of(context).colorScheme.outline)),
-                          const SizedBox(height: 20),
-                          if (_error != null) ...[
-                            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                            const SizedBox(height: 12),
-                          ],
-                          TextField(
-                            controller: _username,
-                            autofillHints: const [AutofillHints.username],
-                            textInputAction: TextInputAction.next,
-                            decoration: const InputDecoration(labelText: 'Username'),
-                          ),
+                  _Glass(
+                    child: AutofillGroup(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        const Text('Sign in', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 4),
+                        const Text('Use the login from your condo management.', style: TextStyle(color: Color(0xFFB4C2DA))),
+                        const SizedBox(height: 20),
+                        if (_error != null) ...[
+                          Text(_error!, style: const TextStyle(color: Color(0xFFFCA5A5))),
                           const SizedBox(height: 12),
-                          TextField(
-                            controller: _password,
-                            obscureText: _hide,
-                            autofillHints: const [AutofillHints.password],
-                            onSubmitted: (_) => _submit(),
-                            decoration: InputDecoration(
-                              labelText: 'Password',
-                              suffixIcon: IconButton(
-                                icon: Icon(_hide ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                                onPressed: () => setState(() => _hide = !_hide),
-                              ),
+                        ],
+                        TextField(
+                          controller: _username,
+                          autofillHints: const [AutofillHints.username],
+                          textInputAction: TextInputAction.next,
+                          style: const TextStyle(color: Colors.white),
+                          cursorColor: Colors.white,
+                          decoration: _glassField('Username', Icons.person_outline_rounded),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _password,
+                          obscureText: _hide,
+                          autofillHints: const [AutofillHints.password],
+                          onSubmitted: (_) => _submit(),
+                          style: const TextStyle(color: Colors.white),
+                          cursorColor: Colors.white,
+                          decoration: _glassField('Password', Icons.lock_outline_rounded).copyWith(
+                            suffixIcon: IconButton(
+                              color: const Color(0xFFB4C2DA),
+                              icon: Icon(_hide ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                              onPressed: () => setState(() => _hide = !_hide),
                             ),
                           ),
-                          const SizedBox(height: 20),
-                          FilledButton(
-                            onPressed: _busy ? null : _submit,
-                            child: _busy ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5)) : const Text('Sign in'),
-                          ),
-                        ]),
-                      ),
+                        ),
+                        const SizedBox(height: 24),
+                        _GlowButton(busy: _busy, onPressed: _submit),
+                      ]),
                     ),
                   ),
                   const SizedBox(height: 32),
                   const Credit(color: Color(0xFF94A3B8)),
                 ]),
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Frosted panel: blurs the drifting glows behind it, with a faint light edge.
+class _Glass extends StatelessWidget {
+  const _Glass({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(24);
+    return ClipRRect(
+      borderRadius: radius,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.white.withValues(alpha: 0.14), Colors.white.withValues(alpha: 0.04)],
+            ),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+InputDecoration _glassField(String label, IconData icon) {
+  OutlineInputBorder edge(Color color, [double width = 1]) =>
+      OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: color, width: width));
+  return InputDecoration(
+    labelText: label,
+    labelStyle: const TextStyle(color: Color(0xFFB4C2DA)),
+    floatingLabelStyle: const TextStyle(color: Colors.white),
+    prefixIcon: Icon(icon, color: const Color(0xFFB4C2DA)),
+    filled: true,
+    fillColor: Colors.white.withValues(alpha: 0.08),
+    enabledBorder: edge(Colors.white.withValues(alpha: 0.16)),
+    focusedBorder: edge(const Color(0xFF7DD3FC), 1.4),
+    border: edge(Colors.white.withValues(alpha: 0.16)),
+  );
+}
+
+/// Sign-in button in the glow's colours (blue to cyan) with a soft halo.
+class _GlowButton extends StatelessWidget {
+  const _GlowButton({required this.busy, required this.onPressed});
+  final bool busy;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(14);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        gradient: const LinearGradient(colors: [Color(0xFF2F6FFF), Color(0xFF00B4FF)]),
+        boxShadow: [BoxShadow(color: const Color(0xFF2F8CFF).withValues(alpha: 0.45), blurRadius: 24, offset: const Offset(0, 8))],
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: busy ? null : onPressed,
+          child: SizedBox(
+            height: 52,
+            child: Center(
+              child: busy
+                  ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+                  : const Text('Sign in', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
             ),
           ),
         ),

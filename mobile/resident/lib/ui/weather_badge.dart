@@ -40,22 +40,19 @@ class WeatherBadgeState extends State<WeatherBadge> {
     if (now == null || now.temperature == null) return const SizedBox.shrink();
     return Semantics(
       label: '${now.temperature!.round()} degrees, ${now.forecast}',
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(16)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(weatherIcon(now.forecast), color: const Color(0xFF93C5FD), size: 22),
-            const SizedBox(width: 6),
-            Text('${now.temperature!.round()}°C', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600)),
-          ]),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 120),
-            child: Text(now.forecast, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.end,
-                style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12)),
-          ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+        Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.center, children: [
+          Icon(weatherIcon(now.forecast), color: const Color(0xFF93C5FD), size: 34),
+          const SizedBox(width: 8),
+          Text('${now.temperature!.round()}°', style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.w300, height: 1)),
         ]),
-      ),
+        const SizedBox(height: 4),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 140),
+          child: Text(now.forecast, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.end,
+              style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13)),
+        ),
+      ]),
     );
   }
 }

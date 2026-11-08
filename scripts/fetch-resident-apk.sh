@@ -15,4 +15,11 @@ url=$(curl -fsSL "${auth[@]}" -H "Accept: application/vnd.github+json" \
 mkdir -p downloads
 curl -fsSL "${auth[@]}" -H "Accept: application/octet-stream" -o downloads/elix-resident.apk.part "$url"
 mv downloads/elix-resident.apk.part downloads/elix-resident.apk
+
+# The download button links to elix-resident.apk?v=<version>, so a phone or Cloudflare never hands
+# out an older copy it cached: every new build gets a new link.
+version=$(sha256sum downloads/elix-resident.apk | cut -c1-12)
+printf '{"version": "%s", "updated_at": "%s"}\n' "$version" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > downloads/elix-resident.json.part
+mv downloads/elix-resident.json.part downloads/elix-resident.json
 ls -l downloads/elix-resident.apk
+echo "Download link: /downloads/elix-resident.apk?v=$version"

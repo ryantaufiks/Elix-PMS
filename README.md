@@ -305,8 +305,10 @@ touches `mobile/resident/` (or manually: Actions → Resident APK → Run workfl
 scripts/fetch-resident-apk.sh   # downloads the latest APK into downloads/ (served at /downloads/)
 ```
 
-The APK is then downloadable at `https://<your-host>/downloads/elix-resident.apk` (button on the
-Residents page). Application ID: `com.sct.elixpms`. Repository secrets the workflow needs:
+The APK is then downloadable at `https://<your-host>/downloads/elix-resident.apk?v=<version>` (button on
+the Residents page; the script prints the link). The version is the APK's short SHA-256, written to
+`downloads/elix-resident.json`, so each build gets a new link and no phone or Cloudflare cache hands
+out an older copy. Application ID: `com.sct.elixpms`. Repository secrets the workflow needs:
 `ANDROID_KEYSTORE_BASE64` and `ANDROID_KEYSTORE_PASSWORD` (the release key, see Signing below), and
 optionally `GOOGLE_SERVICES_JSON_BASE64`; optional variable `API_BASE`.
 
