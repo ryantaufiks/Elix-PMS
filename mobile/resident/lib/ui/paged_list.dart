@@ -12,7 +12,7 @@ class PagedList<T> extends StatefulWidget {
     required this.parse,
     required this.itemBuilder,
     required this.empty,
-    this.pageSize = 10,
+    this.pageSize = 9,
     this.padding = const EdgeInsets.fromLTRB(16, 12, 16, 24),
     this.spacing = 8,
     this.header = const [],

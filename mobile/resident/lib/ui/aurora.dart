@@ -48,10 +48,10 @@ class _Glow {
 }
 
 const _glows = [
-  _Glow(Color(0xFF2F6FFF), 0.55, 0.25, 0.20, 0.32, 0.18, 1, 0),
-  _Glow(Color(0xFF2448C8), 0.60, 0.80, 0.40, 0.28, 0.26, 1, 2.1),
-  _Glow(Color(0xFF00B4FF), 0.42, 0.50, 0.75, 0.38, 0.16, 2, 4.2),
-  _Glow(Color(0xFF6D4BFF), 0.38, 0.15, 0.85, 0.24, 0.20, 1, 1.3),
+  _Glow(Color(0xFF2F6FFF), 0.48, 0.25, 0.20, 0.32, 0.18, 1, 0),
+  _Glow(Color(0xFF1B3B8F), 0.55, 0.80, 0.40, 0.28, 0.26, 1, 2.1),
+  _Glow(Color(0xFF0091D5), 0.36, 0.50, 0.75, 0.38, 0.16, 2, 4.2),
+  _Glow(Color(0xFF4B32C8), 0.32, 0.15, 0.85, 0.24, 0.20, 1, 1.3),
 ];
 
 class _AuroraPainter extends CustomPainter {
@@ -70,7 +70,7 @@ class _AuroraPainter extends CustomPainter {
         centre,
         radius,
         Paint()
-          ..shader = RadialGradient(colors: [g.color.withValues(alpha: 0.6), g.color.withValues(alpha: 0)])
+          ..shader = RadialGradient(colors: [g.color.withValues(alpha: 0.28), g.color.withValues(alpha: 0)])
               .createShader(Rect.fromCircle(center: centre, radius: radius)),
       );
     }

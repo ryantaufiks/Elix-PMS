@@ -247,7 +247,7 @@ vehicles, and see the unit's recent entries. Staff use the web dashboard instead
 The sign-in screen has a slowly drifting blue glow behind it (still when the phone's *Remove
 animations* setting is on). The home header shows the **weather** at the condo next to the resident's
 name and a **bell** with the number of new notifications. Every list in the app (activity, visitors,
-facilities, bookings, feedback, invitations, vehicles, notifications) is paged: 10 per page with
+facilities, bookings, feedback, invitations, vehicles, notifications) is paged: 9 per page with
 *‹ Page 2 of 5 ›* underneath.
 
 - **Notifications** (`GET /v1/notifications/`): the last 30 days at the resident's units, one entry

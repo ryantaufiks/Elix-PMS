@@ -85,38 +85,46 @@ class _HomeTabState extends State<HomeTab> {
               gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF1B3B8F), navy, navyDeep]),
               borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
             ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Image.asset('assets/elix-logo.png', height: 26),
-                const Spacer(),
-                _Bell(onTap: () => _open(const NotificationsScreen())),
-              ]),
-              const SizedBox(height: 16),
-              Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            // Two columns: logo, greeting, name and units on the left; the bell level with the logo and
+            // the weather centred against the name and units on the right.
+            child: IntrinsicHeight(
+              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    SizedBox(height: 40, child: Align(alignment: Alignment.centerLeft, child: Image.asset('assets/elix-logo.png', height: 26))),
+                    const SizedBox(height: 12),
                     Text('$greeting,', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 16)),
                     Text(me.firstName.isEmpty ? me.displayName : me.firstName,
                         maxLines: 1, overflow: TextOverflow.ellipsis,
                         style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 16),
+                    Wrap(spacing: 8, runSpacing: 8, children: [
+                      for (final r in me.residencies)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.apartment, size: 16, color: Colors.white70),
+                            const SizedBox(width: 6),
+                            Text(r.unitDisplay, style: const TextStyle(color: Colors.white)),
+                          ]),
+                        ),
+                    ]),
                   ]),
                 ),
-                if (me.residencies.isNotEmpty) WeatherBadge(key: _weather, condominium: me.residencies.first.condominium),
-              ]),
-              const SizedBox(height: 16),
-              Wrap(spacing: 8, runSpacing: 8, children: [
-                for (final r in me.residencies)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.apartment, size: 16, color: Colors.white70),
-                      const SizedBox(width: 6),
-                      Text(r.unitDisplay, style: const TextStyle(color: Colors.white)),
-                    ]),
+                const SizedBox(width: 12),
+                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  SizedBox(height: 40, child: Center(child: _Bell(onTap: () => _open(const NotificationsScreen())))),
+                  Expanded(
+                    child: Center(
+                      child: me.residencies.isEmpty
+                          ? const SizedBox.shrink()
+                          : WeatherBadge(key: _weather, condominium: me.residencies.first.condominium),
+                    ),
                   ),
+                ]),
               ]),
-            ]),
+            ),
           ),
         ),
         if (_ringing.isNotEmpty)
