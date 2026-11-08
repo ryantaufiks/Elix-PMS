@@ -63,6 +63,7 @@ class AccessLog(models.Model):
         INTERCOM = "intercom", "Intercom approval"
         APP = "app", "Resident app"
         MANUAL = "manual", "Manual (staff)"
+        WALK_IN = "walk_in", "Walk-in registration"
 
     class Result(models.TextChoices):
         GRANTED = "granted", "Granted"

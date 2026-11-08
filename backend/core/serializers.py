@@ -62,7 +62,8 @@ class CondominiumSerializer(ModelCleanSerializer):
         fields = [
             "id", "name", "code", "address", "postal_code", "timezone", "contact_phone", "is_active", "lpr_enabled",
             "invitation_max_days", "intercom_ring_timeout_seconds", "face_verification_enabled",
-            "visitor_data_retention_days", "kiosk_visitor_form", "kiosk_photo_required", "visitor_privacy_notice",
+            "visitor_data_retention_days", "kiosk_visitor_form", "kiosk_photo_required", "kiosk_walk_in", "kiosk_walk_in_photo",
+            "visitor_privacy_notice",
             "created_at", "updated_at",
         ]
 
@@ -217,7 +218,7 @@ class LprCameraSerializer(ModelCleanSerializer):
 class KioskSerializer(ModelCleanSerializer):
     class Meta:
         model = m.Kiosk
-        fields = ["id", "condominium", "gate", "name", "is_active", "token_hint", "last_seen_at", "app_version"]
+        fields = ["id", "condominium", "gate", "name", "is_active", "prints_slips", "token_hint", "last_seen_at", "app_version"]
         read_only_fields = ["token_hint", "last_seen_at", "app_version"]
 
 
@@ -314,6 +315,58 @@ class StartCallSerializer(serializers.Serializer):
     snapshot = serializers.ImageField(required=False)
 
 
+class WalkInRegisterSerializer(StartCallSerializer):
+    purpose = serializers.ChoiceField(choices=m.VisitPurpose.choices)
+
+
+class WalkInPassSerializer(serializers.ModelSerializer):
+    unit_display = serializers.CharField(source="unit.__str__", read_only=True)
+    kiosk_name = serializers.CharField(source="kiosk.name", read_only=True, default="")
+    state = serializers.ChoiceField(choices=["on_site", "checked_out", "expired"], read_only=True)
+    has_snapshot = serializers.SerializerMethodField()
+    visitor_phone = serializers.SerializerMethodField()
+
+    class Meta:
+        model = m.WalkInPass
+        fields = [
+            "id", "condominium", "unit", "unit_display", "kiosk", "kiosk_name", "visitor", "visitor_name", "visitor_phone",
+            "purpose", "company", "has_snapshot", "pass_number", "issued_on", "valid_until", "state", "checked_out_at",
+            "checked_out_by", "created_at",
+        ]
+        read_only_fields = fields
+
+    def get_has_snapshot(self, obj) -> bool:
+        return bool(obj.visitor_snapshot)
+
+    def get_visitor_phone(self, obj) -> str:
+        return str(obj.visitor.phone) if obj.visitor and obj.visitor.phone else ""
+
+
+class WalkInSlipSerializer(serializers.ModelSerializer):
+    """What the kiosk prints on the slip (or shows on screen)."""
+
+    condominium_name = serializers.CharField(source="condominium.name")
+    unit_display = serializers.CharField(source="unit.__str__")
+    purpose_display = serializers.CharField(source="get_purpose_display")
+    state = serializers.ChoiceField(choices=["on_site", "checked_out", "expired"])
+    qr = serializers.SerializerMethodField(help_text="PNG data URI of the check-out QR code.")
+
+    class Meta:
+        model = m.WalkInPass
+        fields = ["pass_number", "visitor_name", "purpose", "purpose_display", "company", "unit_display",
+                  "condominium_name", "created_at", "valid_until", "state", "checked_out_at", "qr"]
+
+    def get_qr(self, obj) -> str:
+        from .walk_ins import qr_data_uri
+
+        return qr_data_uri(obj)
+
+
+class WalkInCheckOutResultSerializer(serializers.Serializer):
+    result = serializers.ChoiceField(choices=["checked_out", "already_checked_out"])
+    walk_in = WalkInSlipSerializer()
+
+
 class VisitorLookupSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=30, required=False, allow_blank=True, default="")
     id_partial = serializers.CharField(max_length=8, required=False, allow_blank=True, default="")
@@ -344,11 +397,13 @@ class KioskSelfSerializer(serializers.ModelSerializer):
     visitor_form = serializers.BooleanField(source="condominium.kiosk_visitor_form")
     photo_required = serializers.BooleanField(source="condominium.kiosk_photo_required")
     privacy_notice = serializers.CharField(source="condominium.privacy_notice")
+    walk_in = serializers.BooleanField(source="condominium.kiosk_walk_in")
+    walk_in_photo = serializers.BooleanField(source="condominium.kiosk_walk_in_photo")
 
     class Meta:
         model = m.Kiosk
         fields = ["id", "name", "condominium", "condominium_name", "gate", "gate_name", "ring_timeout_seconds",
-                  "visitor_form", "photo_required", "privacy_notice"]
+                  "visitor_form", "photo_required", "privacy_notice", "walk_in", "walk_in_photo", "prints_slips"]
 
 
 class PushDeviceSerializer(serializers.ModelSerializer):

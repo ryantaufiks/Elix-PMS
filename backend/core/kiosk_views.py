@@ -1,4 +1,5 @@
 """API for kiosk tablets (``Authorization: Kiosk <token>``)."""
+from django.db import transaction
 from django.db.models import Exists, OuterRef, Q
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
@@ -8,11 +9,16 @@ from rest_framework.settings import api_settings
 from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
 
-from . import access, intercom, livekit
+from . import access, intercom, livekit, walk_ins
 from . import visitor_identity as identity
 from . import models as m
 from . import serializers as s
 from .kiosk_auth import IsKiosk, KioskTokenAuthentication
+
+
+class Rejected(Exception):
+    def __init__(self, body, status_code=status.HTTP_400_BAD_REQUEST):
+        self.response = Response(body, status=status_code)
 
 
 class KioskView(APIView):
@@ -22,6 +28,50 @@ class KioskView(APIView):
     @property
     def kiosk(self):
         return self.request.auth
+
+    def handle_exception(self, exc):
+        if isinstance(exc, Rejected):
+            return exc.response
+        return super().handle_exception(exc)
+
+    def visitor_details(self, data, unit, *, details, photo, method, blocked_reason):
+        """Validate what the visitor entered and record the visit. Returns (name, visitor, consented).
+
+        ``details`` / ``photo``: whether this site requires them. Raises Rejected (400, or 403 for a
+        blocked visitor, which is also logged as a denied entry)."""
+        if unit.condominium_id != self.kiosk.condominium_id:
+            raise Rejected({"unit": ["Unknown unit."]})
+        try:
+            phone = identity.normalize_phone(data["visitor_phone"])
+            id_partial = identity.normalize_id_partial(data["visitor_id_partial"])
+        except identity.InvalidIdentity as exc:
+            field = "visitor_phone" if "mobile" in str(exc) else "visitor_id_partial"
+            raise Rejected({field: [str(exc)]}) from exc
+        name = data["visitor_name"].strip()
+        returning = identity.visitor_from_ref(self.kiosk, data["visitor_ref"]) if data["visitor_ref"] else None
+        errors = {}
+        if details:
+            if not name and returning is None:
+                errors["visitor_name"] = ["Please enter your name."]
+            if not data["purpose"]:
+                errors["purpose"] = ["Please choose the purpose of your visit."]
+        if photo and not data.get("snapshot"):
+            errors["snapshot"] = ["A photo is required at this site."]
+        if (details or photo) and not data["consent"]:
+            errors["consent"] = ["Please accept the privacy notice."]
+        if errors:
+            raise Rejected(errors)
+
+        # Personal data is kept only with the visitor's consent (the kiosk shows the privacy notice).
+        consented = data["consent"]
+        visitor = identity.record_visit(self.kiosk, ref=data["visitor_ref"] if returning else "", name=name,
+                                        phone=phone, id_partial=id_partial, company=data["company"].strip(),
+                                        consent=True) if consented else None
+        if visitor is not None and visitor.is_blacklisted:
+            if self.kiosk.gate_id:
+                access.deny(self.kiosk.gate, method, reason=blocked_reason, unit=unit, visitor=visitor)
+            raise Rejected({"detail": "Please see the guardhouse.", "blocked": True}, status.HTTP_403_FORBIDDEN)
+        return name or (visitor.full_name if visitor else ""), visitor, consented
 
 
 class KioskCallThrottle(SimpleRateThrottle):
@@ -48,7 +98,8 @@ class KioskMeView(KioskView):
 class DirectoryView(KioskView, generics.ListAPIView):
     """Units a visitor can call: active units with at least one resident taking calls.
 
-    Resident names are deliberately not exposed. Filter with ``?q=`` (unit, floor or block)."""
+    ``?walk_in=1`` lists every active unit (walk-ins do not ring anyone). Resident names are
+    deliberately not exposed. Filter with ``?q=`` (unit, floor or block)."""
 
     serializer_class = s.DirectoryUnitSerializer
     pagination_class = None
@@ -57,8 +108,9 @@ class DirectoryView(KioskView, generics.ListAPIView):
         if getattr(self, "swagger_fake_view", False):
             return m.Unit.objects.none()
         takes_calls = m.Residency.objects.filter(unit=OuterRef("pk"), is_active=True, receives_intercom_calls=True)
-        qs = (m.Unit.objects.filter(condominium=self.kiosk.condominium_id, is_active=True)
-              .filter(Exists(takes_calls)).select_related("block"))
+        qs = m.Unit.objects.filter(condominium=self.kiosk.condominium_id, is_active=True).select_related("block")
+        if self.request.query_params.get("walk_in") != "1":
+            qs = qs.filter(Exists(takes_calls))
         if q := self.request.query_params.get("q", "").strip().lstrip("#"):
             floor, _, number = q.partition("-")
             qs = qs.filter(Q(unit_number__iexact=q) | Q(block__name__icontains=q)
@@ -78,43 +130,12 @@ class StartCallView(KioskView):
         data = body.validated_data
         unit = data["unit"]
         condo = self.kiosk.condominium
-        if unit.condominium_id != self.kiosk.condominium_id:
-            return Response({"unit": ["Unknown unit."]}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            phone = identity.normalize_phone(data["visitor_phone"])
-            id_partial = identity.normalize_id_partial(data["visitor_id_partial"])
-        except identity.InvalidIdentity as exc:
-            field = "visitor_phone" if "mobile" in str(exc) else "visitor_id_partial"
-            return Response({field: [str(exc)]}, status=status.HTTP_400_BAD_REQUEST)
-        name = data["visitor_name"].strip()
-        returning = identity.visitor_from_ref(self.kiosk, data["visitor_ref"]) if data["visitor_ref"] else None
-        errors = {}
-        if condo.kiosk_visitor_form:
-            if not name and returning is None:
-                errors["visitor_name"] = ["Please enter your name."]
-            if not data["purpose"]:
-                errors["purpose"] = ["Please choose the purpose of your visit."]
-        if condo.kiosk_photo_required and not data.get("snapshot"):
-            errors["snapshot"] = ["A photo is required at this site."]
-        collects = condo.kiosk_visitor_form or condo.kiosk_photo_required
-        if collects and not data["consent"]:
-            errors["consent"] = ["Please accept the privacy notice."]
-        if errors:
-            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
-
-        # Personal data is kept only with the visitor's consent (the kiosk shows the privacy notice).
-        consented = data["consent"]
-        visitor = identity.record_visit(self.kiosk, ref=data["visitor_ref"] if returning else "", name=name,
-                                        phone=phone, id_partial=id_partial, company=data["company"].strip(),
-                                        consent=True) if consented else None
-        if visitor is not None and visitor.is_blacklisted:
-            if self.kiosk.gate_id:
-                access.deny(self.kiosk.gate, m.AccessLog.Method.INTERCOM, reason="Blocked visitor tried to call a unit",
-                            unit=unit, visitor=visitor)
-            return Response({"detail": "Please see the guardhouse.", "blocked": True}, status=status.HTTP_403_FORBIDDEN)
+        name, visitor, consented = self.visitor_details(
+            data, unit, details=condo.kiosk_visitor_form, photo=condo.kiosk_photo_required,
+            method=m.AccessLog.Method.INTERCOM, blocked_reason="Blocked visitor tried to call a unit")
         try:
             livekit.ensure_configured()  # Fail before ringing anyone.
-            call = intercom.start(self.kiosk, unit, name or (visitor.full_name if visitor else ""),
+            call = intercom.start(self.kiosk, unit, name,
                                   data.get("snapshot") if consented else None, visitor=visitor,
                                   purpose=data["purpose"], company=data["company"].strip())
             connection = livekit.connection_info(call.room_name, f"kiosk-{self.kiosk.pk}", self.kiosk.name)
@@ -220,3 +241,43 @@ class VisitorLookupView(KioskView):
             "company": visitor.company,
             "purpose": last_call.visitor_purpose if last_call else "",
         })
+
+
+class WalkInView(KioskView):
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    throttle_classes = [KioskCheckInThrottle]
+
+    @extend_schema(request=s.WalkInRegisterSerializer, responses={201: s.WalkInSlipSerializer})
+    def post(self, request):
+        """Register a walk-in visitor. Returns the slip to print: pass number (e.g. V001) and check-out QR.
+
+        The gate is not opened; the visitor shows the slip to security."""
+        condo = self.kiosk.condominium
+        if not condo.kiosk_walk_in:
+            return Response({"detail": "Walk-in registration is turned off at this site."}, status=status.HTTP_409_CONFLICT)
+        body = s.WalkInRegisterSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        data = body.validated_data
+        name, visitor, _ = self.visitor_details(data, data["unit"], details=True, photo=condo.kiosk_walk_in_photo,
+                                                method=m.AccessLog.Method.WALK_IN,
+                                                blocked_reason="Blocked visitor tried to register as a walk-in")
+        walk_in = walk_ins.issue(self.kiosk, data["unit"], data["purpose"], name, company=data["company"].strip(),
+                                 visitor=visitor, snapshot=data.get("snapshot"))
+        return Response(s.WalkInSlipSerializer(walk_in).data, status=status.HTTP_201_CREATED)
+
+
+class WalkInCheckOutView(KioskView):
+    throttle_classes = [KioskCheckInThrottle]
+
+    @extend_schema(request=s.QrCodeSerializer, responses=s.WalkInCheckOutResultSerializer)
+    def post(self, request):
+        """Check a walk-in visitor out with the QR on their slip."""
+        body = s.QrCodeSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        with transaction.atomic():
+            walk_in = walk_ins.find(self.kiosk.condominium_id, body.validated_data["code"], lock=True)
+            if walk_in is None:
+                return Response({"detail": "Unknown pass."}, status=status.HTTP_404_NOT_FOUND)
+            done = walk_ins.check_out(walk_in)
+        return Response({"result": "checked_out" if done else "already_checked_out",
+                         "walk_in": s.WalkInSlipSerializer(walk_in).data})

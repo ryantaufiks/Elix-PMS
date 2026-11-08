@@ -44,6 +44,13 @@ class Condominium(TimeStampedModel):
         "Take the visitor's photo", default=True,
         help_text="The kiosk takes a photo, shown to the resident before they answer.",
     )
+    kiosk_walk_in = models.BooleanField(
+        "Walk-in registration", default=True,
+        help_text="Kiosks offer Walk in: visitors register, get a printed slip with a pass number, and show it to security.",
+    )
+    kiosk_walk_in_photo = models.BooleanField(
+        "Photo for walk-ins", default=True, help_text="Take the visitor's photo when they register as a walk-in.",
+    )
     visitor_privacy_notice = models.TextField(
         blank=True, help_text="Shown at the kiosk and on visitor passes. Leave blank for the standard notice.",
     )

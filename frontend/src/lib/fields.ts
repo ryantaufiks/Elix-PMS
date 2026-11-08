@@ -19,6 +19,10 @@ export const condoFields = (opts: { superuser: boolean; creating: boolean }): Fi
     hint: "Name and purpose; mobile or last 4 of NRIC/FIN are optional and let returning visitors skip the form." },
   { name: "kiosk_photo_required", label: "Take the visitor's photo before calling", type: "checkbox", wide: true,
     hint: "Shown to the resident before they answer, and kept with the call record." },
+  { name: "kiosk_walk_in", label: "Offer walk-in registration", type: "checkbox", wide: true,
+    hint: "Visitors enter their details, pick the unit and get a printed slip with a pass number (V001, C001, …). The gate does not open: they show the slip to security, and scan its QR at the kiosk when leaving." },
+  { name: "kiosk_walk_in_photo", label: "Take the walk-in visitor's photo", type: "checkbox", wide: true,
+    hint: "Shown to security on the Walk-ins page." },
   { name: "visitor_data_retention_days", label: "Keep visitor data for (days)", type: "number", section: "PDPA",
     hint: "Visitor names, contact details, photos and plates are deleted automatically after this (blacklisted visitors are kept)." },
   { name: "visitor_privacy_notice", label: "Privacy notice shown to visitors", type: "textarea", wide: true,
@@ -27,5 +31,5 @@ export const condoFields = (opts: { superuser: boolean; creating: boolean }): Fi
 
 export const condoDefaults = {
   intercom_ring_timeout_seconds: 45, invitation_max_days: 30, visitor_data_retention_days: 90, lpr_enabled: false,
-  kiosk_visitor_form: true, kiosk_photo_required: true,
+  kiosk_visitor_form: true, kiosk_photo_required: true, kiosk_walk_in: true, kiosk_walk_in_photo: true,
 };

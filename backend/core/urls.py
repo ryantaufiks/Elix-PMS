@@ -19,6 +19,7 @@ router.register("kiosks", views.KioskViewSet)
 router.register("visitors", views.VisitorViewSet)
 router.register("invitations", views.InvitationViewSet)
 router.register("intercom-calls", views.IntercomCallViewSet)
+router.register("walk-ins", views.WalkInPassViewSet)
 router.register("access-logs", views.AccessLogViewSet)
 router.register("push-devices", views.PushDeviceViewSet, basename="push-device")
 router.register("users", views.ManagedUserViewSet, basename="user")
@@ -39,6 +40,8 @@ urlpatterns = [
     path("kiosk/visitors/lookup/", kiosk_views.VisitorLookupView.as_view(), name="kiosk-visitor-lookup"),
     path("kiosk/checkin/lookup/", kiosk_views.QrLookupView.as_view(), name="kiosk-checkin-lookup"),
     path("kiosk/checkin/", kiosk_views.QrCheckInView.as_view(), name="kiosk-checkin"),
+    path("kiosk/walk-ins/", kiosk_views.WalkInView.as_view(), name="kiosk-walk-in"),
+    path("kiosk/walk-ins/checkout/", kiosk_views.WalkInCheckOutView.as_view(), name="kiosk-walk-in-checkout"),
     path("public/invitations/<str:token>/", views.visitor_pass, name="visitor-pass"),
     path("public/invitations/<str:token>/qr/", views.visitor_pass_qr, name="visitor-pass-qr"),
     path("kiosk/calls/<int:pk>/hangup/", kiosk_views.KioskHangupView.as_view(), name="kiosk-call-hangup"),

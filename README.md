@@ -48,6 +48,7 @@ On first sign-in with no condominium, the platform admin is guided through creat
 | Operations | Dashboard | all staff | Today's KPIs, hourly traffic chart, live activity, gate health with one-click opening, entry methods |
 | | Access log | all staff | Filter by gate, method, result, plate, date; camera snapshots; live updates |
 | | Intercom | all staff | Ringing kiosk calls (ringtone + banner on every page), answer with video, swipe to open, reject; history |
+| | Walk-ins | all staff | Walk-in registrations with pass number and photo, *On site* / *Today* tabs, manual check-out; a toast on every page when one registers |
 | | Open gates | all staff | Manual opening with reason (logged under the user) |
 | | Invitations | all staff (create/cancel: admin) | QR code and share link, status filters |
 | Community | Residents | all staff (manage: admin) | Add residents with their app login, unit role, intercom on/off, password reset, move out |
@@ -137,7 +138,19 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
   continuing, so the kiosk cannot be used to look people up. Blocked visitors (Community → Visitors) are
   sent to the guardhouse and the attempt is logged. Invitations that
   require a face check make the kiosk take a photo, stored with the access-log entry for review (it is
-  not matched automatically). Tap the empty area under the two buttons five times to sign the kiosk out.
+  not matched automatically). Tap the empty area under the buttons five times to sign the kiosk out.
+- **Walk in** (per site, Site settings → *Offer walk-in registration*, on by default): for visitors who
+  are not calling anyone. They pick the unit (any active unit), enter the same details as for a call,
+  take a photo (*Take the walk-in visitor's photo*, can be turned off) and accept the notice. The kiosk
+  prints a **58 mm slip** with the pass number, details, validity and a check-out QR. Pass numbers
+  restart daily per site, one series per purpose: **V**001 visitor, **D** parcel, **F** food, **C**
+  contractor, **P** pick-up, **O** other. The gate does **not** open: the visitor shows the slip to
+  security, and scans its QR under *I have an invitation* when leaving (or a guard checks them out on
+  the Walk-ins page). Passes are valid until the end of the day.
+- **Slip printer:** connect the receipt printer to the kiosk PC, make it the default printer with a
+  58 mm roll paper size, and start Chrome with `--kiosk --kiosk-printing` so slips print without a
+  dialog. A kiosk without a printer (Gates & devices → Kiosks → untick *Receipt printer connected*)
+  shows the pass number and QR on screen instead.
 - **Visitor pass** (`/i/<token>`, the invitation's share link): shows the QR code, validity, the unit and
   the host's first name only. Anyone with the link can use it, so the page sends no referrer.
 
@@ -146,6 +159,10 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
 | Kiosk | `POST /v1/kiosk/visitors/lookup/` (`phone` or `id_partial`) | Returning visitor: masked name, last purpose and a short-lived reference |
 | Kiosk | `POST /v1/kiosk/checkin/lookup/` (`code`) | Who the QR belongs to and whether a face photo is needed (no logging) |
 | Kiosk | `POST /v1/kiosk/checkin/` (`code`, optional `plate`, `face_photo`) | Check in; opens the kiosk's gate when granted |
+| Kiosk | `GET /v1/kiosk/directory/?walk_in=1` | Every active unit (walk-ins ring nobody) |
+| Kiosk | `POST /v1/kiosk/walk-ins/` (`unit`, `purpose`, visitor details, `consent`, `snapshot`) | Register a walk-in; returns the slip (pass number, QR as a data URI) |
+| Kiosk | `POST /v1/kiosk/walk-ins/checkout/` (`code` = slip QR, `ELIX-WALKIN:<token>`) | Check out |
+| Staff | `GET /v1/walk-ins/?state=on_site`, `POST …/{id}/check_out/`, `GET …/{id}/snapshot/` | Walk-in list, manual check-out, photo |
 | Public | `GET /v1/public/invitations/<token>/`, `…/qr/` | Visitor pass data and QR PNG (rate-limited) |
 
 ## Resident app (Flutter, Android)
@@ -181,17 +198,17 @@ optionally `GOOGLE_SERVICES_JSON_BASE64`; optional variable `API_BASE`.
 ## Privacy (PDPA)
 
 - **Notification and consent:** the kiosk shows the site's privacy notice before taking any details or
-  photo, and the visitor must tap *Agree & call*; the same notice is on visitor passes. Each site can
+  photo, and the visitor must tap *Agree & call* (or *Agree & get my pass* for a walk-in); the same notice is on visitor passes. Each site can
   write its own notice (Site settings → Privacy notice); the standard text states the purpose, who sees
   the data, the retention period and the management office contact.
 - **Data minimisation:** only the last 4 characters of the NRIC/FIN are stored; without consent the
   kiosk keeps no photo; visitor records hold no face photo, only the call does.
 - **Retention:** a daily job (`core.tasks.purge_visitor_data`, 03:30 SGT) removes visitor names,
-  contact details, photos, camera payloads and visitor plates older than the site's *Keep visitor data
+  contact details, photos (calls and walk-in passes), camera payloads and visitor plates older than the site's *Keep visitor data
   for (days)*, and deletes visitor records not seen since. Blocked visitors are kept for security.
   Check with `docker compose exec web python manage.py purge_visitor_data --dry-run`.
 - **Access / erasure requests:** Community → Visitors → *Erase data* (condo admins) removes the person
-  and their photos and details from calls and invitations.
+  and their photos and details from calls, walk-in passes and invitations.
 
 ## System settings
 

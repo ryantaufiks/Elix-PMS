@@ -247,6 +247,9 @@ class Kiosk(TimeStampedModel):
     gate = models.ForeignKey(AccessGate, on_delete=models.SET_NULL, null=True, blank=True, related_name="kiosks")
     name = models.CharField(max_length=100)
     is_active = models.BooleanField(default=True)
+    prints_slips = models.BooleanField(
+        default=True, help_text="A receipt printer (58 mm) is connected: walk-in slips are printed. Otherwise the pass is shown on screen.",
+    )
     token_hint = models.CharField(max_length=16, blank=True, editable=False)
     token_hash = models.CharField(max_length=64, blank=True, editable=False, db_index=True)
     last_seen_at = models.DateTimeField(null=True, blank=True, editable=False)

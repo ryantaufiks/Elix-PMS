@@ -309,11 +309,13 @@ function KiosksTab({ condoId, data, mutate, gateOptions, gateName }: { condoId: 
   const fields: FieldDef[] = [
     { name: "name", label: "Name", required: true, placeholder: "Lobby kiosk" },
     { name: "gate", label: "Opens gate", type: "select", options: gateOptions, hint: "The gate that opens when a resident approves a call from this kiosk." },
+    { name: "prints_slips", label: "Receipt printer connected (58 mm)", type: "checkbox", wide: true,
+      hint: "Walk-in slips are printed. Without a printer the pass is shown on screen for the visitor to photograph. For printing without a dialog, start Chrome with --kiosk-printing." },
     { name: "is_active", label: "Active", type: "checkbox" },
   ];
   return (
     <>
-      <Toolbar text="Tablets at the gate: visitors call residents or scan their invitation QR. On the tablet, open /kiosk/ on this site and enter the device token." onAdd={() => setEditing("new")} addLabel="Add kiosk" />
+      <Toolbar text="Tablets at the gate: visitors call residents, register as walk-ins or scan their invitation QR. On the tablet, open /kiosk/ on this site and enter the device token." onAdd={() => setEditing("new")} addLabel="Add kiosk" />
       {!data ? <Loading /> : data.results.length === 0 ? <Empty>No kiosks yet.</Empty> : (
         <Table>
           <thead><tr><Th>Name</Th><Th>Gate</Th><Th>Token</Th><Th>App</Th><Th>Last seen</Th><Th>Status</Th><Th /></tr></thead>
@@ -336,7 +338,7 @@ function KiosksTab({ condoId, data, mutate, gateOptions, gateName }: { condoId: 
       )}
       {editing && (
         <EntityModal<Kiosk & { token?: string }> title={editing === "new" ? "Add kiosk" : `Edit ${editing.name}`} fields={fields} record={editing === "new" ? null : editing}
-          defaults={{ is_active: true }} endpoint={editing === "new" ? "/v1/kiosks/" : `/v1/kiosks/${editing.id}/`} extra={{ condominium: condoId }}
+          defaults={{ is_active: true, prints_slips: true }} endpoint={editing === "new" ? "/v1/kiosks/" : `/v1/kiosks/${editing.id}/`} extra={{ condominium: condoId }}
           onClose={() => setEditing(null)}
           onSaved={(saved) => { setEditing(null); mutate(); if (saved.token) setToken({ kiosk: saved.name, token: saved.token }); }} />
       )}

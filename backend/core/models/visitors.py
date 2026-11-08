@@ -165,3 +165,56 @@ class Invitation(TimeStampedModel):
         self.status = self.Status.CANCELLED
         self.cancelled_at = timezone.now()
         self.save(update_fields=["status", "cancelled_at", "updated_at"])
+
+
+class WalkInPass(TimeStampedModel):
+    """A visitor who registered at the kiosk without calling anyone, and got a printed slip.
+
+    Pass numbers restart every day per condominium, one series per purpose: V001 (visitor),
+    C001 (contractor), ... The slip's QR (``qr_payload``) checks the visitor out when they leave.
+    """
+
+    QR_PREFIX = "ELIX-WALKIN:"
+    PREFIXES = {
+        VisitPurpose.GUEST: "V", VisitPurpose.DELIVERY: "D", VisitPurpose.FOOD: "F",
+        VisitPurpose.CONTRACTOR: "C", VisitPurpose.PICKUP: "P", VisitPurpose.OTHER: "O",
+    }
+
+    condominium = models.ForeignKey(Condominium, on_delete=models.CASCADE, related_name="walk_ins")
+    unit = models.ForeignKey(Unit, on_delete=models.CASCADE, related_name="walk_ins")
+    kiosk = models.ForeignKey("core.Kiosk", on_delete=models.SET_NULL, null=True, blank=True, related_name="walk_ins")
+    visitor = models.ForeignKey(Visitor, on_delete=models.SET_NULL, null=True, blank=True, related_name="walk_ins")
+    visitor_name = models.CharField(max_length=150)
+    purpose = models.CharField(max_length=20, choices=VisitPurpose.choices)
+    company = models.CharField(max_length=100, blank=True)
+    visitor_snapshot = models.ImageField(upload_to="walkins/%Y/%m/", blank=True)
+    issued_on = models.DateField(help_text="Local date at the condominium; the pass number series restarts daily.")
+    sequence = models.PositiveIntegerField()
+    pass_number = models.CharField(max_length=12)
+    valid_until = models.DateTimeField(help_text="End of the day it was issued.")
+    token = models.CharField(max_length=64, unique=True, default=generate_invitation_token, editable=False)
+    checked_out_at = models.DateTimeField(null=True, blank=True)
+    checked_out_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+        help_text="Staff member who checked the visitor out; empty when they scanned out at the kiosk.",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["condominium", "issued_on", "pass_number"], name="walkin_pass_number_per_day"),
+        ]
+        indexes = [models.Index(fields=["condominium", "issued_on"])]
+
+    def __str__(self):
+        return f"{self.pass_number} {self.visitor_name} ({self.issued_on})"
+
+    @property
+    def qr_payload(self):
+        return f"{self.QR_PREFIX}{self.token}"
+
+    @property
+    def state(self):
+        if self.checked_out_at:
+            return "checked_out"
+        return "expired" if timezone.now() > self.valid_until else "on_site"

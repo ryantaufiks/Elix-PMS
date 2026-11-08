@@ -14,7 +14,7 @@ import type { IntercomCall, Page } from "@/lib/types";
 import { Icon, type IconName } from "./icons";
 import { useTheme } from "@/lib/theme";
 
-import { cx } from "./ui";
+import { cx, useToast } from "./ui";
 import { Credit } from "./Credit";
 
 type NavItem = { href: string; label: string; icon: IconName; admin?: boolean; superuser?: boolean };
@@ -25,6 +25,7 @@ const NAV: { title: string; items: NavItem[] }[] = [
       { href: "/", label: "Dashboard", icon: "home" },
       { href: "/access/", label: "Access log", icon: "list" },
       { href: "/intercom/", label: "Intercom", icon: "phone" },
+      { href: "/walk-ins/", label: "Walk-ins", icon: "clipboard" },
       { href: "/gates/", label: "Open gates", icon: "unlock" },
       { href: "/invitations/", label: "Invitations", icon: "ticket" },
     ],
@@ -203,11 +204,27 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
         <IncomingCalls />
+        <WalkInAlerts />
         <main className="mx-auto max-w-7xl px-4 pb-10 pt-6 sm:px-8 sm:pt-8">{children}</main>
         <Credit className="border-t border-line px-4 py-5" />
       </div>
     </div>
   );
+}
+
+/** Toast for security when a visitor registers as a walk-in at a kiosk. */
+function WalkInAlerts() {
+  const { condo } = useSession();
+  const toast = useToast();
+  const seen = useRef(new Set<number>());
+  useLiveEvents((event) => {
+    if (event.type !== "walk_in" || event.data.condominium !== condo.id || event.data.checked_out_at) return;
+    if (seen.current.has(event.data.id)) return;
+    seen.current.add(event.data.id);
+    const w = event.data;
+    toast("info", `Walk-in ${w.pass_number}: ${w.visitor_name}${visitPurpose(w.purpose, w.company) ? ` (${visitPurpose(w.purpose, w.company)})` : ""} for ${w.unit_display}`);
+  });
+  return null;
 }
 
 /** Banner + ringtone while a kiosk at this condo is ringing. */

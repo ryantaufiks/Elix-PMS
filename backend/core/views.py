@@ -15,7 +15,7 @@ from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 
-from . import access, intercom, livekit, privacy, push, relays
+from . import access, intercom, livekit, privacy, push, relays, walk_ins
 from . import models as m
 from . import serializers as s
 from .scoping import ADMIN, ALL_STAFF, resident_condo_ids, resident_unit_ids, staff_condo_ids
@@ -438,6 +438,54 @@ class IntercomCallViewSet(ScopedReadOnlyViewSet):
         if not call.visitor_snapshot:
             return Response(status=status.HTTP_404_NOT_FOUND)
         response = FileResponse(call.visitor_snapshot.open("rb"))
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
+class WalkInPassViewSet(ScopedReadOnlyViewSet):
+    """Walk-in visitors registered at the kiosks. ``?state=on_site|checked_out|expired``."""
+
+    queryset = m.WalkInPass.objects.select_related("unit__block", "kiosk", "visitor")
+    serializer_class = s.WalkInPassSerializer
+    resident_unit_path = "unit"
+    filterset_fields = ["condominium", "unit", "purpose", "issued_on", "kiosk"]
+    search_fields = ["pass_number", "visitor_name", "company"]
+    ordering_fields = ["created_at", "pass_number", "checked_out_at"]
+
+    @extend_schema(parameters=[OpenApiParameter("state", enum=["on_site", "checked_out", "expired"])])
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        state = self.request.query_params.get("state")
+        now = timezone.now()
+        if state == "on_site":
+            qs = qs.filter(checked_out_at__isnull=True, valid_until__gte=now)
+        elif state == "checked_out":
+            qs = qs.filter(checked_out_at__isnull=False)
+        elif state == "expired":
+            qs = qs.filter(checked_out_at__isnull=True, valid_until__lt=now)
+        return qs
+
+    @extend_schema(request=None, responses=s.WalkInPassSerializer)
+    @action(detail=True, methods=["post"])
+    def check_out(self, request, pk=None):
+        """Security checks the visitor out (e.g. they left without scanning their slip)."""
+        walk_in = self.get_object()
+        if not request.user.is_superuser and walk_in.condominium_id not in staff_condo_ids(request.user, ALL_STAFF):
+            raise PermissionDenied("Only security and management can check visitors out.")
+        walk_ins.check_out(walk_in, request.user)
+        return Response(s.WalkInPassSerializer(walk_in).data)
+
+    @extend_schema(responses={(200, "image/jpeg"): OpenApiResponse(description="Visitor photo")})
+    @action(detail=True, methods=["get"])
+    def snapshot(self, request, pk=None):
+        """The kiosk's photo of the walk-in visitor. Personal data: never cached."""
+        walk_in = self.get_object()
+        if not walk_in.visitor_snapshot:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        response = FileResponse(walk_in.visitor_snapshot.open("rb"))
         response["Cache-Control"] = "private, no-store"
         return response
 

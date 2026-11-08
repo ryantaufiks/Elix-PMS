@@ -47,6 +47,8 @@ export type Condominium = {
   visitor_data_retention_days: number;
   kiosk_visitor_form: boolean;
   kiosk_photo_required: boolean;
+  kiosk_walk_in: boolean;
+  kiosk_walk_in_photo: boolean;
   visitor_privacy_notice: string;
 };
 
@@ -260,9 +262,34 @@ export type Kiosk = {
   gate: number | null;
   name: string;
   is_active: boolean;
+  prints_slips: boolean;
   token_hint: string;
   last_seen_at: string | null;
   app_version: string;
+};
+
+export type WalkInState = "on_site" | "checked_out" | "expired";
+
+export type WalkInPass = {
+  id: number;
+  condominium: number;
+  unit: number;
+  unit_display: string;
+  kiosk: number | null;
+  kiosk_name: string;
+  visitor: number | null;
+  visitor_name: string;
+  visitor_phone: string;
+  purpose: string;
+  company: string;
+  has_snapshot: boolean;
+  pass_number: string;
+  issued_on: string;
+  valid_until: string;
+  state: WalkInState;
+  checked_out_at: string | null;
+  checked_out_by: number | null;
+  created_at: string;
 };
 
 export type Summary = {

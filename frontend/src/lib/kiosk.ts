@@ -50,7 +50,30 @@ export type KioskSelf = {
   visitor_form: boolean;
   photo_required: boolean;
   privacy_notice: string;
+  walk_in: boolean;
+  walk_in_photo: boolean;
+  prints_slips: boolean;
 };
+
+/** A walk-in registration, as printed on the slip. ``qr`` is a PNG data URI. */
+export type WalkInSlip = {
+  pass_number: string;
+  visitor_name: string;
+  purpose: string;
+  purpose_display: string;
+  company: string;
+  unit_display: string;
+  condominium_name: string;
+  created_at: string;
+  valid_until: string;
+  state: "on_site" | "checked_out" | "expired";
+  checked_out_at: string | null;
+  qr: string;
+};
+
+export type WalkInCheckOut = { result: "checked_out" | "already_checked_out"; walk_in: WalkInSlip };
+
+export const isWalkInCode = (code: string) => code.trim().startsWith("ELIX-WALKIN:");
 
 export type VisitorLookup = { found: boolean; blocked: boolean; ref: string; masked_name: string; company: string; purpose: string };
 
