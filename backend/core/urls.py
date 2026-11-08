@@ -2,7 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from . import kiosk_views, report_views, views
+from . import amenity_views, kiosk_views, report_views, views
 
 router = DefaultRouter()
 router.register("condominiums", views.CondominiumViewSet)
@@ -23,6 +23,9 @@ router.register("visits", views.VisitViewSet)
 router.register("access-logs", views.AccessLogViewSet)
 router.register("push-devices", views.PushDeviceViewSet, basename="push-device")
 router.register("users", views.ManagedUserViewSet, basename="user")
+router.register("facilities", amenity_views.FacilityViewSet)
+router.register("bookings", amenity_views.BookingViewSet)
+router.register("feedback", amenity_views.FeedbackViewSet)
 
 urlpatterns = [
     path("health/", views.health, name="health"),
@@ -33,6 +36,9 @@ urlpatterns = [
     path("system-settings/test-livekit/", views.test_livekit, name="system-settings-test-livekit"),
     path("system-settings/test-fcm/", views.test_fcm, name="system-settings-test-fcm"),
     path("dashboard/summary/", views.DashboardSummaryView.as_view(), name="dashboard-summary"),
+    path("payment-settings/", amenity_views.PaymentSettingsView.as_view(), name="payment-settings"),
+    path("payments/hitpay/webhook/", amenity_views.HitPayWebhookView.as_view(), name="hitpay-webhook"),
+    path("payments/hitpay/return/", amenity_views.HitPayReturnView.as_view(), name="hitpay-return"),
     path("reports/", report_views.ReportCatalogView.as_view(), name="report-catalog"),
     path("reports/<slug:key>/", report_views.ReportView.as_view(), name="report"),
     path("kiosk/me/", kiosk_views.KioskMeView.as_view(), name="kiosk-me"),

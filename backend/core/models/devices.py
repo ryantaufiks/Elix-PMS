@@ -101,6 +101,10 @@ class AccessGate(TimeStampedModel):
     lpr_auto_open_invited = models.BooleanField(
         default=True, help_text="Open automatically for a plate on a valid invitation."
     )
+    resident_remote_open = models.BooleanField(
+        "Residents can open from the app", default=False,
+        help_text="Residents of this condominium can open this gate remotely from the resident app (logged).",
+    )
 
     class Meta:
         ordering = ["condominium", "name"]

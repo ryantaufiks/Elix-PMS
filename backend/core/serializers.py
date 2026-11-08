@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -162,7 +162,7 @@ class AccessGateSerializer(ModelCleanSerializer):
         model = m.AccessGate
         fields = [
             "id", "condominium", "name", "gate_type", "direction", "is_active",
-            "lpr_auto_open_residents", "lpr_auto_open_invited",
+            "lpr_auto_open_residents", "lpr_auto_open_invited", "resident_remote_open",
         ]
 
 
@@ -807,3 +807,142 @@ class QrCheckInResultSerializer(serializers.Serializer):
     result = serializers.ChoiceField(choices=["granted", "denied", "face_required"])
     reason = serializers.CharField(allow_blank=True)
     invitation = InvitationPassSerializer(allow_null=True)
+
+
+# --- Facilities, bookings, payments, feedback ---------------------------------------------------------
+
+class FacilitySerializer(ModelCleanSerializer):
+    has_image = serializers.SerializerMethodField()
+    is_paid = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = m.Facility
+        fields = [
+            "id", "condominium", "name", "description", "location", "icon", "image", "has_image", "capacity",
+            "opens_at", "closes_at", "open_days", "slot_minutes", "max_slots_per_booking", "concurrent_bookings",
+            "price_per_slot", "deposit", "is_paid", "advance_days", "max_upcoming_per_unit", "cancel_hours", "rules",
+            "is_active", "created_at",
+        ]
+        extra_kwargs = {"image": {"write_only": True, "required": False}}
+
+    def get_has_image(self, obj) -> bool:
+        return bool(obj.image)
+
+
+class SlotSerializer(serializers.Serializer):
+    starts_at = serializers.DateTimeField()
+    ends_at = serializers.DateTimeField()
+    available = serializers.BooleanField()
+    left = serializers.IntegerField()
+
+
+class AvailabilitySerializer(serializers.Serializer):
+    date = serializers.DateField()
+    open = serializers.BooleanField()
+    bookable_from = serializers.DateField()
+    bookable_until = serializers.DateField()
+    slots = SlotSerializer(many=True)
+
+
+class BookingSerializer(serializers.ModelSerializer):
+    facility_name = serializers.CharField(source="facility.name", read_only=True)
+    facility_icon = serializers.CharField(source="facility.icon", read_only=True)
+    unit_display = serializers.CharField(source="unit.__str__", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    payment_status_display = serializers.CharField(source="get_payment_status_display", read_only=True)
+    booked_by = serializers.SerializerMethodField()
+    can_cancel = serializers.SerializerMethodField()
+
+    class Meta:
+        model = m.Booking
+        fields = [
+            "id", "condominium", "facility", "facility_name", "facility_icon", "unit", "unit_display", "booked_by",
+            "starts_at", "ends_at", "slots", "guests", "notes", "status", "status_display", "amount", "deposit",
+            "currency", "payment_status", "payment_status_display", "payment_url", "payment_expires_at", "paid_at",
+            "cancelled_at", "cancel_reason", "can_cancel", "created_at",
+        ]
+        read_only_fields = fields
+
+    def get_booked_by(self, obj) -> str:
+        return (obj.user.get_full_name() or obj.user.get_username()) if obj.user else ""
+
+    def get_can_cancel(self, obj) -> bool:
+        """Whether the resident can still cancel it themselves."""
+        return (obj.status in m.Booking.ACTIVE_STATUSES
+                and obj.starts_at - timezone.now() >= timedelta(hours=obj.facility.cancel_hours))
+
+
+class BookingCreateSerializer(serializers.Serializer):
+    facility = serializers.PrimaryKeyRelatedField(queryset=m.Facility.objects.all())
+    unit = serializers.PrimaryKeyRelatedField(queryset=m.Unit.objects.all(), required=False,
+                                              help_text="Needed only when the resident lives in several units.")
+    starts_at = serializers.DateTimeField()
+    slots = serializers.IntegerField(min_value=1, default=1)
+    guests = serializers.IntegerField(min_value=1, default=1)
+    notes = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
+
+
+class BookingCreatedSerializer(serializers.Serializer):
+    booking = BookingSerializer()
+    payment_url = serializers.CharField(allow_blank=True)
+    return_url_prefix = serializers.CharField(help_text="The app closes the payment page when it reaches this URL.")
+
+
+class CancelSerializer(serializers.Serializer):
+    reason = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
+
+
+class PaymentSettingsSerializer(ModelCleanSerializer):
+    secret_fields = ("hitpay_api_key", "hitpay_salt")
+    webhook_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = m.PaymentSettings
+        fields = ["condominium", "enabled", "sandbox", "hitpay_api_key", "hitpay_salt", "currency", "payment_minutes",
+                  "webhook_url", "updated_at"]
+        read_only_fields = ["condominium", "updated_at"]
+
+    def get_webhook_url(self, obj) -> str:
+        request = self.context.get("request")
+        return request.build_absolute_uri("/v1/payments/hitpay/webhook/") if request else "/v1/payments/hitpay/webhook/"
+
+
+class FeedbackSerializer(ModelCleanSerializer):
+    unit_display = serializers.CharField(source="unit.__str__", read_only=True, default="")
+    category_display = serializers.CharField(source="get_category_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    resident_name = serializers.SerializerMethodField()
+    replied_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = m.Feedback
+        fields = [
+            "id", "condominium", "unit", "unit_display", "resident_name", "rating", "category", "category_display",
+            "comment", "status", "status_display", "reply", "replied_by_name", "replied_at", "created_at",
+        ]
+        read_only_fields = ["condominium", "unit", "status", "reply", "replied_at", "created_at"]
+
+    def get_resident_name(self, obj) -> str:
+        return (obj.user.get_full_name() or obj.user.get_username()) if obj.user else ""
+
+    def get_replied_by_name(self, obj) -> str:
+        return (obj.replied_by.get_full_name() or obj.replied_by.get_username()) if obj.replied_by else ""
+
+
+class FeedbackCreateSerializer(serializers.Serializer):
+    unit = serializers.PrimaryKeyRelatedField(queryset=m.Unit.objects.all(), required=False)
+    rating = serializers.IntegerField(min_value=1, max_value=5)
+    category = serializers.ChoiceField(choices=m.Feedback.Category.choices, default=m.Feedback.Category.OTHER)
+    comment = serializers.CharField(max_length=2000, required=False, allow_blank=True, default="")
+
+
+class FeedbackReplySerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=m.Feedback.Status.choices, required=False)
+    reply = serializers.CharField(max_length=2000, required=False, allow_blank=True)
+
+
+class FeedbackSummarySerializer(serializers.Serializer):
+    count = serializers.IntegerField()
+    average = serializers.FloatField(allow_null=True)
+    by_rating = serializers.DictField(child=serializers.IntegerField())
+    open = serializers.IntegerField()

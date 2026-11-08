@@ -5,12 +5,13 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 
 import { refreshAccess, tokens, wsUrl } from "./api";
-import type { AccessLog, IntercomCall, Visit } from "./types";
+import type { AccessLog, Booking, IntercomCall, Visit } from "./types";
 
 export type LiveEvent =
   | { type: "access_log"; data: AccessLog }
   | { type: "intercom_call"; data: IntercomCall }
-  | { type: "visit"; data: Visit };
+  | { type: "visit"; data: Visit }
+  | { type: "booking"; data: Booking };
 type Listener = (event: LiveEvent) => void;
 
 const LiveContext = createContext<{ connected: boolean; listeners: Set<Listener> } | null>(null);

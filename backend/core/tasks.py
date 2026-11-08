@@ -112,3 +112,11 @@ def purge_visitor_data() -> dict:
     results = privacy.purge_all()
     logger.info("Visitor data purge: %s", results)
     return results
+
+
+@shared_task
+def expire_unpaid_bookings() -> int:
+    """Release facility slots held for payments that were not completed in time."""
+    from . import bookings
+
+    return bookings.expire_stale()

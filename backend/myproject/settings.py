@@ -130,6 +130,8 @@ REST_FRAMEWORK = {
         "kiosk_call": env("KIOSK_CALL_RATE", default="10/min"),
         "kiosk_checkin": env("KIOSK_CHECKIN_RATE", default="30/min"),
         "visitor_pass": env("VISITOR_PASS_RATE", default="60/min"),
+        "resident_open": env("RESIDENT_OPEN_RATE", default="10/min"),
+        "payment_callback": env("PAYMENT_CALLBACK_RATE", default="120/min"),
     },
 }
 
@@ -149,6 +151,9 @@ SPECTACULAR_SETTINGS = {
         "IntercomCallStatusEnum": "core.models.access.IntercomCall.Status",
         "InvitationPurposeEnum": "core.models.visitors.Invitation.Purpose",
         "VisitPurposeEnum": "core.models.visitors.VisitPurpose",
+        "BookingStatusEnum": "core.models.amenities.Booking.Status",
+        "BookingPaymentStatusEnum": "core.models.amenities.Booking.Payment",
+        "FeedbackStatusEnum": "core.models.community.Feedback.Status",
     },
 }
 
@@ -171,6 +176,10 @@ CELERY_BEAT_SCHEDULE = {
     "expire-invitations": {
         "task": "core.tasks.expire_invitations",
         "schedule": crontab(minute="*/10"),
+    },
+    "expire-unpaid-bookings": {
+        "task": "core.tasks.expire_unpaid_bookings",
+        "schedule": crontab(minute="*/5"),
     },
     "purge-visitor-data": {
         "task": "core.tasks.purge_visitor_data",

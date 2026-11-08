@@ -134,6 +134,7 @@ export type Gate = {
   is_active: boolean;
   lpr_auto_open_residents: boolean;
   lpr_auto_open_invited: boolean;
+  resident_remote_open: boolean;
 };
 
 export type AccessMethod = "lpr" | "qr" | "intercom" | "app" | "manual";
@@ -327,3 +328,86 @@ export type Summary = {
   by_method: Partial<Record<AccessMethod, number>>;
   gates: { id: number; name: string; gate_type: Gate["gate_type"]; is_active: boolean; relays_total: number; relays_failing: number }[];
 };
+
+export type Facility = {
+  id: number;
+  condominium: number;
+  name: string;
+  description: string;
+  location: string;
+  icon: string;
+  has_image: boolean;
+  capacity: number;
+  opens_at: string;
+  closes_at: string;
+  open_days: number[];
+  slot_minutes: number;
+  max_slots_per_booking: number;
+  concurrent_bookings: number;
+  price_per_slot: string;
+  deposit: string;
+  is_paid: boolean;
+  advance_days: number;
+  max_upcoming_per_unit: number;
+  cancel_hours: number;
+  rules: string;
+  is_active: boolean;
+};
+
+export type BookingStatus = "pending_payment" | "confirmed" | "cancelled" | "expired";
+export type PaymentStatus = "none" | "pending" | "paid" | "failed" | "refunded";
+export type Booking = {
+  id: number;
+  condominium: number;
+  facility: number;
+  facility_name: string;
+  unit: number;
+  unit_display: string;
+  booked_by: string;
+  starts_at: string;
+  ends_at: string;
+  slots: number;
+  guests: number;
+  notes: string;
+  status: BookingStatus;
+  status_display: string;
+  amount: string;
+  deposit: string;
+  currency: string;
+  payment_status: PaymentStatus;
+  payment_status_display: string;
+  paid_at: string | null;
+  cancelled_at: string | null;
+  cancel_reason: string;
+  created_at: string;
+};
+
+export type PaymentSettings = {
+  condominium: number;
+  enabled: boolean;
+  sandbox: boolean;
+  has_hitpay_api_key: boolean;
+  has_hitpay_salt: boolean;
+  currency: string;
+  payment_minutes: number;
+  webhook_url: string;
+};
+
+export type Feedback = {
+  id: number;
+  condominium: number;
+  unit: number | null;
+  unit_display: string;
+  resident_name: string;
+  rating: number;
+  category: string;
+  category_display: string;
+  comment: string;
+  status: "new" | "in_progress" | "resolved";
+  status_display: string;
+  reply: string;
+  replied_by_name: string;
+  replied_at: string | null;
+  created_at: string;
+};
+export type FeedbackSummary = { count: number; average: number | null; by_rating: Record<string, number>; open: number };

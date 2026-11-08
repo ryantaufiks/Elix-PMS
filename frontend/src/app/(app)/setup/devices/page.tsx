@@ -92,6 +92,8 @@ const gateFields: FieldDef[] = [
   { name: "direction", label: "Direction", type: "select", required: true, options: DIRECTIONS },
   { name: "lpr_auto_open_residents", label: "Auto-open for resident plates", type: "checkbox", wide: true },
   { name: "lpr_auto_open_invited", label: "Auto-open for plates on a valid invitation", type: "checkbox", wide: true },
+  { name: "resident_remote_open", label: "Residents can open this gate from the app", type: "checkbox", wide: true,
+    hint: "Shows the gate under Access in the resident app. Every opening is logged with the resident and unit." },
   { name: "is_active", label: "Active", type: "checkbox" },
 ];
 
@@ -103,7 +105,7 @@ function GatesTab({ condoId, data, mutate }: { condoId: number; data?: Page<Gate
       <Toolbar text="Every entrance or door that can be opened. Relays, cameras and kiosks are attached to a gate." onAdd={() => setEditing("new")} addLabel="Add gate" />
       {!data ? <Loading /> : data.results.length === 0 ? <Empty>No gates yet. Start here.</Empty> : (
         <Table>
-          <thead><tr><Th>Name</Th><Th>Type</Th><Th>Direction</Th><Th>Plate auto-open</Th><Th>Status</Th><Th /></tr></thead>
+          <thead><tr><Th>Name</Th><Th>Type</Th><Th>Direction</Th><Th>Plate auto-open</Th><Th>Resident app</Th><Th>Status</Th><Th /></tr></thead>
           <tbody className="divide-y divide-line">
             {data.results.map((g) => (
               <tr key={g.id}>
@@ -111,6 +113,7 @@ function GatesTab({ condoId, data, mutate }: { condoId: number; data?: Page<Gate
                 <Td className="capitalize">{g.gate_type}</Td>
                 <Td className="capitalize">{g.direction}</Td>
                 <Td>{[g.lpr_auto_open_residents && "Residents", g.lpr_auto_open_invited && "Invited"].filter(Boolean).join(", ") || "Off"}</Td>
+                <Td>{g.resident_remote_open ? <Badge tone="blue">Can open</Badge> : "—"}</Td>
                 <Td>{g.is_active ? <Badge tone="green">Active</Badge> : <Badge>Disabled</Badge>}</Td>
                 <RowActions onEdit={() => setEditing(g)} onDelete={() => setDeleting(g)} />
               </tr>
@@ -120,7 +123,7 @@ function GatesTab({ condoId, data, mutate }: { condoId: number; data?: Page<Gate
       )}
       {editing && (
         <EntityModal title={editing === "new" ? "Add gate" : `Edit ${editing.name}`} fields={gateFields} record={editing === "new" ? null : editing}
-          defaults={{ gate_type: "vehicle", direction: "both", is_active: true, lpr_auto_open_residents: true, lpr_auto_open_invited: true }}
+          defaults={{ gate_type: "vehicle", direction: "both", is_active: true, lpr_auto_open_residents: true, lpr_auto_open_invited: true, resident_remote_open: false }}
           endpoint={editing === "new" ? "/v1/gates/" : `/v1/gates/${editing.id}/`} extra={{ condominium: condoId }}
           onClose={() => setEditing(null)} onSaved={() => { setEditing(null); mutate(); }} />
       )}

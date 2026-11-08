@@ -28,6 +28,7 @@ const NAV: { title: string; items: NavItem[] }[] = [
       { href: "/visits/", label: "Visitor list", icon: "clipboard" },
       { href: "/gates/", label: "Open gates", icon: "unlock" },
       { href: "/invitations/", label: "Invitations", icon: "ticket" },
+      { href: "/bookings/", label: "Bookings", icon: "calendar" },
       { href: "/reports/", label: "Reports", icon: "report" },
     ],
   },
@@ -37,6 +38,7 @@ const NAV: { title: string; items: NavItem[] }[] = [
       { href: "/residents/", label: "Residents", icon: "users" },
       { href: "/visitors/", label: "Visitor records", icon: "idcard" },
       { href: "/vehicles/", label: "Vehicles", icon: "car" },
+      { href: "/feedback/", label: "Feedback", icon: "star" },
       { href: "/staff/", label: "Staff", icon: "shield", admin: true },
     ],
   },
@@ -46,6 +48,7 @@ const NAV: { title: string; items: NavItem[] }[] = [
       { href: "/setup/site/", label: "Site settings", icon: "sliders", admin: true },
       { href: "/setup/units/", label: "Blocks & units", icon: "grid", admin: true },
       { href: "/setup/devices/", label: "Gates & devices", icon: "cpu", admin: true },
+      { href: "/setup/facilities/", label: "Facilities & payments", icon: "calendar", admin: true },
     ],
   },
   {

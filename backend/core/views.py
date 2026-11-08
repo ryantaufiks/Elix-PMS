@@ -13,7 +13,7 @@ from rest_framework.decorators import action, api_view, permission_classes, thro
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.response import Response
-from rest_framework.throttling import AnonRateThrottle
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 
 from . import access, intercom, livekit, privacy, push, relays, visits
 from . import visitor_identity as identity
@@ -223,11 +223,15 @@ class IntegrationAccountViewSet(ScopedModelViewSet):
     filterset_fields = ["condominium", "provider", "is_active"]
 
 
+class ResidentOpenThrottle(UserRateThrottle):
+    scope = "resident_open"
+
+
 class AccessGateViewSet(ScopedModelViewSet):
     queryset = m.AccessGate.objects.all()
     serializer_class = s.AccessGateSerializer
     resident_condo_read = True
-    filterset_fields = ["condominium", "gate_type", "direction", "is_active"]
+    filterset_fields = ["condominium", "gate_type", "direction", "is_active", "resident_remote_open"]
     search_fields = ["name"]
 
     @extend_schema(request=s.ManualOpenSerializer, responses={202: s.AccessLogSerializer})
@@ -242,6 +246,22 @@ class AccessGateViewSet(ScopedModelViewSet):
         body = s.ManualOpenSerializer(data=request.data)
         body.is_valid(raise_exception=True)
         log = access.grant(gate, m.AccessLog.Method.MANUAL, actor=request.user, reason=body.validated_data["reason"])
+        return Response(s.AccessLogSerializer(log).data, status=status.HTTP_202_ACCEPTED)
+
+    @extend_schema(request=None, responses={202: s.AccessLogSerializer})
+    @action(detail=True, methods=["post"], throttle_classes=[ResidentOpenThrottle])
+    def remote_open(self, request, pk=None):
+        """A resident opens the gate from the app (only gates with *Residents can open from the app*)."""
+        gate = self.get_object()
+        units = m.Unit.objects.filter(pk__in=resident_unit_ids(request.user), condominium_id=gate.condominium_id)
+        unit = units.first()
+        if unit is None:
+            raise PermissionDenied("Only residents of this condominium can open its gates from the app.")
+        if not gate.resident_remote_open:
+            raise PermissionDenied("This gate cannot be opened from the app.")
+        if not gate.is_active:
+            return Response({"detail": "Gate is disabled."}, status=status.HTTP_409_CONFLICT)
+        log = access.grant(gate, m.AccessLog.Method.APP, actor=request.user, unit=unit, reason="Opened from the resident app")
         return Response(s.AccessLogSerializer(log).data, status=status.HTTP_202_ACCEPTED)
 
 

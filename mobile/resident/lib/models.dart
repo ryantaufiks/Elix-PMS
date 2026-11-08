@@ -87,3 +87,109 @@ const visitPurposeLabel = {
   'pickup': 'Pick-up / drop-off', 'other': 'Other',
 };
 const purposeLabel = {'guest': 'Guest', 'delivery': 'Delivery', 'contractor': 'Contractor', 'pickup': 'Pick-up / drop-off', 'other': 'Other'};
+
+class Gate {
+  Gate(this.json);
+  final Map<String, dynamic> json;
+  int get id => json['id'] as int;
+  String get name => json['name'] as String;
+  String get type => json['gate_type'] as String? ?? 'vehicle';
+  bool get active => json['is_active'] as bool? ?? true;
+}
+
+double _money(Object? v) => double.tryParse('$v') ?? 0;
+
+class Facility {
+  Facility(this.json);
+  final Map<String, dynamic> json;
+  int get id => json['id'] as int;
+  String get name => json['name'] as String;
+  String get description => json['description'] as String? ?? '';
+  String get location => json['location'] as String? ?? '';
+  String get icon => json['icon'] as String? ?? 'event';
+  bool get hasImage => json['has_image'] as bool? ?? false;
+  int get capacity => json['capacity'] as int? ?? 1;
+  String get opensAt => (json['opens_at'] as String? ?? '').padRight(5).substring(0, 5);
+  String get closesAt => (json['closes_at'] as String? ?? '').padRight(5).substring(0, 5);
+  int get slotMinutes => json['slot_minutes'] as int? ?? 60;
+  int get maxSlots => json['max_slots_per_booking'] as int? ?? 1;
+  double get pricePerSlot => _money(json['price_per_slot']);
+  double get deposit => _money(json['deposit']);
+  bool get isPaid => json['is_paid'] as bool? ?? false;
+  int get advanceDays => json['advance_days'] as int? ?? 14;
+  int get cancelHours => json['cancel_hours'] as int? ?? 24;
+  String get rules => json['rules'] as String? ?? '';
+  int get condominium => json['condominium'] as int;
+  String get priceLabel => isPaid
+      ? '\$${pricePerSlot.toStringAsFixed(2)} / ${slotMinutes >= 60 && slotMinutes % 60 == 0 ? '${slotMinutes ~/ 60} h' : '$slotMinutes min'}'
+      : 'Free';
+}
+
+class Slot {
+  Slot(this.json);
+  final Map<String, dynamic> json;
+  /// The start as the server wrote it, sent back unchanged when booking.
+  String get raw => json['starts_at'] as String;
+  DateTime get startsAt => DateTime.parse(json['starts_at'] as String).toLocal();
+  DateTime get endsAt => DateTime.parse(json['ends_at'] as String).toLocal();
+  bool get available => json['available'] as bool? ?? false;
+  int get left => json['left'] as int? ?? 0;
+}
+
+class Booking {
+  Booking(this.json);
+  final Map<String, dynamic> json;
+  int get id => json['id'] as int;
+  String get facilityName => json['facility_name'] as String? ?? '';
+  String get facilityIcon => json['facility_icon'] as String? ?? 'event';
+  String get unitDisplay => json['unit_display'] as String? ?? '';
+  DateTime get startsAt => DateTime.parse(json['starts_at'] as String).toLocal();
+  DateTime get endsAt => DateTime.parse(json['ends_at'] as String).toLocal();
+  int get guests => json['guests'] as int? ?? 1;
+  String get status => json['status'] as String;
+  String get statusDisplay => json['status_display'] as String? ?? status;
+  String get paymentStatus => json['payment_status'] as String? ?? 'none';
+  String get paymentStatusDisplay => json['payment_status_display'] as String? ?? paymentStatus;
+  double get amount => _money(json['amount']);
+  double get deposit => _money(json['deposit']);
+  String get currency => json['currency'] as String? ?? 'SGD';
+  String get cancelReason => json['cancel_reason'] as String? ?? '';
+  bool get canCancel => json['can_cancel'] as bool? ?? false;
+  bool get awaitingPayment => status == 'pending_payment';
+  bool get upcoming => endsAt.isAfter(DateTime.now()) && (status == 'confirmed' || status == 'pending_payment');
+}
+
+class Visit {
+  Visit(this.json);
+  final Map<String, dynamic> json;
+  int get id => json['id'] as int;
+  String get passNumber => json['pass_number'] as String? ?? '';
+  String get visitorName => json['visitor_name'] as String? ?? '';
+  String get purpose => visitPurposeLabel[json['purpose']] ?? '';
+  String get company => json['company'] as String? ?? '';
+  String get plate => json['vehicle_plate'] as String? ?? '';
+  String get source => json['source_display'] as String? ?? '';
+  String get state => json['state'] as String? ?? '';
+  String get unitDisplay => json['unit_display'] as String? ?? '';
+  DateTime get checkIn => DateTime.parse(json['created_at'] as String).toLocal();
+  DateTime? get checkOut => json['checked_out_at'] == null ? null : DateTime.parse(json['checked_out_at'] as String).toLocal();
+}
+
+class FeedbackItem {
+  FeedbackItem(this.json);
+  final Map<String, dynamic> json;
+  int get id => json['id'] as int;
+  int get rating => json['rating'] as int;
+  String get category => json['category_display'] as String? ?? '';
+  String get comment => json['comment'] as String? ?? '';
+  String get status => json['status'] as String? ?? 'new';
+  String get statusDisplay => json['status_display'] as String? ?? '';
+  String get reply => json['reply'] as String? ?? '';
+  String get repliedBy => json['replied_by_name'] as String? ?? '';
+  DateTime get createdAt => DateTime.parse(json['created_at'] as String).toLocal();
+}
+
+const feedbackCategories = {
+  'security': 'Security', 'cleanliness': 'Cleanliness', 'facilities': 'Facilities', 'maintenance': 'Maintenance',
+  'management': 'Management office', 'app': 'Elix app', 'other': 'Other',
+};

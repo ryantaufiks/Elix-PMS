@@ -8,7 +8,15 @@ import '../models.dart';
 import '../realtime.dart';
 import '../session.dart';
 import '../theme.dart';
+import 'access_screen.dart';
+import 'activity_screen.dart';
+import 'facilities_screen.dart';
+import 'feedback_screen.dart';
+import 'visitors_screen.dart';
 import 'widgets.dart';
+
+/// Recent activity shown on the home screen; the rest is under "See all".
+const _recent = 5;
 
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
@@ -38,7 +46,7 @@ class _HomeTabState extends State<HomeTab> {
 
   Future<void> _load() async {
     try {
-      final logs = await Api.instance.list('/v1/access-logs/?page_size=20');
+      final logs = await Api.instance.list('/v1/access-logs/?page_size=$_recent');
       final calls = await Api.instance.list('/v1/intercom-calls/?status=ringing');
       if (!mounted) return;
       setState(() {
@@ -48,6 +56,11 @@ class _HomeTabState extends State<HomeTab> {
     } catch (e) {
       if (mounted && _activity == null) setState(() => _activity = []);
     }
+  }
+
+  Future<void> _open(Widget screen) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+    _load();
   }
 
   @override
@@ -105,8 +118,33 @@ class _HomeTabState extends State<HomeTab> {
             ]),
           ),
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
-          sliver: SliverToBoxAdapter(child: Text('Recent activity', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600))),
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+          sliver: SliverGrid.count(
+            crossAxisCount: 4,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 0.82,
+            children: [
+              _MenuCard(icon: Icons.lock_open_rounded, label: 'Access', color: const Color(0xFF16A34A),
+                  onTap: () => _open(const AccessScreen())),
+              _MenuCard(icon: Icons.event_available_rounded, label: 'Facility', color: brandBlue,
+                  onTap: () => _open(const FacilitiesScreen())),
+              _MenuCard(icon: Icons.people_alt_rounded, label: 'Visitor', color: const Color(0xFF7C3AED),
+                  onTap: () => _open(const VisitorsScreen())),
+              _MenuCard(icon: Icons.star_rounded, label: 'Feedback', color: const Color(0xFFF59E0B),
+                  onTap: () => _open(const FeedbackScreen())),
+            ],
+          ),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 24, 8, 8),
+          sliver: SliverToBoxAdapter(
+            child: Row(children: [
+              Expanded(child: Text('Recent activity', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600))),
+              if ((_activity?.length ?? 0) >= _recent)
+                TextButton(onPressed: () => _open(const ActivityScreen()), child: const Text('See all')),
+            ]),
+          ),
         ),
         if (_activity == null)
           const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator())))
@@ -118,7 +156,7 @@ class _HomeTabState extends State<HomeTab> {
             sliver: SliverList.separated(
               itemCount: _activity!.length,
               separatorBuilder: (_, _) => const SizedBox(height: 8),
-              itemBuilder: (context, i) => _ActivityTile(_activity![i]),
+              itemBuilder: (context, i) => ActivityTile(_activity![i]),
             ),
           ),
         const SliverToBoxAdapter(child: SizedBox(height: 24)),
@@ -127,8 +165,35 @@ class _HomeTabState extends State<HomeTab> {
   }
 }
 
-class _ActivityTile extends StatelessWidget {
-  const _ActivityTile(this.entry);
+class _MenuCard extends StatelessWidget {
+  const _MenuCard({required this.icon, required this.label, required this.color, required this.onTap});
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Card(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
+              child: Icon(icon, color: color, size: 26),
+            ),
+            const SizedBox(height: 8),
+            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          ]),
+        ),
+      );
+}
+
+/// One access-log entry (home screen and "See all").
+class ActivityTile extends StatelessWidget {
+  const ActivityTile(this.entry, {super.key});
   final AccessEntry entry;
   @override
   Widget build(BuildContext context) {
@@ -138,6 +203,7 @@ class _ActivityTile extends StatelessWidget {
       'lpr' => Icons.directions_car,
       'qr' => Icons.qr_code_2,
       'intercom' => Icons.videocam,
+      'app' => Icons.smartphone,
       _ => Icons.door_front_door_outlined,
     };
     final title = [entry.plate, entry.visitor].where((s) => s.isNotEmpty).join(' · ');

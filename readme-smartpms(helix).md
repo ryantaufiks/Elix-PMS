@@ -93,7 +93,15 @@ Pastikan perangkat lokal Anda telah terinstal:
 * **Visitor list (officer):** semua tamu tercatat sebagai *visit* dengan nomor pass harian yang sama: walk-in kiosk, walk-in yang didaftarkan guard (*Register visitor*, foto webcam opsional), check-in invitation (QR atau plat LPR; kamera exit otomatis check-out), dan gerbang yang dibuka lewat intercom. Officer bisa melihat jam check-in/check-out, *Print slip* dari printer pos jaga, *Edit* catatan, dan *Check out* satu per satu atau bulk. PIN tamu on site tampil di bawah nomor pass. Halaman **Visitor records** menampilkan check-in dan check-out terakhir tiap orang, dan tombol *Visits* membuka riwayat lengkapnya.
 * Printer: jadikan printer 58 mm sebagai default printer di PC kiosk (ukuran kertas roll 58 mm) dan jalankan Chrome dengan `--kiosk --kiosk-printing` agar slip langsung tercetak tanpa dialog. Kiosk tanpa printer: hilangkan centang *Receipt printer connected* di *Gates & devices → Kiosks*, maka nomor pass dan QR ditampilkan di layar.
 
-### 5. Report Center
+### 5. Menu APK resident: Access, Facility, Visitor, Feedback
+* Home APK berisi 4 menu card (ikon sederhana) di atas *Recent activity* (maksimal 5; *See all* untuk semua riwayat).
+* **Access:** buka gerbang dari jarak jauh dengan *swipe to open*. Hanya gate yang dicentang *Residents can open this gate from the app* (Gates & devices) yang muncul; setiap pembukaan tercatat (metode *App*, nama resident, unit).
+* **Facility:** fasilitas dikonfigurasi admin di **Setup → Facilities & payments** (jam buka, hari buka, durasi slot, maks. slot per booking, booking per slot, kapasitas, harga per slot, deposit, berapa hari ke depan, batas booking per unit, batas waktu cancel, aturan, foto). Fasilitas gratis langsung confirmed. Fasilitas berbayar memakai **HitPay** milik kondo (PayNow, kartu, dll.) di dalam aplikasi: slot ditahan selama pembayaran (default 15 menit) dan booking hanya dikonfirmasi setelah API HitPay menyatakan pembayaran *completed* (halaman return dan webhook bertanda tangan hanya memicu pengecekan itu). Booking yang tidak dibayar otomatis dilepas. Refund dilakukan di dashboard HitPay lalu dicatat di menu **Bookings**.
+* **Visitor:** daftar tamu unit, tab *On going* dan *History*, dengan jam check-in dan check-out.
+* **Feedback:** resident memberi rating 1–5 bintang per kategori + komentar; admin membalas di menu **Feedback** (rata-rata dan distribusi rating), balasan tampil di aplikasi.
+* Setup HitPay: isi API key dan salt (terenkripsi) di *Online payments*; biarkan *Sandbox* tercentang untuk uji coba, hilangkan centang untuk live.
+
+### 6. Report Center
 * Menu **Operations → Reports** untuk semua staff (termasuk guard). Officer hanya melihat site/kondo masing-masing; super admin bisa memilih beberapa site atau *All sites* untuk laporan gabungan (konsolidasi).
 * Jenis laporan: *Consolidated summary* (per site per hari), *Visitor*, *Access*, *Vehicle* (LPR), *Intercom*, *Invitation*. Masing-masing punya angka kunci, grafik tren harian, breakdown, dan tabel detail.
 * Filter periode (Today, Yesterday, 7/30 hari, bulan ini/lalu, tahun ini, custom maks. 366 hari), filter per laporan, dan **smart search**: kata bebas mencari di semua kolom teks, token `key:value` untuk satu kolom, contoh `unit:05-12 plate:SGX1234 status:denied "Ace Aircon"`.

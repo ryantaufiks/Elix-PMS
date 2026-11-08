@@ -51,9 +51,11 @@ On first sign-in with no condominium, the platform admin is guided through creat
 | | Visitor list | all staff | Every visitor on site and past visits (kiosk / guardhouse walk-ins, invitations, intercom) with check-in and check-out time, photo, notes; *Register visitor* at the guardhouse (webcam photo, slip printed), *Print slip*, *Edit* notes, *Check out* one or many; a toast on every page when a kiosk walk-in registers |
 | | Open gates | all staff | Manual opening with reason (logged under the user) |
 | | Invitations | all staff (create/cancel: admin) | QR code and share link, status filters |
+| | Bookings | all staff (cancel, record refunds: admin) | Facility bookings from the resident app with payment status; upcoming / all, filters |
 | | Reports | all staff (several sites: superusers) | Report Center: consolidated summary, visitor, access, vehicle, intercom and invitation reports with period presets, filters and smart search; *Print / PDF* (A4) and *Excel* / *CSV* export |
 | Community | Residents | all staff (manage: admin) | Add residents with their app login, unit role, intercom on/off, password reset, move out |
 | | Vehicles | all staff (edit: admin) | Resident plates used by LPR auto-open |
+| | Feedback | all staff (reply: admin) | Residents' 1–5 star ratings by category, average and distribution, reply and status shown in the app |
 | | Staff | admin | Create guard / condo-admin accounts, change role, reset password, remove |
 | Site setup | Site settings | admin | Name, address, LPR on/off, ring timeout, invitation limit, face check, PDPA retention |
 | | Blocks & units | admin | Blocks, units, and *Generate units* (e.g. floors 2–15 × units 01–08) |
@@ -235,6 +237,40 @@ breakdown appear).
 gate calls (native full-screen ringing when the app is closed, in-app screen with the visitor's photo
 when open), video with the kiosk, **swipe to open**, invite visitors and share the QR pass, register
 vehicles, and see the unit's recent entries. Staff use the web dashboard instead.
+
+The home screen has four menu cards above the unit's recent activity (the latest 5; *See all* opens
+the full history):
+
+- **Access:** open gates remotely with *swipe to open*. Only gates with *Residents can open this gate
+  from the app* (Gates & devices) are listed; each opening is logged as *App* with the resident and unit
+  (rate-limited, `RESIDENT_OPEN_RATE`, default 10/min).
+- **Facility:** book facilities the condo admin set up under **Setup → Facilities & payments** (hours,
+  open days, slot length, slots per booking, bookings per slot, people, price per slot, refundable
+  deposit, how far ahead, upcoming bookings per unit, cancellation cut-off, rules, photo). Residents pick
+  a day and consecutive slots; free facilities are confirmed at once. Paid ones open the condominium's
+  **HitPay** checkout (PayNow, cards…) inside the app: the slots are held while paying (*Hold slots while
+  paying*, default 15 min) and the booking is confirmed only when HitPay's API reports the payment
+  completed (the return page and the signed webhook just trigger that check). Unpaid bookings are
+  released by `core.tasks.expire_unpaid_bookings` (every 5 min). Residents cancel up to the cut-off;
+  refunds are made in the HitPay dashboard and recorded under **Bookings**. *My bookings* shows status,
+  *Pay now* and *Cancel*.
+- **Visitor:** visitors to the unit, *On going* (on site) and *History*, with check-in and check-out times.
+- **Feedback:** rate a service 1–5 stars (security, cleanliness, facilities, maintenance, management,
+  app, other) with a comment, and read the management's reply.
+
+HitPay setup: in **Facilities & payments → Online payments**, paste the HitPay API key and salt
+(encrypted at rest), keep *Sandbox* ticked to test with HitPay's sandbox account, then untick it to go
+live. The webhook URL shown there (`/v1/payments/hitpay/webhook/`) is also sent with every payment request.
+
+| Who | Endpoint | Purpose |
+|---|---|---|
+| Resident | `GET /v1/gates/?resident_remote_open=true`, `POST /v1/gates/{id}/remote_open/` | Gates the resident may open; open one |
+| Admin / resident | `/v1/facilities/` (CRUD: admin), `GET …/{id}/availability/?date=`, `GET …/{id}/photo/` | Facilities, a day's slots, photo |
+| Resident / staff | `POST /v1/bookings/` (`facility`, `starts_at`, `slots`, `guests`, `notes`, `unit`), `GET /v1/bookings/?upcoming=1` | Book (returns `payment_url` for paid facilities); list |
+| Resident / admin | `POST /v1/bookings/{id}/pay/`, `…/refresh/`, `…/cancel/`, `…/refunded/` (admin) | Resume payment, re-check with HitPay, cancel, record refund |
+| Admin | `GET/PATCH /v1/payment-settings/?condominium=` | HitPay account (key and salt write-only) |
+| HitPay | `POST /v1/payments/hitpay/webhook/`, `GET /v1/payments/hitpay/return/?booking=` | Payment notification; page after paying |
+| Resident / staff | `POST /v1/feedback/` (`rating`, `category`, `comment`), `GET /v1/feedback/`, `POST …/{id}/reply/` (admin), `GET …/summary/` | Feedback |
 
 **Builds run on GitHub Actions, not on the server** (Gradle needs more RAM than the 4 GB production
 box has; a local build there hangs it). `.github/workflows/resident-apk.yml` builds on every push that
