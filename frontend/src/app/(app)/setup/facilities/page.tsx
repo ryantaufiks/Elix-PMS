@@ -199,7 +199,7 @@ export default function FacilitiesPage() {
   const { data, mutate } = useSWR<Page<Facility>>(isAdmin ? `/v1/facilities/?condominium=${condo.id}&page_size=100` : null);
   const [editing, setEditing] = useState<Facility | "new" | null>(null);
   const [deleting, setDeleting] = useState<Facility | null>(null);
-  if (!isAdmin) return <Card><Empty>Facilities are managed by the condo admin.</Empty></Card>;
+  if (!isAdmin) return <Card><Empty>Facilities are managed by the site admin.</Empty></Card>;
 
   return (
     <>

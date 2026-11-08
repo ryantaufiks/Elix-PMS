@@ -30,7 +30,7 @@ export default function DevicesSetupPage() {
   const kiosks = useSWR<Page<Kiosk>>(isAdmin ? `/v1/kiosks/${query({ condominium: condo.id, page_size: 200 })}` : null);
   const accounts = useSWR<Page<IntegrationAccount>>(isAdmin ? `/v1/integration-accounts/${query({ condominium: condo.id, page_size: 200 })}` : null);
 
-  if (!isAdmin) return <Card><Empty>Gates and devices are managed by the condo admin.</Empty></Card>;
+  if (!isAdmin) return <Card><Empty>Gates and devices are managed by the site admin.</Empty></Card>;
 
   const gateOptions: Option[] = (gates.data?.results ?? []).map((g) => ({ value: g.id, label: g.name }));
   const gateName = (id: number | null) => gates.data?.results.find((g) => g.id === id)?.name ?? "—";

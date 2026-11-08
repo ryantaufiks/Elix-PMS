@@ -10,7 +10,7 @@ import { useSession } from "@/lib/session";
 import type { Page, Unit, Vehicle } from "@/lib/types";
 
 export default function VehiclesPage() {
-  const { condo, isAdmin } = useSession();
+  const { condo, isManager } = useSession();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<Vehicle | "new" | null>(null);
@@ -21,7 +21,7 @@ export default function VehiclesPage() {
       <PageHeader
         title="Vehicles"
         description="Resident vehicles. Plates listed here can open LPR gates set to auto-open for residents."
-        action={isAdmin && <Button variant="primary" onClick={() => setEditing("new")}>Add vehicle</Button>}
+        action={isManager && <Button variant="primary" onClick={() => setEditing("new")}>Add vehicle</Button>}
       />
       <Card>
         <div className="border-b border-line p-3">
@@ -41,7 +41,7 @@ export default function VehiclesPage() {
                   <Td>{v.unit_display}</Td>
                   <Td>{[v.colour, v.make, v.model].filter(Boolean).join(" ") || "—"}</Td>
                   <Td>{v.is_active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}</Td>
-                  <Td className="text-right">{isAdmin && <Button size="sm" variant="ghost" onClick={() => setEditing(v)}>Edit</Button>}</Td>
+                  <Td className="text-right">{isManager && <Button size="sm" variant="ghost" onClick={() => setEditing(v)}>Edit</Button>}</Td>
                 </tr>
               ))}
             </tbody>

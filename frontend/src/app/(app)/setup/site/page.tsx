@@ -19,7 +19,7 @@ export default function SiteSettingsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => setValues(initialValues(fields, condo)), [condo.id]);
 
-  if (!isAdmin) return <Card><Empty>Site settings are managed by the condo admin.</Empty></Card>;
+  if (!isAdmin) return <Card><Empty>Site settings are managed by the site admin.</Empty></Card>;
 
   const errors = error instanceof ApiError && error.data && typeof error.data === "object"
     ? Object.fromEntries(Object.entries(error.data as Record<string, unknown>).filter(([k]) => k !== "detail").map(([k, v]) => [k, errorMessage(v, "Invalid")]))

@@ -13,7 +13,7 @@ import type { Invitation, InvitationStatus, Page, Unit } from "@/lib/types";
 const STATUS_TONE: Record<InvitationStatus, Tone> = { active: "green", completed: "blue", cancelled: "slate", expired: "amber" };
 
 export default function InvitationsPage() {
-  const { condo, isAdmin } = useSession();
+  const { condo, isManager } = useSession();
   const toast = useToast();
   const [status, setStatus] = useState<string>("active");
   const [search, setSearch] = useState("");
@@ -44,7 +44,7 @@ export default function InvitationsPage() {
       <PageHeader
         title="Invitations"
         description="Visitors pre-registered by residents. The visitor shows the QR code at the gate."
-        action={isAdmin && <Button variant="primary" onClick={() => setCreating(true)}>New invitation</Button>}
+        action={isManager && <Button variant="primary" onClick={() => setCreating(true)}>New invitation</Button>}
       />
       <Card>
         <div className="flex flex-wrap gap-2 border-b border-line p-3">
@@ -86,7 +86,7 @@ export default function InvitationsPage() {
                   <Td><Badge tone={STATUS_TONE[inv.status]}>{inv.status}</Badge></Td>
                   <Td className="whitespace-nowrap text-right">
                     <Button size="sm" variant="ghost" onClick={() => setQr(inv)}>QR</Button>
-                    {isAdmin && inv.status === "active" && <Button size="sm" variant="ghost" onClick={() => setCancelling(inv)}>Cancel</Button>}
+                    {isManager && inv.status === "active" && <Button size="sm" variant="ghost" onClick={() => setCancelling(inv)}>Cancel</Button>}
                   </Td>
                 </tr>
               ))}

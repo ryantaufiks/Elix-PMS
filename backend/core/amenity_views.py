@@ -20,7 +20,7 @@ from . import bookings, payments
 from . import models as m
 from . import serializers as s
 from .realtime import broadcast
-from .scoping import ADMIN, ALL_STAFF, resident_unit_ids, staff_condo_ids
+from .scoping import ADMIN, ALL_STAFF, MANAGEMENT, resident_unit_ids, staff_condo_ids
 from .views import ScopedModelViewSet, ScopedReadOnlyViewSet
 
 log = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ def residents_unit(user, unit=None, condo_id=None):
 
 
 class FacilityViewSet(ScopedModelViewSet):
-    """Bookable facilities. Condo admins configure them; residents see the active ones of their condominium."""
+    """Bookable facilities. Site admins configure them; residents see the active ones of their condominium."""
 
     queryset = m.Facility.objects.select_related("condominium")
     serializer_class = s.FacilitySerializer
@@ -193,10 +193,10 @@ class BookingViewSet(mixins.CreateModelMixin, ScopedReadOnlyViewSet):
     @extend_schema(request=s.CancelSerializer, responses=s.BookingSerializer)
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):
-        """Cancel a booking: residents up to the facility's cut-off, condo admins any time.
+        """Cancel a booking: residents up to the facility's cut-off, site admins and staff any time.
         Paid bookings are refunded by the management (then marked refunded)."""
         booking = self.get_object()
-        staff = self._own_or_staff(booking, (ADMIN,))
+        staff = self._own_or_staff(booking, MANAGEMENT)
         body = s.CancelSerializer(data=request.data)
         body.is_valid(raise_exception=True)
         try:
@@ -210,8 +210,8 @@ class BookingViewSet(mixins.CreateModelMixin, ScopedReadOnlyViewSet):
     def refunded(self, request, pk=None):
         """Record that the management refunded the payment (done in the HitPay dashboard)."""
         booking = self.get_object()
-        if not is_staff_of(request.user, booking.condominium_id, (ADMIN,)):
-            raise PermissionDenied("Only condo admins can record refunds.")
+        if not is_staff_of(request.user, booking.condominium_id, MANAGEMENT):
+            raise PermissionDenied("Only site admins and staff can record refunds.")
         try:
             booking = bookings.mark_refunded(booking)
         except bookings.BookingError as exc:
@@ -220,7 +220,7 @@ class BookingViewSet(mixins.CreateModelMixin, ScopedReadOnlyViewSet):
 
 
 class PaymentSettingsView(generics.RetrieveUpdateAPIView):
-    """The condominium's HitPay account (condo admins). Secrets are write-only."""
+    """The condominium's HitPay account (site admins). Secrets are write-only."""
 
     serializer_class = s.PaymentSettingsSerializer
 
@@ -242,7 +242,7 @@ class PaymentSettingsView(generics.RetrieveUpdateAPIView):
         except ValueError:
             raise ValidationError({"condominium": "Required."})
         if not is_staff_of(self.request.user, condo_id, (ADMIN,)):
-            raise PermissionDenied("Only condo admins can see payment settings.")
+            raise PermissionDenied("Only site admins can see payment settings.")
         condo = generics.get_object_or_404(m.Condominium, pk=condo_id)
         return m.PaymentSettings.objects.get_or_create(condominium=condo)[0]
 
@@ -365,10 +365,10 @@ class FeedbackViewSet(mixins.CreateModelMixin, ScopedReadOnlyViewSet):
     @extend_schema(request=s.FeedbackReplySerializer, responses=s.FeedbackSerializer)
     @action(detail=True, methods=["post"])
     def reply(self, request, pk=None):
-        """Reply to the resident and/or change the status (condo admins)."""
+        """Reply to the resident and/or change the status (site admins and staff)."""
         feedback = self.get_object()
-        if not is_staff_of(request.user, feedback.condominium_id, (ADMIN,)):
-            raise PermissionDenied("Only condo admins can reply to feedback.")
+        if not is_staff_of(request.user, feedback.condominium_id, MANAGEMENT):
+            raise PermissionDenied("Only site admins and staff can reply to feedback.")
         body = s.FeedbackReplySerializer(data=request.data)
         body.is_valid(raise_exception=True)
         data = body.validated_data

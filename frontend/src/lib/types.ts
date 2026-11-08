@@ -1,6 +1,6 @@
 export type Page<T> = { count: number; next: string | null; previous: string | null; results: T[] };
 
-export type Role = "admin" | "security";
+export type Role = "admin" | "staff" | "security";
 
 export type UserSummary = {
   id: number;

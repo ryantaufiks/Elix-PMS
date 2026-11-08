@@ -14,8 +14,9 @@ class StaffAssignment(TimeStampedModel):
     """Gives a user a staff role at one condominium."""
 
     class Role(models.TextChoices):
-        ADMIN = "admin", "Condo admin"
-        SECURITY = "security", "Security guard"
+        ADMIN = "admin", "Site admin"
+        STAFF = "staff", "Staff"
+        SECURITY = "security", "Officer"
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="staff_assignments")
     condominium = models.ForeignKey(Condominium, on_delete=models.CASCADE, related_name="staff_assignments")

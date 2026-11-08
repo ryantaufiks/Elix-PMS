@@ -8,13 +8,14 @@ import { EditPerson, fieldErrorsOf, personFields, SetPassword } from "@/componen
 import { Icon } from "@/components/icons";
 import { Badge, Button, Card, Empty, ErrorNote, Field, Loading, Modal, PageHeader, Select, Table, Td, Th, useToast } from "@/components/ui";
 import { api, query } from "@/lib/api";
-import { formatDateTime, userName } from "@/lib/format";
+import { formatDateTime, ROLE_LABEL, userName } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import type { Page, StaffRow } from "@/lib/types";
 
 
 
-const ROLE_OPTIONS = [{ value: "security", label: "Security guard" }, { value: "admin", label: "Condo admin" }];
+const ROLE_OPTIONS = (["security", "staff", "admin"] as const).map((value) => ({ value, label: ROLE_LABEL[value] }));
+const ROLE_TONE = { admin: "blue", staff: "green", security: "slate" } as const;
 
 export default function StaffPage() {
   const { condo, isAdmin, me } = useSession();
@@ -25,13 +26,13 @@ export default function StaffPage() {
   const [removing, setRemoving] = useState<StaffRow | null>(null);
   const { data, mutate } = useSWR<Page<StaffRow>>(isAdmin ? `/v1/staff-assignments/${query({ condominium: condo.id, page_size: 200 })}` : null);
 
-  if (!isAdmin) return <Card><Empty>Staff accounts are managed by the condo admin.</Empty></Card>;
+  if (!isAdmin) return <Card><Empty>Staff accounts are managed by the site admin.</Empty></Card>;
 
   return (
     <>
       <PageHeader
         title="Staff"
-        description="Security guards use the dashboard and the guardhouse intercom; condo admins also manage the site."
+        description="Officers open gates and handle visitors. Staff also manage residents, vehicles, invitations, bookings and feedback. Site admins also set up the site and manage staff accounts."
         action={<Button variant="primary" onClick={() => setAdding(true)}><Icon name="plus" className="h-4 w-4" /> Add staff</Button>}
       />
       <Card>
@@ -43,7 +44,7 @@ export default function StaffPage() {
                 <tr key={s.id}>
                   <Td className="font-medium text-ink">{userName(s.user_detail)}{s.user === me.id && <span className="ml-2"><Badge tone="blue">You</Badge></span>}</Td>
                   <Td>{s.user_detail.username}</Td>
-                  <Td>{s.role === "admin" ? <Badge tone="blue">Condo admin</Badge> : <Badge>Security</Badge>}</Td>
+                  <Td><Badge tone={ROLE_TONE[s.role]}>{ROLE_LABEL[s.role]}</Badge></Td>
                   <Td className="text-xs">{s.user_detail.phone}<div className="text-muted">{s.user_detail.email}</div></Td>
                   <Td className="whitespace-nowrap">{formatDateTime(s.created_at)}</Td>
                   <Td className="whitespace-nowrap text-right">

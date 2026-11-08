@@ -32,7 +32,7 @@ export default function UnitsSetupPage() {
   const blockOptions = (blocks.data?.results ?? []).map((b) => ({ value: b.id, label: b.name }));
   const blockName = (id: number | null) => blocks.data?.results.find((b) => b.id === id)?.name ?? "—";
 
-  if (!isAdmin) return <Card><Empty>Blocks and units are managed by the condo admin.</Empty></Card>;
+  if (!isAdmin) return <Card><Empty>Blocks and units are managed by the site admin.</Empty></Card>;
 
   const unitFields: FieldDef[] = [
     { name: "block", label: "Block", type: "select", options: blockOptions, hint: "Leave empty for landed houses." },

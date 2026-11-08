@@ -19,7 +19,7 @@ docker compose exec web python manage.py test core
 | http://127.0.0.1:8001/v1/docs/ | Swagger API docs |
 | http://127.0.0.1:8001/v1/auth/token/ | JWT login |
 | `POST /v1/lpr-webhook/` | Dahua LPR events (Basic Auth per camera) |
-| `POST /v1/gates/{id}/open/` | Manual gate opening (security / condo admin) |
+| `POST /v1/gates/{id}/open/` | Manual gate opening (any site staff) |
 | `ws://…/ws/events/?token=<JWT>` | Live events (access logs, intercom calls, visits, bookings; feedback for staff) for the user's condos and units |
 | `ws://…/ws/events/?kiosk_token=<token>` | Live state of the kiosk's own calls |
 
@@ -55,13 +55,13 @@ On first sign-in with no condominium, the platform admin is guided through creat
 | | Intercom | all staff | Ringing kiosk calls (ringtone + banner on every page), answer with video, swipe to open, reject; history |
 | | Visitor list | all staff | Every visitor on site and past visits (kiosk / guardhouse walk-ins, invitations, intercom) with check-in and check-out time, photo, notes; *Register visitor* at the guardhouse (webcam photo, slip printed), *Print slip*, *Edit* notes, *Check out* one or many; a toast on every page when a kiosk walk-in registers |
 | | Open gates | all staff | Manual opening with reason (logged under the user) |
-| | Invitations | all staff (create/cancel: admin) | QR code and share link, status filters |
-| | Bookings | all staff (cancel, record refunds: admin) | Facility bookings from the resident app with payment status; upcoming / all, filters |
+| | Invitations | all staff (create/cancel: admin, staff) | QR code and share link, status filters |
+| | Bookings | all staff (cancel, record refunds: admin, staff) | Facility bookings from the resident app with payment status; upcoming / all, filters |
 | | Reports | all staff (several sites: superusers) | Report Center: consolidated summary, visitor, access, vehicle, intercom and invitation reports with period presets, filters and smart search; *Print / PDF* (A4) and *Excel* / *CSV* export |
-| Community | Residents | all staff (manage: admin) | Add residents with their app login, unit role, intercom on/off, password reset, move out |
-| | Vehicles | all staff (edit: admin) | Resident plates used by LPR auto-open |
-| | Feedback | all staff (reply: admin) | Residents' 1–5 star ratings by category, average and distribution, reply and status shown in the app |
-| | Staff | admin | Create guard / condo-admin accounts, change role, reset password, remove |
+| Community | Residents | all staff (manage: admin, staff) | Add residents with their app login, unit role, intercom on/off, password reset, move out |
+| | Vehicles | all staff (edit: admin, staff) | Resident plates used by LPR auto-open |
+| | Feedback | all staff (reply: admin, staff) | Residents' 1–5 star ratings by category, average and distribution, reply and status shown in the app |
+| | Staff | admin | Create officer / staff / site-admin accounts, change role, reset password, remove |
 | Site setup | Site settings | admin | Name, address, LPR on/off, ring timeout, invitation limit, face check, PDPA retention |
 | | Blocks & units | admin | Blocks, units, and *Generate units* (e.g. floors 2–15 × units 01–08) |
 | | Gates & devices | admin | Gates; relays (cloud / LAN / LAN→cloud, *Test* and *Status*); LPR cameras (webhook URL, last payload); kiosks (device token shown once); Shelly / eWeLink cloud accounts |
@@ -69,8 +69,8 @@ On first sign-in with no condominium, the platform admin is guided through creat
 | | System settings | platform admin | LiveKit, Firebase (with connection tests), relay / LPR tuning |
 
 Secrets (relay passwords, cloud keys, camera passwords, LiveKit secret, Firebase key) are write-only:
-the dashboard shows "saved" and a blank field keeps the stored value. Condo admins can manage only
-people who belong solely to their own condominium. Times are shown and entered in SGT.
+the dashboard shows "saved" and a blank field keeps the stored value. Site admins can manage only
+people who belong solely to their own condominium; staff only residents. Times are shown and entered in SGT.
 
 Development with hot reload (proxies the API to the dev web service):
 
@@ -249,7 +249,7 @@ the full history):
 - **Access:** open gates remotely with *swipe to open*. Only gates with *Residents can open this gate
   from the app* (Gates & devices) are listed; each opening is logged as *App* with the resident and unit
   (rate-limited, `RESIDENT_OPEN_RATE`, default 10/min).
-- **Facility:** book facilities the condo admin set up under **Setup → Facilities & payments** (hours,
+- **Facility:** book facilities the site admin set up under **Setup → Facilities & payments** (hours,
   open days, slot length, slots per booking, bookings per slot, people, price per slot, refundable
   deposit, how far ahead, upcoming bookings per unit, cancellation cut-off, rules, photo). Residents pick
   a day and consecutive slots; free facilities are confirmed at once. Paid ones open the condominium's
@@ -314,7 +314,7 @@ optionally `GOOGLE_SERVICES_JSON_BASE64`; optional variable `API_BASE`.
   for (days)*, and deletes visitor records not seen since. Blocked visitors are kept for security.
   The same job removes face templates as soon as the pass has ended.
   Check with `docker compose exec web python manage.py purge_visitor_data --dry-run`.
-- **Access / erasure requests:** Community → Visitors → *Erase data* (condo admins) removes the person
+- **Access / erasure requests:** Visitor list → *Erase visitor data* (site admins) removes the person
   and their photos and details from calls, visits and invitations.
 
 ## System settings
@@ -358,9 +358,10 @@ databases and volumes never mix.
 
 | Role | Sees | Writes |
 |---|---|---|
-| Superuser | everything | everything |
-| Condo admin | own condominium | own condominium, incl. device credentials |
-| Security | own condominium, except relays/cameras/kiosks/credentials | visitors, manual gate opening, intercom answers |
+| Superuser (platform admin) | everything | everything |
+| Site admin | own condominium | own condominium, incl. setup, device credentials and staff accounts |
+| Staff (management office) | own condominium, except setup, devices and staff accounts | residents and their logins, vehicles, invitations, bookings, feedback replies, plus everything an officer does |
+| Officer | own condominium, except setup, devices and staff accounts | visitors, manual gate opening, intercom answers |
 | Resident | own units, condo gates/blocks | own vehicles and invitations |
 
 Third-party secrets (eWeLink, Shelly, camera, relay LAN passwords) are encrypted at rest with

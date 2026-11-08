@@ -19,7 +19,7 @@ from . import access, intercom, livekit, privacy, push, relays, visits
 from . import visitor_identity as identity
 from . import models as m
 from . import serializers as s
-from .scoping import ADMIN, ALL_STAFF, resident_condo_ids, resident_unit_ids, staff_condo_ids
+from .scoping import ADMIN, ALL_STAFF, MANAGEMENT, resident_condo_ids, resident_unit_ids, staff_condo_ids
 from .validators import normalize_plate
 
 
@@ -199,6 +199,7 @@ class StaffAssignmentViewSet(ScopedModelViewSet):
 class ResidencyViewSet(ScopedModelViewSet):
     queryset = m.Residency.objects.select_related("user", "unit")
     serializer_class = s.ResidencySerializer
+    staff_write_roles = MANAGEMENT
     condo_path = "unit__condominium"
     resident_unit_path = "unit"
     filterset_fields = ["unit", "unit__condominium", "resident_type", "is_active", "user"]
@@ -208,13 +209,14 @@ class ResidencyViewSet(ScopedModelViewSet):
 class VehicleViewSet(ScopedModelViewSet):
     queryset = m.Vehicle.objects.all()
     serializer_class = s.VehicleSerializer
+    staff_write_roles = MANAGEMENT
     resident_unit_path = "unit"
     resident_writable = True
     filterset_fields = ["condominium", "unit", "is_active"]
     search_fields = ["plate_number", "make", "model"]
 
 
-# --- Devices (condo admins only) ---------------------------------------------
+# --- Devices (site admins only) ----------------------------------------------
 
 class IntegrationAccountViewSet(ScopedModelViewSet):
     queryset = m.IntegrationAccount.objects.all()
@@ -237,10 +239,10 @@ class AccessGateViewSet(ScopedModelViewSet):
     @extend_schema(request=s.ManualOpenSerializer, responses={202: s.AccessLogSerializer})
     @action(detail=True, methods=["post"])
     def open(self, request, pk=None):
-        """Open the gate now (security or condo admin). Logged as a manual opening by the caller."""
+        """Open the gate now (any site staff). Logged as a manual opening by the caller."""
         gate = self.get_object()
         if not request.user.is_superuser and gate.condominium_id not in staff_condo_ids(request.user, ALL_STAFF):
-            raise PermissionDenied("Only security staff and condo admins can open gates manually.")
+            raise PermissionDenied("Only site staff can open gates manually.")
         if not gate.is_active:
             return Response({"detail": "Gate is disabled."}, status=status.HTTP_409_CONFLICT)
         body = s.ManualOpenSerializer(data=request.data)
@@ -351,13 +353,14 @@ class VisitorViewSet(ScopedModelViewSet):
     def perform_destroy(self, instance):
         """PDPA erasure request: also removes the visitor's photos and details from calls and invitations."""
         if not self.request.user.is_superuser and instance.condominium_id not in staff_condo_ids(self.request.user, (ADMIN,)):
-            raise PermissionDenied("Only condo admins can erase visitor data.")
+            raise PermissionDenied("Only site admins can erase visitor data.")
         privacy.erase_visitor(instance)
 
 
 class InvitationViewSet(ScopedModelViewSet):
     queryset = m.Invitation.objects.select_related("host", "unit").prefetch_related("gates")
     serializer_class = s.InvitationSerializer
+    staff_write_roles = MANAGEMENT
     resident_unit_path = "unit"
     resident_writable = True
     filterset_fields = ["condominium", "unit", "status", "purpose", "host"]
@@ -703,10 +706,10 @@ class DashboardSummaryView(generics.GenericAPIView):
 
 class ManagedUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin,
                          mixins.UpdateModelMixin, viewsets.GenericViewSet):
-    """People (residents and staff) of the condominiums the caller administers.
+    """People of the caller's condominiums: site admins manage residents and staff, staff manage residents.
 
-    Condo admins can manage only people who belong exclusively to their own condominiums;
-    anyone also attached elsewhere, and superusers, are left to the platform administrator.
+    Only people who belong exclusively to the caller's own condominiums can be changed; anyone also
+    attached elsewhere, and superusers, are left to the platform administrator.
     """
 
     serializer_class = s.ManagedUserSerializer
@@ -720,8 +723,8 @@ class ManagedUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixin
             return qs.none()
         user = self.request.user
         if not user.is_superuser:
-            condos = staff_condo_ids(user, (ADMIN,))
-            qs = qs.filter(Q(residencies__unit__condominium__in=condos) | Q(staff_assignments__condominium__in=condos))
+            qs = qs.filter(Q(residencies__unit__condominium__in=staff_condo_ids(user, MANAGEMENT))
+                           | Q(staff_assignments__condominium__in=staff_condo_ids(user, (ADMIN,))))
         condo = self.request.query_params.get("condominium")
         if condo:
             qs = qs.filter(Q(residencies__unit__condominium=condo) | Q(staff_assignments__condominium=condo))
@@ -733,19 +736,23 @@ class ManagedUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixin
             return
         if target.is_superuser:
             raise PermissionDenied("Platform administrators can only be changed by another platform administrator.")
-        condos = staff_condo_ids(user, (ADMIN,))
-        theirs = set(target.residencies.values_list("unit__condominium_id", flat=True)) | \
-            set(target.staff_assignments.values_list("condominium_id", flat=True))
-        if not theirs or not theirs <= condos:
+        homes = set(target.residencies.values_list("unit__condominium_id", flat=True))
+        posts = set(target.staff_assignments.values_list("condominium_id", flat=True))
+        if posts and not posts <= staff_condo_ids(user, (ADMIN,)):
+            raise PermissionDenied("Staff accounts are managed by the site admin; for other sites ask the platform administrator.")
+        if not (homes | posts) or not homes <= staff_condo_ids(user, MANAGEMENT):
             raise PermissionDenied("This person also belongs to another condominium; ask the platform administrator.")
 
     def perform_create(self, serializer):
         user = self.request.user
         if not user.is_superuser:
             data = serializer.validated_data
-            condo_id = data["residency"]["unit"].condominium_id if data.get("residency") else data["staff"]["condominium"].pk
-            if condo_id not in staff_condo_ids(user, (ADMIN,)):
-                raise PermissionDenied("You can only add people to condominiums you administer.")
+            if data.get("residency"):
+                allowed = data["residency"]["unit"].condominium_id in staff_condo_ids(user, MANAGEMENT)
+            else:
+                allowed = data["staff"]["condominium"].pk in staff_condo_ids(user, (ADMIN,))
+            if not allowed:
+                raise PermissionDenied("You can only add residents to your own sites, and staff only to sites you administer.")
         serializer.save()
 
     def perform_update(self, serializer):

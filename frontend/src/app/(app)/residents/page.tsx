@@ -23,7 +23,7 @@ const residencyFields: FieldDef[] = [
 ];
 
 export default function ResidentsPage() {
-  const { condo, isAdmin } = useSession();
+  const { condo, isManager } = useSession();
   const [search, setSearch] = useState("");
   const [type, setType] = useState("");
   const [page, setPage] = useState(1);
@@ -44,7 +44,7 @@ export default function ResidentsPage() {
         description="Who lives in each unit, and who answers intercom calls on the Elix app."
         action={<>
           <a href="/downloads/elix-resident.apk"><Button><Icon name="smartphone" className="h-4 w-4" /> Resident app (Android)</Button></a>
-          {isAdmin && <Button variant="primary" onClick={() => setAdding(true)}><Icon name="plus" className="h-4 w-4" /> Add resident</Button>}
+          {isManager && <Button variant="primary" onClick={() => setAdding(true)}><Icon name="plus" className="h-4 w-4" /> Add resident</Button>}
         </>}
       />
       <Card>
@@ -57,7 +57,7 @@ export default function ResidentsPage() {
         </div>
         {!data ? <Loading /> : data.results.length === 0 ? <Empty>No residents yet.</Empty> : (
           <Table>
-            <thead><tr><Th>Unit</Th><Th>Resident</Th><Th>Type</Th><Th>Contact</Th><Th>Intercom</Th>{isAdmin && <Th />}</tr></thead>
+            <thead><tr><Th>Unit</Th><Th>Resident</Th><Th>Type</Th><Th>Contact</Th><Th>Intercom</Th>{isManager && <Th />}</tr></thead>
             <tbody className="divide-y divide-line">
               {data.results.map((r) => (
                 <tr key={r.id} className={r.is_active ? undefined : "opacity-60"}>
@@ -74,7 +74,7 @@ export default function ResidentsPage() {
                     {r.user_detail.email && <div className="text-muted">{r.user_detail.email}</div>}
                   </Td>
                   <Td>{r.receives_intercom_calls ? <Badge tone="green">Receives calls</Badge> : <Badge>Muted</Badge>}</Td>
-                  {isAdmin && (
+                  {isManager && (
                     <Td className="whitespace-nowrap text-right">
                       <Button size="sm" variant="ghost" onClick={() => setEditingResidency(r)}>Unit role</Button>
                       <Button size="sm" variant="ghost" onClick={() => setEditingPerson(r)}>Profile</Button>

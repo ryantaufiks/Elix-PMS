@@ -68,7 +68,7 @@ function Reply({ feedback, onClose, onSaved }: { feedback: Feedback; onClose: ()
 }
 
 export default function FeedbackPage() {
-  const { condo, isAdmin } = useSession();
+  const { condo, isManager } = useSession();
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState("");
   const [rating, setRating] = useState("");
@@ -144,7 +144,7 @@ export default function FeedbackPage() {
                     </div>
                   )}
                 </div>
-                {isAdmin && <Button size="sm" onClick={() => setReplying(f)}><Icon name="pencil" className="h-4 w-4" /> {f.reply ? "Edit reply" : "Reply"}</Button>}
+                {isManager && <Button size="sm" onClick={() => setReplying(f)}><Icon name="pencil" className="h-4 w-4" /> {f.reply ? "Edit reply" : "Reply"}</Button>}
               </li>
             ))}
           </ul>

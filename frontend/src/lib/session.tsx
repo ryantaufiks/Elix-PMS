@@ -14,7 +14,10 @@ type Session = {
   condos: Condominium[];
   condo: Condominium;
   role: Role;
+  /** Site admin (or platform admin): setup and staff accounts. */
   isAdmin: boolean;
+  /** Site admin or staff: residents, vehicles, invitations, bookings and feedback. */
+  isManager: boolean;
   selectCondo: (id: number) => void;
   /** Re-read the user and their condominiums (after adding or renaming a site). */
   reload: () => Promise<void>;
@@ -27,7 +30,7 @@ const CONDO_KEY = "elix.condo";
 function roleFor(me: Me, condoId: number): Role | null {
   if (me.is_superuser) return "admin";
   const roles = me.staff_assignments.filter((a) => a.condominium === condoId).map((a) => a.role);
-  return roles.includes("admin") ? "admin" : roles.includes("security") ? "security" : null;
+  return (["admin", "staff", "security"] as const).find((r) => roles.includes(r)) ?? null;
 }
 
 type State =
@@ -103,7 +106,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (state.status !== "ready" || condoId === null) return null;
     const condo = state.condos.find((c) => c.id === condoId) ?? state.condos[0];
     const role = roleFor(state.me, condo.id) ?? "security";
-    return { me: state.me, condos: state.condos, condo, role, isAdmin: role === "admin", selectCondo, reload: () => load(), logout };
+    return {
+      me: state.me, condos: state.condos, condo, role, isAdmin: role === "admin", isManager: role === "admin" || role === "staff",
+      selectCondo, reload: () => load(), logout,
+    };
   }, [state, condoId, selectCondo, load, logout]);
 
   if (state.status === "no-access") {

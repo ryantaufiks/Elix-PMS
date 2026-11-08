@@ -22,7 +22,7 @@ const PAYMENT: Record<PaymentStatus, "green" | "amber" | "slate" | "red" | "blue
 type Tab = "upcoming" | "all";
 
 export default function BookingsPage() {
-  const { condo, isAdmin } = useSession();
+  const { condo, isManager } = useSession();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>("upcoming");
   const [facility, setFacility] = useState("");
@@ -82,7 +82,7 @@ export default function BookingsPage() {
                   <Td><Badge tone={PAYMENT[b.payment_status]}>{b.payment_status_display}</Badge>{b.paid_at && <div className="mt-1 text-xs text-muted">{formatDateTime(b.paid_at)}</div>}</Td>
                   <Td><Badge tone={STATUS[b.status]}>{b.status_display}</Badge>{b.cancel_reason && <div className="mt-1 max-w-48 text-xs text-muted">{b.cancel_reason}</div>}</Td>
                   <Td className="whitespace-nowrap text-right">
-                    {isAdmin && (
+                    {isManager && (
                       <div className="inline-flex items-center gap-0.5">
                         {b.payment_status === "paid" && b.status !== "confirmed" && (
                           <IconButton label="Mark refunded" onClick={() => setRefunding(b)}><Icon name="check" className="h-[18px] w-[18px]" /></IconButton>

@@ -34,6 +34,8 @@ export function startOfTodayIso(): string {
   return `${toLocalInput(new Date()).slice(0, 10)}T00:00:00+08:00`;
 }
 
+export const ROLE_LABEL: Record<string, string> = { admin: "Site admin", staff: "Staff", security: "Officer" };
+
 export const METHOD_LABEL: Record<string, string> = {
   lpr: "Licence plate", qr: "Invitation QR", intercom: "Intercom", app: "Resident app", manual: "Manual",
 };

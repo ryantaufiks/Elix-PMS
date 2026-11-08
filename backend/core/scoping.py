@@ -1,9 +1,11 @@
 """Which condominiums and units a user may see, by role."""
 from .models import Residency, StaffAssignment
 
-ADMIN = StaffAssignment.Role.ADMIN
-SECURITY = StaffAssignment.Role.SECURITY
-ALL_STAFF = (ADMIN, SECURITY)
+ADMIN = StaffAssignment.Role.ADMIN  # Site admin: everything at the site, including setup and staff accounts.
+STAFF = StaffAssignment.Role.STAFF  # Management office: residents, bookings, feedback, gates and visitors.
+SECURITY = StaffAssignment.Role.SECURITY  # Officer: gates and visitors.
+MANAGEMENT = (ADMIN, STAFF)
+ALL_STAFF = (ADMIN, STAFF, SECURITY)
 
 
 def staff_condo_ids(user, roles=ALL_STAFF) -> set[int]:

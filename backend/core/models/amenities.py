@@ -19,7 +19,7 @@ def default_open_days():
 
 
 class Facility(TimeStampedModel):
-    """A bookable facility (BBQ pit, function room, tennis court…), configured by the condo admin.
+    """A bookable facility (BBQ pit, function room, tennis court…), configured by the site admin.
 
     Bookings are made in slots of ``slot_minutes`` between ``opens_at`` and ``closes_at`` on
     ``open_days``. A price of 0 makes the facility free (confirmed at once); otherwise the resident

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 
 import { query } from "@/lib/api";
-import { visitPurpose } from "@/lib/format";
+import { ROLE_LABEL, visitPurpose } from "@/lib/format";
 import { useLiveEvents, useLiveStatus } from "@/lib/live";
 import { useSession } from "@/lib/session";
 import type { IntercomCall, Page } from "@/lib/types";
@@ -111,7 +111,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     if (current) setGroupClosed(current.group, false);
   }, [current?.group]); // eslint-disable-line react-hooks/exhaustive-deps
   const name = [me.first_name, me.last_name].filter(Boolean).join(" ") || me.username;
-  const roleLabel = me.is_superuser ? "Platform admin" : role === "admin" ? "Condo admin" : "Security";
+  const roleLabel = me.is_superuser ? "Platform admin" : ROLE_LABEL[role];
 
   const sidebar = (
     <nav className="sidebar-bg flex h-full flex-col text-slate-300">
