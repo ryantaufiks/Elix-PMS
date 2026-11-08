@@ -22,7 +22,7 @@ export const condoFields = (opts: { superuser: boolean; creating: boolean }): Fi
   { name: "kiosk_walk_in", label: "Offer walk-in registration", type: "checkbox", wide: true,
     hint: "Visitors enter their details, pick the unit and get a printed slip with a pass number (V001, C001, …). The gate does not open: they show the slip to security, and scan its QR at the kiosk when leaving." },
   { name: "kiosk_walk_in_photo", label: "Take the walk-in visitor's photo", type: "checkbox", wide: true,
-    hint: "Shown to security on the Walk-ins page." },
+    hint: "Shown to security on the Visitor list." },
   { name: "visitor_data_retention_days", label: "Keep visitor data for (days)", type: "number", section: "PDPA",
     hint: "Visitor names, contact details, photos and plates are deleted automatically after this (blacklisted visitors are kept)." },
   { name: "visitor_privacy_notice", label: "Privacy notice shown to visitors", type: "textarea", wide: true,

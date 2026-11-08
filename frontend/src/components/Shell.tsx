@@ -25,7 +25,7 @@ const NAV: { title: string; items: NavItem[] }[] = [
       { href: "/", label: "Dashboard", icon: "home" },
       { href: "/access/", label: "Access log", icon: "list" },
       { href: "/intercom/", label: "Intercom", icon: "phone" },
-      { href: "/walk-ins/", label: "Walk-ins", icon: "clipboard" },
+      { href: "/visits/", label: "Visitor list", icon: "clipboard" },
       { href: "/gates/", label: "Open gates", icon: "unlock" },
       { href: "/invitations/", label: "Invitations", icon: "ticket" },
     ],
@@ -34,7 +34,7 @@ const NAV: { title: string; items: NavItem[] }[] = [
     title: "Community",
     items: [
       { href: "/residents/", label: "Residents", icon: "users" },
-      { href: "/visitors/", label: "Visitors", icon: "idcard" },
+      { href: "/visitors/", label: "Visitor records", icon: "idcard" },
       { href: "/vehicles/", label: "Vehicles", icon: "car" },
       { href: "/staff/", label: "Staff", icon: "shield", admin: true },
     ],
@@ -218,7 +218,7 @@ function WalkInAlerts() {
   const toast = useToast();
   const seen = useRef(new Set<number>());
   useLiveEvents((event) => {
-    if (event.type !== "walk_in" || event.data.condominium !== condo.id || event.data.checked_out_at) return;
+    if (event.type !== "visit" || event.data.source !== "kiosk" || event.data.condominium !== condo.id || event.data.checked_out_at) return;
     if (seen.current.has(event.data.id)) return;
     seen.current.add(event.data.id);
     const w = event.data;

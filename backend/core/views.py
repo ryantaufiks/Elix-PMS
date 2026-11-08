@@ -15,10 +15,12 @@ from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 
-from . import access, intercom, livekit, privacy, push, relays, walk_ins
+from . import access, intercom, livekit, privacy, push, relays, visits
+from . import visitor_identity as identity
 from . import models as m
 from . import serializers as s
 from .scoping import ADMIN, ALL_STAFF, resident_condo_ids, resident_unit_ids, staff_condo_ids
+from .validators import normalize_plate
 
 
 def _resolve_pk(source, path):
@@ -442,50 +444,118 @@ class IntercomCallViewSet(ScopedReadOnlyViewSet):
         return response
 
 
-class WalkInPassViewSet(ScopedReadOnlyViewSet):
-    """Walk-in visitors registered at the kiosks. ``?state=on_site|checked_out|expired``."""
+class VisitViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, ScopedReadOnlyViewSet):
+    """Visitors on site and past visits, for security. Every check-in (kiosk walk-in, invitation,
+    intercom) appears here; security can also register walk-ins, edit notes and check visitors out.
 
-    queryset = m.WalkInPass.objects.select_related("unit__block", "kiosk", "visitor")
-    serializer_class = s.WalkInPassSerializer
+    ``?state=on_site|checked_out|expired``, ``?date_from=`` / ``?date_to=`` (local dates)."""
+
+    queryset = m.Visit.objects.select_related("unit__block", "kiosk", "gate", "visitor", "created_by", "checked_out_by",
+                                              "intercom_call", "entry_log")
+    serializer_class = s.VisitSerializer
     resident_unit_path = "unit"
-    filterset_fields = ["condominium", "unit", "purpose", "issued_on", "kiosk"]
-    search_fields = ["pass_number", "visitor_name", "company"]
+    staff_write_roles = ALL_STAFF
+    http_method_names = ["get", "post", "patch", "head", "options"]
+    filterset_fields = ["condominium", "unit", "purpose", "source", "issued_on", "kiosk", "gate"]
+    search_fields = ["pass_number", "visitor_name", "company", "vehicle_plate", "notes"]
     ordering_fields = ["created_at", "pass_number", "checked_out_at"]
 
-    @extend_schema(parameters=[OpenApiParameter("state", enum=["on_site", "checked_out", "expired"])])
+    @extend_schema(parameters=[
+        OpenApiParameter("state", enum=["on_site", "checked_out", "expired"]),
+        OpenApiParameter("date_from", type=str, description="YYYY-MM-DD"),
+        OpenApiParameter("date_to", type=str, description="YYYY-MM-DD"),
+    ])
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
         qs = super().get_queryset()
-        state = self.request.query_params.get("state")
+        params = self.request.query_params
         now = timezone.now()
+        state = params.get("state")
         if state == "on_site":
             qs = qs.filter(checked_out_at__isnull=True, valid_until__gte=now)
         elif state == "checked_out":
             qs = qs.filter(checked_out_at__isnull=False)
         elif state == "expired":
             qs = qs.filter(checked_out_at__isnull=True, valid_until__lt=now)
+        if params.get("date_from"):
+            qs = qs.filter(issued_on__gte=params["date_from"])
+        if params.get("date_to"):
+            qs = qs.filter(issued_on__lte=params["date_to"])
         return qs
 
-    @extend_schema(request=None, responses=s.WalkInPassSerializer)
+    def _staff_only(self, condominium_id):
+        if not self.request.user.is_superuser and condominium_id not in staff_condo_ids(self.request.user, ALL_STAFF):
+            raise PermissionDenied("Only security and management can do this.")
+
+    @extend_schema(request=s.StaffVisitCreateSerializer, responses={201: s.VisitSerializer})
+    def create(self, request, *args, **kwargs):
+        """Register a walk-in at the guardhouse. Print its slip with ``GET …/{id}/slip/``."""
+        body = s.StaffVisitCreateSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        data = body.validated_data
+        unit = data["unit"]
+        self._staff_only(unit.condominium_id)
+        try:
+            phone = identity.normalize_phone(data["visitor_phone"])
+            id_partial = identity.normalize_id_partial(data["visitor_id_partial"])
+        except identity.InvalidIdentity as exc:
+            field = "visitor_phone" if "mobile" in str(exc) else "visitor_id_partial"
+            return Response({field: [str(exc)]}, status=status.HTTP_400_BAD_REQUEST)
+        name, company = data["visitor_name"].strip(), data["company"].strip()
+        visitor = identity.record_visit(condominium_id=unit.condominium_id, name=name, phone=phone,
+                                        id_partial=id_partial, company=company, consent=True)
+        if visitor is not None and visitor.is_blacklisted:
+            reason = f": {visitor.blacklist_reason}" if visitor.blacklist_reason else ""
+            return Response({"detail": f"{visitor.full_name} is blocked{reason}", "blocked": True},
+                            status=status.HTTP_403_FORBIDDEN)
+        visit = visits.create(unit.condominium_id, unit=unit, purpose=data["purpose"], name=name,
+                              source=m.Visit.Source.STAFF, company=company, visitor=visitor,
+                              vehicle_plate=normalize_plate(data["vehicle_plate"]), notes=data["notes"].strip(),
+                              created_by=request.user, snapshot=data.get("snapshot"))
+        return Response(s.VisitSerializer(visit).data, status=status.HTTP_201_CREATED)
+
+    def perform_update(self, serializer):
+        self._staff_only(serializer.instance.condominium_id)
+        serializer.save()
+
+    @extend_schema(request=None, responses=s.VisitSerializer)
     @action(detail=True, methods=["post"])
     def check_out(self, request, pk=None):
         """Security checks the visitor out (e.g. they left without scanning their slip)."""
-        walk_in = self.get_object()
-        if not request.user.is_superuser and walk_in.condominium_id not in staff_condo_ids(request.user, ALL_STAFF):
-            raise PermissionDenied("Only security and management can check visitors out.")
-        walk_ins.check_out(walk_in, request.user)
-        return Response(s.WalkInPassSerializer(walk_in).data)
+        visit = self.get_object()
+        self._staff_only(visit.condominium_id)
+        visits.check_out(visit, request.user)
+        return Response(s.VisitSerializer(visit).data)
+
+    @extend_schema(request=s.VisitIdsSerializer, responses=s.BulkCheckOutResultSerializer)
+    @action(detail=False, methods=["post"])
+    def bulk_check_out(self, request):
+        """Check out several visitors at once (e.g. everyone still on site at the end of the day)."""
+        body = s.VisitIdsSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        qs = self.get_queryset().filter(pk__in=body.validated_data["ids"])
+        if not request.user.is_superuser:
+            qs = qs.filter(condominium__in=staff_condo_ids(request.user, ALL_STAFF))
+        return Response({"checked_out": visits.check_out_many(qs, request.user)})
+
+    @extend_schema(responses=s.VisitSlipSerializer)
+    @action(detail=True, methods=["get"])
+    def slip(self, request, pk=None):
+        """The slip to print (pass number, details and the check-out QR)."""
+        visit = self.get_object()
+        self._staff_only(visit.condominium_id)
+        return Response(s.VisitSlipSerializer(visit).data)
 
     @extend_schema(responses={(200, "image/jpeg"): OpenApiResponse(description="Visitor photo")})
     @action(detail=True, methods=["get"])
     def snapshot(self, request, pk=None):
-        """The kiosk's photo of the walk-in visitor. Personal data: never cached."""
-        walk_in = self.get_object()
-        if not walk_in.visitor_snapshot:
+        """The visitor's photo (kiosk, call or check-in snapshot). Personal data: never cached."""
+        photo = self.get_object().photo()
+        if photo is None:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        response = FileResponse(walk_in.visitor_snapshot.open("rb"))
+        response = FileResponse(photo.open("rb"))
         response["Cache-Control"] = "private, no-store"
         return response
 

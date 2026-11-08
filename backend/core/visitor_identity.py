@@ -70,18 +70,21 @@ def visitor_from_ref(kiosk, ref):
     return Visitor.objects.filter(pk=data.get("v"), condominium_id=kiosk.condominium_id).first()
 
 
-def record_visit(kiosk, *, ref="", name="", phone="", id_partial="", company="", consent=False):
-    """Create or update the visitor record for a kiosk visit. Returns the Visitor (or None if nothing to record)."""
+def record_visit(kiosk=None, *, condominium_id=None, ref="", name="", phone="", id_partial="", company="",
+                 consent=False):
+    """Create or update the visitor record for a visit at a kiosk (or, with ``condominium_id``, the
+    guardhouse). Returns the Visitor (or None if nothing to record)."""
     now = timezone.now()
-    visitor = visitor_from_ref(kiosk, ref) if ref else None
+    condominium_id = condominium_id or kiosk.condominium_id
+    visitor = visitor_from_ref(kiosk, ref) if ref and kiosk else None
     if visitor is None and (phone or id_partial):
-        visitor = find_returning(kiosk.condominium_id, phone, id_partial)
+        visitor = find_returning(condominium_id, phone, id_partial)
         if visitor is not None and name and visitor.full_name.lower() != name.lower():
             visitor = None  # Same number, different person (e.g. a shared company phone): keep records apart.
     if visitor is None:
         if not name:
             return None
-        visitor = Visitor(condominium_id=kiosk.condominium_id, full_name=name)
+        visitor = Visitor(condominium_id=condominium_id, full_name=name)
     if name and not visitor.pk:
         visitor.full_name = name
     if phone:

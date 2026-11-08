@@ -11,7 +11,7 @@ from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
 
-from . import access, config
+from . import access, config, visits
 from .models import AccessLog, IntercomCall, Residency, StaffAssignment
 from .realtime import broadcast_call
 
@@ -108,6 +108,7 @@ def unlock(call, user):
     log = access.grant(call.gate, AccessLog.Method.INTERCOM, actor=user, unit=call.unit, intercom_call=call,
                        visitor=call.visitor,
                        reason=f"Approved by {user.get_full_name() or user.get_username()}")
+    visits.call_entry(call, log)
     _notify(call)
     return call, log
 

@@ -48,7 +48,7 @@ On first sign-in with no condominium, the platform admin is guided through creat
 | Operations | Dashboard | all staff | Today's KPIs, hourly traffic chart, live activity, gate health with one-click opening, entry methods |
 | | Access log | all staff | Filter by gate, method, result, plate, date; camera snapshots; live updates |
 | | Intercom | all staff | Ringing kiosk calls (ringtone + banner on every page), answer with video, swipe to open, reject; history |
-| | Walk-ins | all staff | Walk-in registrations with pass number and photo, *On site* / *Today* tabs, manual check-out; a toast on every page when one registers |
+| | Visitor list | all staff | Every visitor on site and past visits (kiosk / guardhouse walk-ins, invitations, intercom) with check-in and check-out time, photo, notes; *Register visitor* at the guardhouse (webcam photo, slip printed), *Print slip*, *Edit* notes, *Check out* one or many; a toast on every page when a kiosk walk-in registers |
 | | Open gates | all staff | Manual opening with reason (logged under the user) |
 | | Invitations | all staff (create/cancel: admin) | QR code and share link, status filters |
 | Community | Residents | all staff (manage: admin) | Add residents with their app login, unit role, intercom on/off, password reset, move out |
@@ -146,7 +146,12 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
   restart daily per site, one series per purpose: **V**001 visitor, **D** parcel, **F** food, **C**
   contractor, **P** pick-up, **O** other. The gate does **not** open: the visitor shows the slip to
   security, and scans its QR under *I have an invitation* when leaving (or a guard checks them out on
-  the Walk-ins page). Passes are valid until the end of the day.
+  the Visitor list). Passes are valid until the end of the day.
+- **Visitor list:** every way in records a *visit* with the same daily pass number series: kiosk
+  walk-ins, walk-ins registered by security, invitation check-ins (QR at the kiosk or plate at an LPR
+  camera; re-entries the same day reuse the visit, and an exit camera checks the vehicle out) and
+  gates opened over the intercom. Security can print any visit's slip from the dashboard (the
+  guardhouse PC's default printer), add notes and check visitors out one by one or in bulk.
 - **Slip printer:** connect the receipt printer to the kiosk PC, make it the default printer with a
   58 mm roll paper size, and start Chrome with `--kiosk --kiosk-printing` so slips print without a
   dialog. A kiosk without a printer (Gates & devices → Kiosks → untick *Receipt printer connected*)
@@ -162,7 +167,10 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
 | Kiosk | `GET /v1/kiosk/directory/?walk_in=1` | Every active unit (walk-ins ring nobody) |
 | Kiosk | `POST /v1/kiosk/walk-ins/` (`unit`, `purpose`, visitor details, `consent`, `snapshot`) | Register a walk-in; returns the slip (pass number, QR as a data URI) |
 | Kiosk | `POST /v1/kiosk/walk-ins/checkout/` (`code` = slip QR, `ELIX-WALKIN:<token>`) | Check out |
-| Staff | `GET /v1/walk-ins/?state=on_site`, `POST …/{id}/check_out/`, `GET …/{id}/snapshot/` | Walk-in list, manual check-out, photo |
+| Staff | `GET /v1/visits/?state=on_site&source=&date_from=&date_to=` | Visitor list (`source`: kiosk, staff, invitation, intercom) |
+| Staff | `POST /v1/visits/` (`unit`, `visitor_name`, `purpose`, optional `company`, `visitor_phone`, `visitor_id_partial`, `vehicle_plate`, `notes`, `snapshot`; `consent`) | Register a walk-in at the guardhouse |
+| Staff | `PATCH /v1/visits/{id}/` (`visitor_name`, `company`, `notes`), `GET …/slip/`, `GET …/snapshot/` | Edit, slip data to print, photo |
+| Staff | `POST /v1/visits/{id}/check_out/`, `POST /v1/visits/bulk_check_out/` (`ids`) | Check out one or many |
 | Public | `GET /v1/public/invitations/<token>/`, `…/qr/` | Visitor pass data and QR PNG (rate-limited) |
 
 ## Resident app (Flutter, Android)
@@ -204,11 +212,11 @@ optionally `GOOGLE_SERVICES_JSON_BASE64`; optional variable `API_BASE`.
 - **Data minimisation:** only the last 4 characters of the NRIC/FIN are stored; without consent the
   kiosk keeps no photo; visitor records hold no face photo, only the call does.
 - **Retention:** a daily job (`core.tasks.purge_visitor_data`, 03:30 SGT) removes visitor names,
-  contact details, photos (calls and walk-in passes), camera payloads and visitor plates older than the site's *Keep visitor data
+  contact details, photos (calls and visits), visit notes, camera payloads and visitor plates older than the site's *Keep visitor data
   for (days)*, and deletes visitor records not seen since. Blocked visitors are kept for security.
   Check with `docker compose exec web python manage.py purge_visitor_data --dry-run`.
 - **Access / erasure requests:** Community → Visitors → *Erase data* (condo admins) removes the person
-  and their photos and details from calls, walk-in passes and invitations.
+  and their photos and details from calls, visits and invitations.
 
 ## System settings
 

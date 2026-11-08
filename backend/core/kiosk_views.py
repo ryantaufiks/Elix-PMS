@@ -9,7 +9,7 @@ from rest_framework.settings import api_settings
 from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
 
-from . import access, intercom, livekit, walk_ins
+from . import access, intercom, livekit, visits
 from . import visitor_identity as identity
 from . import models as m
 from . import serializers as s
@@ -247,7 +247,7 @@ class WalkInView(KioskView):
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     throttle_classes = [KioskCheckInThrottle]
 
-    @extend_schema(request=s.WalkInRegisterSerializer, responses={201: s.WalkInSlipSerializer})
+    @extend_schema(request=s.WalkInRegisterSerializer, responses={201: s.VisitSlipSerializer})
     def post(self, request):
         """Register a walk-in visitor. Returns the slip to print: pass number (e.g. V001) and check-out QR.
 
@@ -261,9 +261,9 @@ class WalkInView(KioskView):
         name, visitor, _ = self.visitor_details(data, data["unit"], details=True, photo=condo.kiosk_walk_in_photo,
                                                 method=m.AccessLog.Method.WALK_IN,
                                                 blocked_reason="Blocked visitor tried to register as a walk-in")
-        walk_in = walk_ins.issue(self.kiosk, data["unit"], data["purpose"], name, company=data["company"].strip(),
-                                 visitor=visitor, snapshot=data.get("snapshot"))
-        return Response(s.WalkInSlipSerializer(walk_in).data, status=status.HTTP_201_CREATED)
+        visit = visits.issue(self.kiosk, data["unit"], data["purpose"], name, company=data["company"].strip(),
+                             visitor=visitor, snapshot=data.get("snapshot"))
+        return Response(s.VisitSlipSerializer(visit).data, status=status.HTTP_201_CREATED)
 
 
 class WalkInCheckOutView(KioskView):
@@ -271,13 +271,13 @@ class WalkInCheckOutView(KioskView):
 
     @extend_schema(request=s.QrCodeSerializer, responses=s.WalkInCheckOutResultSerializer)
     def post(self, request):
-        """Check a walk-in visitor out with the QR on their slip."""
+        """Check a visitor out with the QR on their slip."""
         body = s.QrCodeSerializer(data=request.data)
         body.is_valid(raise_exception=True)
         with transaction.atomic():
-            walk_in = walk_ins.find(self.kiosk.condominium_id, body.validated_data["code"], lock=True)
-            if walk_in is None:
+            visit = visits.find(self.kiosk.condominium_id, body.validated_data["code"], lock=True)
+            if visit is None:
                 return Response({"detail": "Unknown pass."}, status=status.HTTP_404_NOT_FOUND)
-            done = walk_ins.check_out(walk_in)
+            done = visits.check_out(visit)
         return Response({"result": "checked_out" if done else "already_checked_out",
-                         "walk_in": s.WalkInSlipSerializer(walk_in).data})
+                         "walk_in": s.VisitSlipSerializer(visit).data})

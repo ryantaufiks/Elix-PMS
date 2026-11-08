@@ -319,52 +319,97 @@ class WalkInRegisterSerializer(StartCallSerializer):
     purpose = serializers.ChoiceField(choices=m.VisitPurpose.choices)
 
 
-class WalkInPassSerializer(serializers.ModelSerializer):
+VISIT_STATES = ["on_site", "checked_out", "expired"]
+
+
+class VisitSerializer(ModelCleanSerializer):
+    """A visit as security sees it. Only the name, company and notes can be edited."""
+
     unit_display = serializers.CharField(source="unit.__str__", read_only=True)
+    source_display = serializers.CharField(source="get_source_display", read_only=True)
     kiosk_name = serializers.CharField(source="kiosk.name", read_only=True, default="")
-    state = serializers.ChoiceField(choices=["on_site", "checked_out", "expired"], read_only=True)
+    gate_name = serializers.CharField(source="gate.name", read_only=True, default="")
+    state = serializers.ChoiceField(choices=VISIT_STATES, read_only=True)
     has_snapshot = serializers.SerializerMethodField()
     visitor_phone = serializers.SerializerMethodField()
+    created_by_name = serializers.SerializerMethodField()
+    checked_out_by_name = serializers.SerializerMethodField()
 
     class Meta:
-        model = m.WalkInPass
+        model = m.Visit
         fields = [
-            "id", "condominium", "unit", "unit_display", "kiosk", "kiosk_name", "visitor", "visitor_name", "visitor_phone",
-            "purpose", "company", "has_snapshot", "pass_number", "issued_on", "valid_until", "state", "checked_out_at",
-            "checked_out_by", "created_at",
+            "id", "condominium", "unit", "unit_display", "source", "source_display", "kiosk", "kiosk_name", "gate",
+            "gate_name", "invitation", "intercom_call", "visitor", "visitor_name", "visitor_phone", "purpose", "company",
+            "vehicle_plate", "notes", "has_snapshot", "pass_number", "issued_on", "valid_until", "state",
+            "checked_out_at", "checked_out_by", "checked_out_by_name", "created_by", "created_by_name", "created_at",
         ]
-        read_only_fields = fields
+        read_only_fields = sorted(set(fields) - {"visitor_name", "company", "notes"})
 
     def get_has_snapshot(self, obj) -> bool:
-        return bool(obj.visitor_snapshot)
+        return obj.photo() is not None
 
     def get_visitor_phone(self, obj) -> str:
         return str(obj.visitor.phone) if obj.visitor and obj.visitor.phone else ""
 
+    def get_created_by_name(self, obj) -> str:
+        return (obj.created_by.get_full_name() or obj.created_by.get_username()) if obj.created_by else ""
 
-class WalkInSlipSerializer(serializers.ModelSerializer):
-    """What the kiosk prints on the slip (or shows on screen)."""
+    def get_checked_out_by_name(self, obj) -> str:
+        return (obj.checked_out_by.get_full_name() or obj.checked_out_by.get_username()) if obj.checked_out_by else ""
+
+
+class StaffVisitCreateSerializer(serializers.Serializer):
+    """A walk-in registered by security at the guardhouse."""
+
+    unit = serializers.PrimaryKeyRelatedField(queryset=m.Unit.objects.filter(is_active=True))
+    visitor_name = serializers.CharField(max_length=150)
+    purpose = serializers.ChoiceField(choices=m.VisitPurpose.choices)
+    company = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
+    visitor_phone = serializers.CharField(max_length=30, required=False, allow_blank=True, default="")
+    visitor_id_partial = serializers.CharField(max_length=8, required=False, allow_blank=True, default="",
+                                               help_text="Last 3 digits and letter of the NRIC/FIN only.")
+    vehicle_plate = serializers.CharField(max_length=12, required=False, allow_blank=True, default="")
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
+    snapshot = serializers.ImageField(required=False)
+    consent = serializers.BooleanField(help_text="The visitor was shown the privacy notice and agreed.")
+
+    def validate_consent(self, value):
+        if not value:
+            raise serializers.ValidationError("The visitor must agree to the privacy notice.")
+        return value
+
+
+class VisitIdsSerializer(serializers.Serializer):
+    ids = serializers.ListField(child=serializers.IntegerField(), min_length=1, max_length=500)
+
+
+class BulkCheckOutResultSerializer(serializers.Serializer):
+    checked_out = serializers.IntegerField()
+
+
+class VisitSlipSerializer(serializers.ModelSerializer):
+    """What goes on the printed slip (or the kiosk screen)."""
 
     condominium_name = serializers.CharField(source="condominium.name")
     unit_display = serializers.CharField(source="unit.__str__")
     purpose_display = serializers.CharField(source="get_purpose_display")
-    state = serializers.ChoiceField(choices=["on_site", "checked_out", "expired"])
+    state = serializers.ChoiceField(choices=VISIT_STATES)
     qr = serializers.SerializerMethodField(help_text="PNG data URI of the check-out QR code.")
 
     class Meta:
-        model = m.WalkInPass
-        fields = ["pass_number", "visitor_name", "purpose", "purpose_display", "company", "unit_display",
+        model = m.Visit
+        fields = ["pass_number", "visitor_name", "purpose", "purpose_display", "company", "vehicle_plate", "unit_display",
                   "condominium_name", "created_at", "valid_until", "state", "checked_out_at", "qr"]
 
     def get_qr(self, obj) -> str:
-        from .walk_ins import qr_data_uri
+        from .visits import qr_data_uri
 
         return qr_data_uri(obj)
 
 
 class WalkInCheckOutResultSerializer(serializers.Serializer):
     result = serializers.ChoiceField(choices=["checked_out", "already_checked_out"])
-    walk_in = WalkInSlipSerializer()
+    walk_in = VisitSlipSerializer()
 
 
 class VisitorLookupSerializer(serializers.Serializer):

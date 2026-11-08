@@ -5,7 +5,7 @@ After a condominium's ``visitor_data_retention_days``:
 - access-log entries lose camera snapshots and raw camera payloads, and visitor plates
   (registered resident vehicles keep theirs);
 - ended invitations lose the visitor's name, phone and plate;
-- walk-in passes lose the visitor's name, company and photo (the pass number and times stay);
+- visits lose the visitor's name, company, plate, notes and photo (the pass number and times stay);
 - visitor records not seen since are deleted, except blacklisted ones (kept for security).
 """
 from datetime import timedelta
@@ -14,7 +14,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from .models import AccessLog, Condominium, IntercomCall, Invitation, Visitor, WalkInPass
+from .models import AccessLog, Condominium, IntercomCall, Invitation, Visit, Visitor
 
 REMOVED = "(removed)"
 
@@ -52,10 +52,11 @@ class _Purge:
                                  visitor_name="", visitor_company="", visitor=None),
         }
 
-    def walk_ins(self, passes):
+    def visits(self, visits):
         return {
-            "walk_in_photos": self.files(passes, "visitor_snapshot"),
-            "walk_ins": self.update(passes.exclude(visitor_name=REMOVED), visitor_name=REMOVED, company="", visitor=None),
+            "visit_photos": self.files(visits, "visitor_snapshot"),
+            "visits": self.update(visits.exclude(visitor_name=REMOVED), visitor_name=REMOVED, company="",
+                                  vehicle_plate="", notes="", visitor=None),
         }
 
 
@@ -64,7 +65,7 @@ def purge_condominium(condo, now=None, dry_run=False):
     cutoff = (now or timezone.now()) - timedelta(days=condo.visitor_data_retention_days)
     with transaction.atomic():
         counts = p.calls(IntercomCall.objects.filter(condominium=condo, created_at__lt=cutoff))
-        counts.update(p.walk_ins(WalkInPass.objects.filter(condominium=condo, created_at__lt=cutoff)))
+        counts.update(p.visits(Visit.objects.filter(condominium=condo, created_at__lt=cutoff)))
         logs = AccessLog.objects.filter(condominium=condo, occurred_at__lt=cutoff)
         counts["log_photos"] = p.files(logs, "snapshot")
         counts["log_payloads"] = p.update(logs.exclude(raw_payload={}), raw_payload={})
@@ -86,7 +87,7 @@ def erase_visitor(visitor):
     """A visitor asked to be forgotten: remove their photos and details everywhere, then the record."""
     p = _Purge(dry_run=False)
     p.calls(IntercomCall.objects.filter(visitor=visitor))
-    p.walk_ins(WalkInPass.objects.filter(visitor=visitor))
+    p.visits(Visit.objects.filter(visitor=visitor))
     p.files(AccessLog.objects.filter(visitor=visitor), "snapshot")
     visitor.invitations.update(visitor_name=REMOVED, visitor_phone="", visitor=None)
     if visitor.face_photo:

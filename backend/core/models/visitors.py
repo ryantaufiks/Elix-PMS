@@ -167,12 +167,20 @@ class Invitation(TimeStampedModel):
         self.save(update_fields=["status", "cancelled_at", "updated_at"])
 
 
-class WalkInPass(TimeStampedModel):
-    """A visitor who registered at the kiosk without calling anyone, and got a printed slip.
+class Visit(TimeStampedModel):
+    """One visitor on site: from check-in (created) to check-out.
 
-    Pass numbers restart every day per condominium, one series per purpose: V001 (visitor),
-    C001 (contractor), ... The slip's QR (``qr_payload``) checks the visitor out when they leave.
+    Recorded for every way in: a walk-in registered at a kiosk or by security, an invitation QR or
+    plate, or a gate opened over the intercom. Every visit gets a pass number that restarts each
+    day per condominium, one series per purpose (V001 visitor, C001 contractor, ...), and a QR
+    (``qr_payload``) that checks the visitor out at a kiosk. The gate is never opened by a visit.
     """
+
+    class Source(models.TextChoices):
+        KIOSK = "kiosk", "Walk-in (kiosk)"
+        STAFF = "staff", "Walk-in (security)"
+        INVITATION = "invitation", "Invitation"
+        INTERCOM = "intercom", "Intercom"
 
     QR_PREFIX = "ELIX-WALKIN:"
     PREFIXES = {
@@ -180,14 +188,27 @@ class WalkInPass(TimeStampedModel):
         VisitPurpose.CONTRACTOR: "C", VisitPurpose.PICKUP: "P", VisitPurpose.OTHER: "O",
     }
 
-    condominium = models.ForeignKey(Condominium, on_delete=models.CASCADE, related_name="walk_ins")
-    unit = models.ForeignKey(Unit, on_delete=models.CASCADE, related_name="walk_ins")
-    kiosk = models.ForeignKey("core.Kiosk", on_delete=models.SET_NULL, null=True, blank=True, related_name="walk_ins")
-    visitor = models.ForeignKey(Visitor, on_delete=models.SET_NULL, null=True, blank=True, related_name="walk_ins")
+    condominium = models.ForeignKey(Condominium, on_delete=models.CASCADE, related_name="visits")
+    unit = models.ForeignKey(Unit, on_delete=models.CASCADE, related_name="visits")
+    source = models.CharField(max_length=20, choices=Source.choices, default=Source.KIOSK)
+    kiosk = models.ForeignKey("core.Kiosk", on_delete=models.SET_NULL, null=True, blank=True, related_name="visits")
+    gate = models.ForeignKey(AccessGate, on_delete=models.SET_NULL, null=True, blank=True, related_name="visits")
+    invitation = models.ForeignKey(Invitation, on_delete=models.SET_NULL, null=True, blank=True, related_name="visits")
+    intercom_call = models.ForeignKey(
+        "core.IntercomCall", on_delete=models.SET_NULL, null=True, blank=True, related_name="visits")
+    entry_log = models.ForeignKey(
+        "core.AccessLog", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+        help_text="The access-log entry that let the visitor in (its photo is shown when the visit has none).")
+    visitor = models.ForeignKey(Visitor, on_delete=models.SET_NULL, null=True, blank=True, related_name="visits")
     visitor_name = models.CharField(max_length=150)
     purpose = models.CharField(max_length=20, choices=VisitPurpose.choices)
     company = models.CharField(max_length=100, blank=True)
+    vehicle_plate = models.CharField(max_length=12, blank=True)
     visitor_snapshot = models.ImageField(upload_to="walkins/%Y/%m/", blank=True)
+    notes = models.TextField(blank=True, help_text="Security's notes, e.g. items carried or vehicle parked.")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+        help_text="Security staff who registered the walk-in.")
     issued_on = models.DateField(help_text="Local date at the condominium; the pass number series restarts daily.")
     sequence = models.PositiveIntegerField()
     pass_number = models.CharField(max_length=12)
@@ -196,7 +217,7 @@ class WalkInPass(TimeStampedModel):
     checked_out_at = models.DateTimeField(null=True, blank=True)
     checked_out_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
-        help_text="Staff member who checked the visitor out; empty when they scanned out at the kiosk.",
+        help_text="Staff member who checked the visitor out; empty when they scanned out or drove out.",
     )
 
     class Meta:
@@ -218,3 +239,13 @@ class WalkInPass(TimeStampedModel):
         if self.checked_out_at:
             return "checked_out"
         return "expired" if timezone.now() > self.valid_until else "on_site"
+
+    def photo(self):
+        """The best photo of the visitor: the visit's own, else the call's or the check-in snapshot."""
+        if self.visitor_snapshot:
+            return self.visitor_snapshot
+        if self.intercom_call_id and self.intercom_call.visitor_snapshot:
+            return self.intercom_call.visitor_snapshot
+        if self.entry_log_id and self.entry_log.snapshot:
+            return self.entry_log.snapshot
+        return None

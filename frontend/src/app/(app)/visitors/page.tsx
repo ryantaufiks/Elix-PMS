@@ -26,7 +26,7 @@ export default function VisitorsPage() {
   return (
     <>
       <PageHeader
-        title="Visitors"
+        title="Visitor records"
         description={`People who identified themselves at the kiosk. Details are deleted ${condo.visitor_data_retention_days} days after their last visit (PDPA), except blocked visitors.`}
       />
       <Card>

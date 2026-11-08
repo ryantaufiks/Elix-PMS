@@ -55,13 +55,14 @@ export type KioskSelf = {
   prints_slips: boolean;
 };
 
-/** A walk-in registration, as printed on the slip. ``qr`` is a PNG data URI. */
+/** A visit as printed on the slip. ``qr`` is a PNG data URI. */
 export type WalkInSlip = {
   pass_number: string;
   visitor_name: string;
   purpose: string;
   purpose_display: string;
   company: string;
+  vehicle_plate: string;
   unit_display: string;
   condominium_name: string;
   created_at: string;

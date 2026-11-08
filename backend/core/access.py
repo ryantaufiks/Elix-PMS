@@ -5,7 +5,7 @@ from django.db import transaction
 from django.db.models import F, Q
 from django.utils import timezone
 
-from . import config
+from . import config, visits
 from .models import AccessLog, Direction, Invitation, Vehicle
 from .validators import normalize_plate
 
@@ -71,9 +71,14 @@ def handle_plate(camera, plate, payload):
         return deny(gate, reason="Invitation requires face verification at the kiosk", **fields)
     if not gate.lpr_auto_open_invited:
         return deny(gate, reason="Auto-open for invited vehicles is off at this gate", **fields)
-    if camera.direction != Direction.EXIT:
-        invitation.record_entry()
-    return grant(gate, **fields)
+    if camera.direction == Direction.EXIT:
+        log = grant(gate, **fields)
+        visits.invitation_exit(invitation)
+        return log
+    invitation.record_entry()
+    log = grant(gate, **fields)
+    visits.invitation_entry(invitation, log)
+    return log
 
 
 def invitation_token(code):
@@ -139,4 +144,5 @@ def handle_qr(kiosk, code, plate="", face_photo=None):
     log = grant(gate, reason=reason, **fields)
     if face_photo is not None:
         log.snapshot.save(f"qr-{log.pk}.jpg", face_photo, save=True)
+    visits.invitation_entry(invitation, log, kiosk=kiosk)
     return log

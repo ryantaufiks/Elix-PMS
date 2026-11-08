@@ -268,27 +268,39 @@ export type Kiosk = {
   app_version: string;
 };
 
-export type WalkInState = "on_site" | "checked_out" | "expired";
+export type VisitState = "on_site" | "checked_out" | "expired";
+export type VisitSource = "kiosk" | "staff" | "invitation" | "intercom";
 
-export type WalkInPass = {
+export type Visit = {
   id: number;
   condominium: number;
   unit: number;
   unit_display: string;
+  source: VisitSource;
+  source_display: string;
   kiosk: number | null;
   kiosk_name: string;
+  gate: number | null;
+  gate_name: string;
+  invitation: number | null;
+  intercom_call: number | null;
   visitor: number | null;
   visitor_name: string;
   visitor_phone: string;
   purpose: string;
   company: string;
+  vehicle_plate: string;
+  notes: string;
   has_snapshot: boolean;
   pass_number: string;
   issued_on: string;
   valid_until: string;
-  state: WalkInState;
+  state: VisitState;
   checked_out_at: string | null;
   checked_out_by: number | null;
+  checked_out_by_name: string;
+  created_by: number | null;
+  created_by_name: string;
   created_at: string;
 };
 
