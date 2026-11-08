@@ -753,6 +753,14 @@ def described_filters(report, params):
     return out
 
 
+FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+
+
+def defuse(value):
+    """Text typed by visitors (e.g. a name of ``=HYPERLINK(...)``) must not run as a spreadsheet formula."""
+    return f"'{value}" if isinstance(value, str) and value.startswith(FORMULA_START) else value
+
+
 def _plain(value, kind):
     if value is None:
         return ""
@@ -770,7 +778,7 @@ def to_csv(report, rows, multi_site):
     writer = csv.writer(buffer)
     writer.writerow([c.label for c in cols])
     for row in values:
-        writer.writerow([_plain(v, c.kind) for c, v in zip(cols, row)])
+        writer.writerow([defuse(_plain(v, c.kind)) for c, v in zip(cols, row)])
     return buffer.getvalue().encode("utf-8")
 
 
@@ -778,6 +786,7 @@ def to_xlsx(report, rows, summary, meta, multi_site):
     """A Summary sheet (title, period, filters, KPIs, breakdowns) and a Details sheet with every row."""
     from openpyxl import Workbook
     from openpyxl.cell import WriteOnlyCell
+    from openpyxl.cell.cell import Cell
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
 
@@ -791,6 +800,8 @@ def to_xlsx(report, rows, summary, meta, multi_site):
 
     def cell(ws, value, font=None, fill=None, fmt=None, align=None):
         c = WriteOnlyCell(ws, value=value)
+        if c.data_type == "f":  # openpyxl treats any text starting with "=" as a formula.
+            c.data_type = "s"
         if font:
             c.font = font
         if fill:
@@ -801,30 +812,34 @@ def to_xlsx(report, rows, summary, meta, multi_site):
             c.alignment = align
         return c
 
-    sheet.append([cell(sheet, report.title, Font(bold=True, size=16, color="0B1B3F"))])
-    sheet.append([cell(sheet, "Site(s)", bold), ", ".join(meta["sites"])])
-    sheet.append([cell(sheet, "Period", bold), meta["period_label"]])
-    sheet.append([cell(sheet, "Generated", bold), f"{meta['generated_at']:%d %b %Y %H:%M} by {meta['generated_by']}"])
+    def put(ws, values):
+        """Every value goes through ``cell`` so text can never become a formula."""
+        ws.append([v if isinstance(v, Cell) else cell(ws, v) for v in values])
+
+    put(sheet, [cell(sheet, report.title, Font(bold=True, size=16, color="0B1B3F"))])
+    put(sheet, [cell(sheet, "Site(s)", bold), ", ".join(meta["sites"])])
+    put(sheet, [cell(sheet, "Period", bold), meta["period_label"]])
+    put(sheet, [cell(sheet, "Generated", bold), f"{meta['generated_at']:%d %b %Y %H:%M} by {meta['generated_by']}"])
     for f in meta["filters"]:
-        sheet.append([cell(sheet, f["label"], bold), f["value"]])
-    sheet.append([])
-    sheet.append([cell(sheet, "Key figures", white_bold, navy), cell(sheet, "", white_bold, navy)])
+        put(sheet, [cell(sheet, f["label"], bold), f["value"]])
+    put(sheet, [])
+    put(sheet, [cell(sheet, "Key figures", white_bold, navy), cell(sheet, "", white_bold, navy)])
     for k in summary["kpis"]:
         value = k["value"]
         if k["kind"] == "percent":
             value = "" if value is None else f"{value}%"
-        sheet.append([k["label"], cell(sheet, value, bold, align=Alignment(horizontal="right"))])
+        put(sheet, [k["label"], cell(sheet, value, bold, align=Alignment(horizontal="right"))])
     for b in summary["breakdowns"]:
         if not b["rows"]:
             continue
-        sheet.append([])
-        sheet.append([cell(sheet, b["title"], white_bold, navy), cell(sheet, "Count", white_bold, navy, align=Alignment(horizontal="right"))])
+        put(sheet, [])
+        put(sheet, [cell(sheet, b["title"], white_bold, navy), cell(sheet, "Count", white_bold, navy, align=Alignment(horizontal="right"))])
         for r in b["rows"]:
-            sheet.append([r["label"], r["value"]])
-    sheet.append([])
-    sheet.append([cell(sheet, "Daily trend", white_bold, navy), *[cell(sheet, s["label"], white_bold, navy) for s in summary["trend"]["series"]]])
+            put(sheet, [r["label"], r["value"]])
+    put(sheet, [])
+    put(sheet, [cell(sheet, "Daily trend", white_bold, navy), *[cell(sheet, s["label"], white_bold, navy) for s in summary["trend"]["series"]]])
     for p in summary["trend"]["points"]:
-        sheet.append([cell(sheet, date.fromisoformat(p["date"]), fmt="dd mmm yyyy", align=Alignment(horizontal="left")),
+        put(sheet, [cell(sheet, date.fromisoformat(p["date"]), fmt="dd mmm yyyy", align=Alignment(horizontal="left")),
                       *[p[s["key"]] for s in summary["trend"]["series"]]])
 
     details = wb.create_sheet("Details")
@@ -833,7 +848,7 @@ def to_xlsx(report, rows, summary, meta, multi_site):
         details.column_dimensions[get_column_letter(i)].width = c.width
     details.freeze_panes = "A2"
     details.auto_filter.ref = f"A1:{get_column_letter(len(cols))}1"
-    details.append([cell(details, c.label, white_bold, navy) for c in cols])
+    put(details, [cell(details, c.label, white_bold, navy) for c in cols])
     formats = {"datetime": "dd mmm yyyy hh:mm", "date": "dd mmm yyyy"}
     for n, row in enumerate(values):
         fill = light if n % 2 else None
@@ -842,7 +857,7 @@ def to_xlsx(report, rows, summary, meta, multi_site):
             if c.kind == "datetime" and v is not None:
                 v = v.replace(tzinfo=None)
             out.append(cell(details, "" if v is None else v, fill=fill, fmt=formats.get(c.kind)))
-        details.append(out)
+        put(details, out)
     buffer = io.BytesIO()
     wb.save(buffer)
     return buffer.getvalue()

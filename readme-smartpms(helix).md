@@ -113,7 +113,13 @@ Pastikan perangkat lokal Anda telah terinstal:
 | **Staff** (kantor manajemen) | Site sendiri: residents & akun app-nya, vehicles, invitations, bookings (batal/refund), balas feedback, plus semua tugas officer. Tidak bisa Site setup dan akun staff |
 | **Officer** (guard) | Site sendiri: buka gerbang, Visitor list, intercom, block tamu, reports; residents/vehicles hanya lihat |
 
-### 8. Report Center
+### 8. Keamanan
+* Login dashboard, APK dan Django admin dibatasi percobaannya (per IP dan per username); webhook kamera LPR juga dibatasi dan terkunci 5 menit setelah 20 password salah.
+* Logout, ganti password atau menonaktifkan akun langsung mencabut semua sesi orang tersebut di semua perangkat.
+* Site admin/Staff hanya bisa menautkan orang yang sudah terdaftar di site-nya; orang baru dibuat lewat *Add staff* / *Add resident*.
+* Export Excel/CSV aman dari *formula injection*; HSTS aktif; log server tidak menyimpan token; dokumentasi API hanya untuk Platform admin.
+
+### 9. Report Center
 * Menu **Operations → Reports** untuk semua staff (Site admin, Staff dan Officer). Officer hanya melihat site/kondo masing-masing; super admin bisa memilih beberapa site atau *All sites* untuk laporan gabungan (konsolidasi).
 * Jenis laporan: *Consolidated summary* (per site per hari), *Visitor*, *Access*, *Vehicle* (LPR), *Intercom*, *Invitation*. Masing-masing punya angka kunci, grafik tren harian, breakdown, dan tabel detail.
 * Filter periode (Today, Yesterday, 7/30 hari, bulan ini/lalu, tahun ini, custom maks. 366 hari), filter per laporan, dan **smart search**: kata bebas mencari di semua kolom teks, token `key:value` untuk satu kolom, contoh `unit:05-12 plate:SGX1234 status:denied "Ace Aircon"`.

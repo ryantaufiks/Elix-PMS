@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "django_filters",
     "drf_spectacular",
     "phonenumber_field",
@@ -132,6 +133,8 @@ REST_FRAMEWORK = {
         "visitor_pass": env("VISITOR_PASS_RATE", default="60/min"),
         "resident_open": env("RESIDENT_OPEN_RATE", default="10/min"),
         "payment_callback": env("PAYMENT_CALLBACK_RATE", default="120/min"),
+        "login": env("LOGIN_RATE", default="20/min"),  # Per address (sign-in and token refresh).
+        "login_user": env("LOGIN_USER_RATE", default="10/min"),  # Per username.
     },
 }
 
@@ -139,6 +142,9 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=env.int("JWT_ACCESS_MINUTES", default=30)),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=env.int("JWT_REFRESH_DAYS", default=30)),
     "ROTATE_REFRESH_TOKENS": True,
+    # A used refresh token is revoked, so a stolen copy stops working once the owner refreshes;
+    # signing out, a password change or disabling the account revokes all of them.
+    "BLACKLIST_AFTER_ROTATION": True,
 }
 
 SPECTACULAR_SETTINGS = {
@@ -146,6 +152,10 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Visitor Management & Access Control System",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # The API map is for platform administrators (signed in to the Django admin), not the public.
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"],
+    "SERVE_AUTHENTICATION": ["rest_framework.authentication.SessionAuthentication",
+                             "rest_framework_simplejwt.authentication.JWTAuthentication"],
     "ENUM_NAME_OVERRIDES": {
         "InvitationStatusEnum": "core.models.visitors.Invitation.Status",
         "IntercomCallStatusEnum": "core.models.access.IntercomCall.Status",
@@ -181,6 +191,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "core.tasks.expire_unpaid_bookings",
         "schedule": crontab(minute="*/5"),
     },
+    "flush-expired-tokens": {
+        "task": "core.tasks.flush_expired_tokens",
+        "schedule": crontab(hour=4, minute=15),
+    },
     "purge-visitor-data": {
         "task": "core.tasks.purge_visitor_data",
         "schedule": crontab(hour=3, minute=30),
@@ -209,7 +223,7 @@ if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=0)
+    SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=31536000)
     SECURE_CONTENT_TYPE_NOSNIFF = True
 
 LOGGING = {

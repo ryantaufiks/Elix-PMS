@@ -120,3 +120,11 @@ def expire_unpaid_bookings() -> int:
     from . import bookings
 
     return bookings.expire_stale()
+
+
+@shared_task
+def flush_expired_tokens():
+    """Drop expired refresh tokens from the sign-out blacklist."""
+    from django.core.management import call_command
+
+    call_command("flushexpiredtokens")

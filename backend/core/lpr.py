@@ -4,12 +4,14 @@ import binascii
 import json
 import logging
 
+from django.core.cache import cache
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse
 
 from .access import handle_plate
+from .auth_views import client_ip, over_limit
 from .models import LprCamera
 from .validators import PLATE_RE, normalize_plate
 
@@ -84,8 +86,15 @@ def extract_plate(camera, payload):
 @csrf_exempt
 @require_POST
 def lpr_webhook(request):
+    # Checking a webhook password is deliberately slow, so guessing is capped per address.
+    ip = client_ip(request)
+    if over_limit("lpr-ip", ip, 600, 60):
+        return JsonResponse({"detail": "Too many requests"}, status=429)
+    if cache.get(f"lpr-auth-failures:{ip}", 0) >= 20:
+        return JsonResponse({"detail": "Too many failed sign-ins; try again in 5 minutes"}, status=429)
     camera = _camera_from_basic_auth(request)
     if camera is None:
+        cache.set(f"lpr-auth-failures:{ip}", cache.get(f"lpr-auth-failures:{ip}", 0) + 1, 300)
         return _unauthorized()
 
     body = request.body[:MAX_STORED_BODY]

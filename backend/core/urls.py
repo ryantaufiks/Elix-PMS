@@ -1,8 +1,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from . import amenity_views, kiosk_views, report_views, views
+from . import amenity_views, auth_views, kiosk_views, report_views, views
 
 router = DefaultRouter()
 router.register("condominiums", views.CondominiumViewSet)
@@ -29,8 +28,9 @@ router.register("feedback", amenity_views.FeedbackViewSet)
 
 urlpatterns = [
     path("health/", views.health, name="health"),
-    path("auth/token/", TokenObtainPairView.as_view(), name="token-obtain"),
-    path("auth/token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
+    path("auth/token/", auth_views.LoginView.as_view(), name="token-obtain"),
+    path("auth/token/refresh/", auth_views.RefreshView.as_view(), name="token-refresh"),
+    path("auth/logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("auth/me/", views.MeView.as_view(), name="me"),
     path("system-settings/", views.SystemSettingsView.as_view(), name="system-settings"),
     path("system-settings/test-livekit/", views.test_livekit, name="system-settings-test-livekit"),

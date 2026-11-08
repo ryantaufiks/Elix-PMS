@@ -65,6 +65,18 @@ class Api {
     await _storage.deleteAll();
   }
 
+  /// Sign out: the server revokes the refresh token, so a copied token stops working too.
+  Future<void> signOut() async {
+    final refresh = _refresh;
+    if (refresh != null) {
+      try {
+        await http.post(Uri.parse('$apiBase/v1/auth/logout/'),
+            headers: {'Content-Type': 'application/json'}, body: jsonEncode({'refresh': refresh})).timeout(const Duration(seconds: 5));
+      } catch (_) {}
+    }
+    await clear();
+  }
+
   Future<void> login(String username, String password) async {
     final response = await http.post(Uri.parse('$apiBase/v1/auth/token/'),
         headers: {'Content-Type': 'application/json'}, body: jsonEncode({'username': username, 'password': password}));

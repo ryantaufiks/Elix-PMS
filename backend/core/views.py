@@ -10,7 +10,7 @@ from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import generics, mixins, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes, throttle_classes
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
@@ -189,14 +189,45 @@ class UnitViewSet(ScopedModelViewSet):
         return Response({"created": len(new), "skipped": total - len(new)}, status=status.HTTP_201_CREATED)
 
 
-class StaffAssignmentViewSet(ScopedModelViewSet):
+class MembershipViewSet(ScopedModelViewSet):
+    """Links a person to a site. Only people already at the site can be linked (new people are added
+    through /users/), and the person of a link never changes: otherwise any user ID on the platform
+    could be pulled in, with their contact details."""
+
+    def _check_person(self, serializer):
+        data = serializer.validated_data
+        person = data.get("user")
+        if serializer.instance is not None:
+            if person is not None and person != serializer.instance.user:
+                raise ValidationError({"user": "The person of a membership cannot be changed."})
+            return
+        if self.request.user.is_superuser:
+            return
+        condo_id = _resolve_pk(data, self.condo_path)
+        known = m.StaffAssignment.objects.filter(user=person, condominium_id=condo_id).exists() or \
+            m.Residency.objects.filter(user=person, unit__condominium_id=condo_id).exists()
+        if not known:
+            raise ValidationError({"user": "Only people already at this site can be linked; add new people as staff or residents."})
+
+    def perform_create(self, serializer):
+        self.check_write(serializer.validated_data)  # Permission first, so other sites get 403, not hints.
+        self._check_person(serializer)
+        super().perform_create(serializer)
+
+    def perform_update(self, serializer):
+        self.check_write(serializer.instance)
+        self._check_person(serializer)
+        super().perform_update(serializer)
+
+
+class StaffAssignmentViewSet(MembershipViewSet):
     queryset = m.StaffAssignment.objects.select_related("user")
     serializer_class = s.StaffAssignmentSerializer
     staff_read_roles = (ADMIN,)
     filterset_fields = ["condominium", "role", "user"]
 
 
-class ResidencyViewSet(ScopedModelViewSet):
+class ResidencyViewSet(MembershipViewSet):
     queryset = m.Residency.objects.select_related("user", "unit")
     serializer_class = s.ResidencySerializer
     staff_write_roles = MANAGEMENT

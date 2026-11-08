@@ -16,8 +16,8 @@ docker compose exec web python manage.py test core
 | URL | |
 |---|---|
 | http://127.0.0.1:8001/v1/admin/ | Django admin (advanced fallback; daily setup is in the dashboard) |
-| http://127.0.0.1:8001/v1/docs/ | Swagger API docs |
-| http://127.0.0.1:8001/v1/auth/token/ | JWT login |
+| http://127.0.0.1:8001/v1/docs/ | Swagger API docs (platform admins: sign in to `/v1/admin/` first) |
+| http://127.0.0.1:8001/v1/auth/token/ | JWT login (`/refresh/` to renew, `/v1/auth/logout/` revokes the refresh token) |
 | `POST /v1/lpr-webhook/` | Dahua LPR events (Basic Auth per camera) |
 | `POST /v1/gates/{id}/open/` | Manual gate opening (any site staff) |
 | `ws://…/ws/events/?token=<JWT>` | Live events (access logs, intercom calls, visits, bookings; feedback for staff) for the user's condos and units |
@@ -367,3 +367,17 @@ databases and volumes never mix.
 Third-party secrets (eWeLink, Shelly, camera, relay LAN passwords) are encrypted at rest with
 `FIELD_ENCRYPTION_KEY` and are write-only in the API and admin. Back the key up: without it the
 stored credentials cannot be read.
+
+Hardening:
+- Sign-in (`/v1/auth/token/`, `/refresh/` and the Django admin) is limited per address (`LOGIN_RATE`,
+  default 20/min) and per username (`LOGIN_USER_RATE`, 10/min); the LPR webhook to 600 requests a minute
+  per address, and 20 wrong camera passwords lock that address out for 5 minutes.
+- Refresh tokens are single-use (rotated and blacklisted). Signing out, a password change or disabling
+  the account revokes all of a person's refresh tokens; access tokens expire within `JWT_ACCESS_MINUTES`.
+  Expired entries are flushed nightly.
+- Staff can link only people already at their site to a unit or a staff role; new people are created
+  through `/v1/users/`.
+- Report exports never contain live formulas (text starting with `= + - @` is kept as text).
+- HSTS (`SECURE_HSTS_SECONDS`, one year) is sent by Django and the gateway; the gateway logs paths
+  without query strings, because the WebSocket carries the token in `?token=`.
+- The API schema and Swagger docs are only for platform admins.

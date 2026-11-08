@@ -66,7 +66,7 @@ class Session extends ChangeNotifier {
   Future<void> logout() async {
     await Push.instance.unregister();
     Realtime.instance.stop();
-    await Api.instance.clear();
+    await Api.instance.signOut();
     me = null;
     notifyListeners();
   }

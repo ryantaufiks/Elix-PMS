@@ -129,6 +129,13 @@ export async function login(username: string, password: string) {
 }
 
 export function logout() {
+  // Revoke the refresh token on the server; keepalive lets it finish while the page changes.
+  const refresh = tokens.refresh();
+  if (refresh) {
+    fetch(`${BASE}/v1/auth/logout/`, {
+      method: "POST", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refresh }),
+    }).catch(() => {});
+  }
   signOut();
 }
 

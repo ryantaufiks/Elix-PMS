@@ -128,6 +128,14 @@ class ReportTests(APITestCase):
         for key in reports.REPORTS:
             self.assertEqual(self.get(key, export="xlsx").status_code, 200, key)
 
+    def test_exports_never_contain_formulas(self, _):
+        self.visit(name='=HYPERLINK("http://evil.example","Click")', company="@SUM(1+1)")
+        text = self.get("visits", export="csv").content.decode("utf-8-sig")
+        self.assertIn("\"'=HYPERLINK(", text)
+        self.assertIn("'@SUM(1+1)", text)
+        cell = load_workbook(io.BytesIO(self.get("visits", export="xlsx", q="HYPERLINK").content))["Details"]["B2"]
+        self.assertEqual((cell.data_type, cell.value), ("s", '=HYPERLINK("http://evil.example","Click")'))
+
     def test_print_returns_every_row_up_to_the_limit(self, _):
         for i in range(3):
             self.visit(name=f"V{i}")
