@@ -11,6 +11,29 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   busy?: boolean;
 };
 
+/** A compact icon-only button; ``label`` shows as a tooltip on hover/focus and names it for screen readers. */
+export function IconButton({ label, children, className, tone = "default", ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  label: string; tone?: "default" | "primary";
+}) {
+  return (
+    <button
+      type="button"
+      {...props}
+      aria-label={label}
+      className={cx(
+        "group/icon relative inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:cursor-not-allowed disabled:opacity-50",
+        tone === "primary" ? "text-primary-600 hover:bg-primary-500/10" : "text-muted hover:bg-surface-3 hover:text-ink",
+        className,
+      )}
+    >
+      {children}
+      <span role="tooltip" className="pointer-events-none absolute right-full top-1/2 z-20 mr-1.5 -translate-y-1/2 whitespace-nowrap rounded-md bg-navy-950 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover/icon:opacity-100 group-focus-visible/icon:opacity-100">
+        {label}
+      </span>
+    </button>
+  );
+}
+
 export function Button({ variant = "secondary", size = "md", busy, className, children, disabled, ...props }: ButtonProps) {
   return (
     <button

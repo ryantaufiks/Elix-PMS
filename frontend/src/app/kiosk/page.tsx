@@ -725,8 +725,8 @@ function PassView({ kiosk, slip, title, autoPrint, onDone }: {
 }) {
   const [printing, setPrinting] = useState(autoPrint);
   const [printed, setPrinted] = useState(false);
-  // Back to the welcome screen on its own; longer without a printout so the visitor can take a photo.
-  const seconds = autoPrint ? 25 : 60;
+  // Back to the welcome screen on its own, soon, so the next person cannot read someone else's pass.
+  const seconds = 15;
   const [left, setLeft] = useState(seconds);
 
   useEffect(() => {
@@ -754,16 +754,6 @@ function PassView({ kiosk, slip, title, autoPrint, onDone }: {
           <div className="mt-1 font-mono text-7xl font-bold tracking-wider text-white">{slip.pass_number}</div>
           <div className="mt-3 text-2xl font-medium">{slip.visitor_name}</div>
           <div className="mt-1 text-lg text-slate-300">{[slip.purpose_display, slip.company].filter(Boolean).join(" · ")} · Visiting {slip.unit_display}</div>
-          {slip.pin && (
-            <div className="mt-6 flex items-center gap-4">
-              <span className="text-lg text-slate-400">PIN</span>
-              <span className="flex gap-2">
-                {slip.pin.split("").map((d, i) => (
-                  <span key={i} className="flex h-16 w-14 items-center justify-center rounded-xl border border-white/20 bg-white/10 font-mono text-4xl font-bold">{d}</span>
-                ))}
-              </span>
-            </div>
-          )}
           <div className="mt-8 flex gap-4 rounded-2xl border border-amber-300/40 bg-amber-400/10 p-5 text-amber-100">
             <svg viewBox="0 0 24 24" className="mt-0.5 h-8 w-8 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>
             <div>
@@ -779,8 +769,18 @@ function PassView({ kiosk, slip, title, autoPrint, onDone }: {
             <span className="text-slate-400">Back to the start in {left}s</span>
           </div>
         </div>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={slip.qr} alt={`QR code for pass ${slip.pass_number}`} className="h-72 w-72 justify-self-center rounded-2xl bg-white p-3" />
+        <div className="flex flex-col items-center gap-4 justify-self-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={slip.qr} alt={`QR code for pass ${slip.pass_number}`} className="h-72 w-72 rounded-2xl bg-white p-3" />
+          {slip.pin && (
+            <div className="flex items-center gap-3">
+              <span className="text-lg text-slate-400">PIN</span>
+              {slip.pin.split("").map((d, i) => (
+                <span key={i} className="flex h-16 w-14 items-center justify-center rounded-xl border border-white/20 bg-white/10 font-mono text-4xl font-bold">{d}</span>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </Frame>
   );

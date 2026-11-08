@@ -153,8 +153,9 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
   is on site, and after 5 wrong PINs the kiosk refuses PINs for a minute. Check-out by face is planned
   (matched on the kiosk PC, optional per site). PINs are meant for unit access control later too.
 - **After a resident opens the gate** (Call a resident), the kiosk shows the visitor's pass: pass
-  number, PIN and QR, with a reminder to photograph or screenshot it for check-out, and a *Print slip*
-  button when the kiosk has a printer.
+  number, QR and the PIN under it, with a reminder to photograph or screenshot it for check-out, and a
+  *Print slip* button when the kiosk has a printer. Pass screens return to the start after 15 seconds
+  so the next visitor cannot read them.
 - **Visitor list:** every way in records a *visit* with the same daily pass number series: kiosk
   walk-ins, walk-ins registered by security, invitation check-ins (QR at the kiosk or plate at an LPR
   camera; re-entries the same day reuse the visit, and an exit camera checks the vehicle out) and

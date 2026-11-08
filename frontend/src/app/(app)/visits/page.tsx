@@ -5,9 +5,10 @@ import useSWR from "swr";
 
 import { AuthImage, SearchInput, UnitPicker } from "@/components/bits";
 import { ConfirmDialog, EntityModal, Tabs } from "@/components/forms";
+import { Icon } from "@/components/icons";
 import { PrintSlip } from "@/components/PrintSlip";
 import {
-  Badge, Button, Card, Checkbox, Empty, ErrorNote, Field, Input, Loading, Modal, PageHeader, Pagination, Select, Table, Td,
+  Badge, Button, Card, Checkbox, Empty, ErrorNote, Field, IconButton, Input, Loading, Modal, PageHeader, Pagination, Select, Table, Td,
   Textarea, Th, useToast,
 } from "@/components/ui";
 import { api, query } from "@/lib/api";
@@ -177,9 +178,13 @@ export default function VisitsPage() {
                   </Td>
                   <Td><Badge tone={STATE[v.state].tone}>{STATE[v.state].label}</Badge></Td>
                   <Td className="whitespace-nowrap text-right">
-                    <Button size="sm" variant="ghost" onClick={() => print(v)}>Print slip</Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEditing(v)}>Edit</Button>
-                    {!v.checked_out_at && <Button size="sm" variant="ghost" onClick={() => setLeaving([v])}>Check out</Button>}
+                    <div className="inline-flex items-center gap-0.5">
+                      <IconButton label="Print slip" onClick={() => print(v)}><Icon name="printer" className="h-[18px] w-[18px]" /></IconButton>
+                      <IconButton label="Edit notes" onClick={() => setEditing(v)}><Icon name="pencil" className="h-[18px] w-[18px]" /></IconButton>
+                      {!v.checked_out_at && (
+                        <IconButton label="Check out" tone="primary" onClick={() => setLeaving([v])}><Icon name="checkout" className="h-[18px] w-[18px]" /></IconButton>
+                      )}
+                    </div>
                   </Td>
                 </tr>
               ))}
