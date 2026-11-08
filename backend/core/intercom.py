@@ -48,7 +48,7 @@ def _notify(call):
 
 
 @transaction.atomic
-def start(kiosk, unit, visitor_name="", snapshot=None, visitor=None, purpose="", company=""):
+def start(kiosk, unit, visitor_name="", snapshot=None, visitor=None, purpose="", company="", face_descriptor=None):
     from .tasks import end_call_room, expire_call, finish_call, push_incoming_call
 
     if not recipients(unit).exists():
@@ -64,7 +64,7 @@ def start(kiosk, unit, visitor_name="", snapshot=None, visitor=None, purpose="",
 
     call = IntercomCall(condominium_id=kiosk.condominium_id, unit=unit, kiosk=kiosk, gate=kiosk.gate,
                         visitor=visitor, visitor_name=visitor_name, visitor_purpose=purpose, visitor_company=company,
-                        room_name=f"call-{kiosk.condominium_id}-{secrets.token_hex(8)}")
+                        face_descriptor=face_descriptor, room_name=f"call-{kiosk.condominium_id}-{secrets.token_hex(8)}")
     if snapshot:
         call.visitor_snapshot = snapshot
     call.save()

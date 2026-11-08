@@ -25,6 +25,8 @@ export const condoFields = (opts: { superuser: boolean; creating: boolean }): Fi
     hint: "Shown to security on the Visitor list." },
   { name: "kiosk_checkout", label: "Offer self check-out at the kiosk", type: "checkbox", wide: true,
     hint: "Visitors scan the QR or enter the 4-digit PIN from their pass when they leave." },
+  { name: "kiosk_face_checkout", label: "Allow check-out by face", type: "checkbox", wide: true,
+    hint: "Visitors whose photo the kiosk took can check out by looking at the camera. Matching runs on the kiosk PC; only a face template is stored, compared with visitors on site, and deleted at check-out or when the pass ends. Visitors are told before the photo." },
   { name: "visitor_data_retention_days", label: "Keep visitor data for (days)", type: "number", section: "PDPA",
     hint: "Visitor names, contact details, photos and plates are deleted automatically after this (blacklisted visitors are kept)." },
   { name: "visitor_privacy_notice", label: "Privacy notice shown to visitors", type: "textarea", wide: true,

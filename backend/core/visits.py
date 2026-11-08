@@ -7,19 +7,26 @@ security has one list of who is on site.
 import base64
 import io
 import logging
+import math
 import secrets
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import qrcode
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import F, Max
 from django.utils import timezone
 
 from .models import Condominium, Visit, VisitPurpose
 from .realtime import broadcast
 
 log = logging.getLogger(__name__)
+
+FACE_SIZE = 128
+# Euclidean distance between face templates (face-api.js recognition net). 0.6 is the library's usual
+# cut-off; 0.45 is stricter, and the best match must also clearly beat the runner-up.
+FACE_MATCH_DISTANCE = 0.45
+FACE_MATCH_MARGIN = 0.06
 
 
 def local_day(condo, at=None):
@@ -63,10 +70,11 @@ def create(condominium_id, *, unit, purpose, name, source, snapshot=None, **fiel
     return visit
 
 
-def issue(kiosk, unit, purpose, name, company="", visitor=None, snapshot=None):
+def issue(kiosk, unit, purpose, name, company="", visitor=None, snapshot=None, face_descriptor=None):
     """A walk-in registered at a kiosk."""
     return create(kiosk.condominium_id, unit=unit, purpose=purpose, name=name, source=Visit.Source.KIOSK,
-                  kiosk=kiosk, gate=kiosk.gate, company=company, visitor=visitor, snapshot=snapshot)
+                  kiosk=kiosk, gate=kiosk.gate, company=company, visitor=visitor, snapshot=snapshot,
+                  face_descriptor=face_descriptor)
 
 
 def _open_for(invitation):
@@ -86,15 +94,18 @@ def _safely(record):
 
 
 @_safely
-def invitation_entry(invitation, entry_log, kiosk=None):
+def invitation_entry(invitation, entry_log, kiosk=None, face_descriptor=None):
     """An invited visitor came in (QR at a kiosk or plate). Re-entries the same day reuse the visit."""
     visit = _open_for(invitation)
     if visit is not None:
+        if face_descriptor:
+            visit.face_descriptor = face_descriptor
+            visit.save(update_fields=["face_descriptor", "updated_at"])
         return visit
     return create(invitation.condominium_id, unit=invitation.unit, purpose=invitation.purpose,
                   name=invitation.visitor_name, source=Visit.Source.INVITATION, invitation=invitation,
                   visitor=invitation.visitor, vehicle_plate=invitation.vehicle_plate or entry_log.plate_number,
-                  gate=entry_log.gate, kiosk=kiosk, entry_log=entry_log)
+                  gate=entry_log.gate, kiosk=kiosk, entry_log=entry_log, face_descriptor=face_descriptor)
 
 
 @_safely
@@ -111,18 +122,25 @@ def call_entry(call, entry_log):
     """A resident or guard opened the gate for a visitor over the intercom."""
     return create(call.condominium_id, unit=call.unit, purpose=call.visitor_purpose, name=call.visitor_name,
                   source=Visit.Source.INTERCOM, intercom_call=call, visitor=call.visitor,
-                  company=call.visitor_company, gate=call.gate, kiosk=call.kiosk, entry_log=entry_log)
+                  company=call.visitor_company, gate=call.gate, kiosk=call.kiosk, entry_log=entry_log,
+                  face_descriptor=call.face_descriptor)
 
 
 def find(condominium_id, code, lock=False):
-    """The visit for what was scanned (the slip QR), or None."""
+    """The visit for what was scanned: the pass QR, or an invitation QR (that visitor's visit on site)."""
+    from .access import invitation_token
+
     code = (code or "").strip()
-    if not code.startswith(Visit.QR_PREFIX):
-        return None
     qs = Visit.objects.select_related("unit__block")
     if lock:
         qs = qs.select_for_update(of=("self",))
-    return qs.filter(condominium_id=condominium_id, token=code[len(Visit.QR_PREFIX):]).first()
+    if code.startswith(Visit.QR_PREFIX):
+        return qs.filter(condominium_id=condominium_id, token=code[len(Visit.QR_PREFIX):]).first()
+    token = invitation_token(code)
+    if not token:
+        return None
+    return (qs.filter(condominium_id=condominium_id, invitation__token=token)
+            .order_by(F("checked_out_at").asc(nulls_first=True), "-created_at").first())  # Still on site first.
 
 
 def find_by_pin(condominium_id, pin, lock=False):
@@ -136,13 +154,49 @@ def find_by_pin(condominium_id, pin, lock=False):
     return qs.filter(pin=pin).first()
 
 
+def valid_face(value):
+    """``value`` as a face template (list of 128 finite numbers), or None."""
+    if not isinstance(value, (list, tuple)) or len(value) != FACE_SIZE:
+        return None
+    try:
+        out = [float(x) for x in value]
+    except (TypeError, ValueError):
+        return None
+    return out if all(math.isfinite(x) for x in out) else None
+
+
+def match_face(condominium_id, descriptor, lock=False):
+    """(visit, "") for the visitor on site whose face matches, else (None, "no_match" | "ambiguous" | "none_enrolled")."""
+    scored = []
+    for visit_id, template in on_site(condominium_id).exclude(face_descriptor=None).values_list("pk", "face_descriptor"):
+        template = valid_face(template)
+        if template is not None:
+            scored.append((math.dist(descriptor, template), visit_id))
+    if not scored:
+        return None, "none_enrolled"
+    scored.sort()
+    best, visit_id = scored[0]
+    # Distances only (no personal data), to tune the thresholds against real kiosk cameras.
+    log.info("Face check-out at condo %s: best %.3f, runner-up %s, %d on site",
+             condominium_id, best, f"{scored[1][0]:.3f}" if len(scored) > 1 else "-", len(scored))
+    if best > FACE_MATCH_DISTANCE:
+        return None, "no_match"
+    if len(scored) > 1 and scored[1][0] - best < FACE_MATCH_MARGIN:
+        return None, "ambiguous"
+    qs = Visit.objects.select_related("unit__block")
+    if lock:
+        qs = qs.select_for_update(of=("self",))
+    return qs.get(pk=visit_id), ""
+
+
 def check_out(visit, user=None):
-    """Record the visitor leaving. Returns False if they had already checked out."""
+    """Record the visitor leaving (and forget their face template). Returns False if they had already left."""
     if visit.checked_out_at:
         return False
     visit.checked_out_at = timezone.now()
     visit.checked_out_by = user
-    visit.save(update_fields=["checked_out_at", "checked_out_by", "updated_at"])
+    visit.face_descriptor = None
+    visit.save(update_fields=["checked_out_at", "checked_out_by", "face_descriptor", "updated_at"])
     _notify(visit)
     return True
 

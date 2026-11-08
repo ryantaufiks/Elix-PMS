@@ -116,11 +116,12 @@ class FaceRequired(Exception):
 
 
 @transaction.atomic
-def handle_qr(kiosk, code, plate="", face_photo=None):
+def handle_qr(kiosk, code, plate="", face_photo=None, face_descriptor=None):
     """Check a visitor in at a kiosk with their invitation QR (plus optional plate / face photo).
 
     The face photo is stored with the access log for staff to review; it is not matched
-    automatically. Raises FaceRequired (nothing logged) when the invitation needs a photo.
+    automatically at entry (``face_descriptor``, when sent, lets the visitor check out by face).
+    Raises FaceRequired (nothing logged) when the invitation needs a photo.
     """
     gate = kiosk.gate
     invitation = find_invitation(kiosk.condominium_id, code, lock=True)
@@ -144,5 +145,5 @@ def handle_qr(kiosk, code, plate="", face_photo=None):
     log = grant(gate, reason=reason, **fields)
     if face_photo is not None:
         log.snapshot.save(f"qr-{log.pk}.jpg", face_photo, save=True)
-    visits.invitation_entry(invitation, log, kiosk=kiosk)
+    visits.invitation_entry(invitation, log, kiosk=kiosk, face_descriptor=face_descriptor)
     return log

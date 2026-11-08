@@ -53,6 +53,8 @@ export type KioskSelf = {
   walk_in: boolean;
   walk_in_photo: boolean;
   checkout: boolean;
+  /** Visitors whose photo the kiosk takes can check out by face. */
+  face_checkout: boolean;
   prints_slips: boolean;
 };
 
@@ -91,6 +93,8 @@ export type VisitorDetails = {
   company: string;
   consent: boolean;
   photo: Blob | null;
+  /** Face template of ``photo`` for face check-out (only when the site uses it). */
+  face?: number[] | null;
 };
 
 export const PURPOSES: { value: string; label: string; company?: string }[] = [

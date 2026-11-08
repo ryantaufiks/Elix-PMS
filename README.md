@@ -151,8 +151,19 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
 - **Check out** (per site, Site settings → *Offer self check-out at the kiosk*, on by default): the
   kiosk's fourth button. The visitor scans the QR on their slip or screenshot, or types the PIN on the
   keypad. Every visit gets a PIN unique among the visitors on site; a PIN only works while the visitor
-  is on site, and after 5 wrong PINs the kiosk refuses PINs for a minute. Check-out by face is planned
-  (matched on the kiosk PC, optional per site). PINs are meant for unit access control later too.
+  is on site, and after 5 wrong PINs the kiosk refuses PINs for a minute. An invitation QR also checks
+  that invited visitor out. PINs are meant for unit access control later too.
+- **Check out by face** (per site, Site settings → *Allow check-out by face*, **off** by default): when
+  the kiosk takes a visitor's photo (walk-in, call, or an invitation that requires a face check), the
+  kiosk PC turns it into a face template with face-api.js (SSD MobileNet + 68-point landmarks +
+  128-d recognition net, models served from `/models/face`, loaded in the background). The visitor is
+  told before the photo, and sees whether face check-out is ready. At *Check out → Check out with my
+  face* the kiosk averages a few frames and the server compares the template only with visitors on
+  site at that site: the best match must be closer than 0.45 and clearly better (by 0.06) than the
+  runner-up, otherwise the visitor is asked to use the QR or PIN. Templates are deleted at check-out
+  and by the daily purge once the pass ends; photos are never sent for matching. Match distances
+  (no personal data) are logged by `core.visits` to tune the thresholds on real cameras. There is no
+  liveness check: a printed photo of a visitor could check them out (it never opens a gate).
 - **After a resident opens the gate** (Call a resident), the kiosk shows the visitor's pass: pass
   number, QR and the PIN under it, with a reminder to photograph or screenshot it for check-out, and a
   *Print slip* button when the kiosk has a printer. Pass screens return to the start after 25 seconds
@@ -178,7 +189,7 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
 | Kiosk | `POST /v1/kiosk/checkin/` (`code`, optional `plate`, `face_photo`) | Check in; opens the kiosk's gate when granted |
 | Kiosk | `GET /v1/kiosk/directory/?walk_in=1` | Every active unit (walk-ins ring nobody) |
 | Kiosk | `POST /v1/kiosk/walk-ins/` (`unit`, `purpose`, visitor details, `consent`, `snapshot`) | Register a walk-in; returns the slip (pass number, QR as a data URI) |
-| Kiosk | `POST /v1/kiosk/checkout/` (`code` = pass QR `ELIX-WALKIN:<token>`, or `pin`) | Check out (`/v1/kiosk/walk-ins/checkout/` still works); 429 after 5 wrong PINs |
+| Kiosk | `POST /v1/kiosk/checkout/` (`code` = pass or invitation QR, or `pin`, or `face` = 128 numbers) | Check out (`/v1/kiosk/walk-ins/checkout/` still works); 429 after 5 wrong PINs; face misses answer 404 with `reason` |
 | Kiosk | `GET /v1/kiosk/calls/{id}/pass/` | The visitor pass (QR, PIN) after the resident opened the gate |
 | Staff | `GET /v1/visits/?state=on_site&source=&date_from=&date_to=&visitor=` | Visitor list (`source`: kiosk, staff, invitation, intercom); `visitor` = one person's history |
 | Staff | `POST /v1/visits/` (`unit`, `visitor_name`, `purpose`, optional `company`, `visitor_phone`, `visitor_id_partial`, `vehicle_plate`, `notes`, `snapshot`; `consent`) | Register a walk-in at the guardhouse |
@@ -255,10 +266,12 @@ optionally `GOOGLE_SERVICES_JSON_BASE64`; optional variable `API_BASE`.
   write its own notice (Site settings → Privacy notice); the standard text states the purpose, who sees
   the data, the retention period and the management office contact.
 - **Data minimisation:** only the last 4 characters of the NRIC/FIN are stored; without consent the
-  kiosk keeps no photo; visitor records hold no face photo, only the call does.
+  kiosk keeps no photo; visitor records hold no face photo, only the call does. Face templates for
+  face check-out exist only while the visitor is on site.
 - **Retention:** a daily job (`core.tasks.purge_visitor_data`, 03:30 SGT) removes visitor names,
   contact details, photos (calls and visits), visit notes, camera payloads and visitor plates older than the site's *Keep visitor data
   for (days)*, and deletes visitor records not seen since. Blocked visitors are kept for security.
+  The same job removes face templates as soon as the pass has ended.
   Check with `docker compose exec web python manage.py purge_visitor_data --dry-run`.
 - **Access / erasure requests:** Community → Visitors → *Erase data* (condo admins) removes the person
   and their photos and details from calls, visits and invitations.

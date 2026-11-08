@@ -217,6 +217,10 @@ class Visit(TimeStampedModel):
     pin = models.CharField(
         max_length=4, blank=True, editable=False,
         help_text="4 digits on the pass, unique among visitors on site; checks out at the kiosk (and later unit doors).")
+    face_descriptor = models.JSONField(
+        null=True, blank=True, editable=False,
+        help_text="Face template (128 numbers computed in the kiosk browser) for face check-out; "
+                  "cleared at check-out and when the pass ends.")
     checked_out_at = models.DateTimeField(null=True, blank=True)
     checked_out_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",

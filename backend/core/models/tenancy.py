@@ -55,6 +55,11 @@ class Condominium(TimeStampedModel):
         "Self check-out at the kiosk", default=True,
         help_text="Kiosks offer Check out: visitors scan the QR or enter the PIN from their pass when leaving.",
     )
+    kiosk_face_checkout = models.BooleanField(
+        "Face check-out at the kiosk", default=False,
+        help_text="Visitors whose photo the kiosk took can check out by looking at the camera. The face template "
+                  "is matched only against visitors on site and deleted at check-out or when the pass ends.",
+    )
     visitor_privacy_notice = models.TextField(
         blank=True, help_text="Shown at the kiosk and on visitor passes. Leave blank for the standard notice.",
     )

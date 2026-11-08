@@ -1,9 +1,11 @@
+import json
 from datetime import datetime
 
 from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from . import models as m
@@ -65,7 +67,7 @@ class CondominiumSerializer(ModelCleanSerializer):
         fields = [
             "id", "name", "code", "address", "postal_code", "timezone", "contact_phone", "is_active", "lpr_enabled",
             "invitation_max_days", "intercom_ring_timeout_seconds", "face_verification_enabled",
-            "visitor_data_retention_days", "kiosk_visitor_form", "kiosk_photo_required", "kiosk_walk_in", "kiosk_walk_in_photo", "kiosk_checkout",
+            "visitor_data_retention_days", "kiosk_visitor_form", "kiosk_photo_required", "kiosk_walk_in", "kiosk_walk_in_photo", "kiosk_checkout", "kiosk_face_checkout",
             "visitor_privacy_notice",
             "created_at", "updated_at",
         ]
@@ -324,6 +326,29 @@ class CallWithConnectionSerializer(serializers.Serializer):
     livekit = LiveKitConnectionSerializer()
 
 
+@extend_schema_field({"type": "array", "items": {"type": "number"}, "minItems": 128, "maxItems": 128, "nullable": True})
+class FaceDescriptorField(serializers.Field):
+    """A face template from the kiosk browser: 128 numbers, as a JSON array or (multipart) a JSON string."""
+
+    def to_internal_value(self, data):
+        from .visits import valid_face
+
+        if isinstance(data, str):
+            try:
+                data = json.loads(data) if data.strip() else None
+            except ValueError:
+                raise serializers.ValidationError("Not a face template.")
+        if data is None:
+            return None
+        face = valid_face(data)
+        if face is None:
+            raise serializers.ValidationError("A face template is 128 numbers.")
+        return face
+
+    def to_representation(self, value):
+        return value
+
+
 class StartCallSerializer(serializers.Serializer):
     unit = serializers.PrimaryKeyRelatedField(queryset=m.Unit.objects.filter(is_active=True))
     visitor_ref = serializers.CharField(required=False, allow_blank=True, default="",
@@ -337,6 +362,8 @@ class StartCallSerializer(serializers.Serializer):
     consent = serializers.BooleanField(required=False, default=False,
                                        help_text="The visitor accepted the privacy notice.")
     snapshot = serializers.ImageField(required=False)
+    face_descriptor = FaceDescriptorField(required=False, allow_null=True, default=None,
+                                          help_text="Face template of the snapshot, for face check-out (site setting).")
 
 
 class WalkInRegisterSerializer(StartCallSerializer):
@@ -432,14 +459,15 @@ class VisitSlipSerializer(serializers.ModelSerializer):
 
 
 class KioskCheckOutSerializer(serializers.Serializer):
-    """The QR on the pass, or its 4-digit PIN."""
+    """The QR on the pass (or the invitation QR), its 4-digit PIN, or the visitor's face template."""
 
-    code = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+    code = serializers.CharField(max_length=500, required=False, allow_blank=True, default="")
     pin = serializers.RegexField(r"^\d{4}$", required=False, allow_blank=True, default="")
+    face = FaceDescriptorField(required=False, allow_null=True, default=None)
 
     def validate(self, attrs):
-        if not attrs["code"].strip() and not attrs["pin"]:
-            raise serializers.ValidationError("Scan the QR code or enter the PIN.")
+        if not attrs["code"].strip() and not attrs["pin"] and not attrs["face"]:
+            raise serializers.ValidationError("Scan the QR code, enter the PIN or look at the camera.")
         return attrs
 
 
@@ -481,11 +509,15 @@ class KioskSelfSerializer(serializers.ModelSerializer):
     walk_in = serializers.BooleanField(source="condominium.kiosk_walk_in")
     walk_in_photo = serializers.BooleanField(source="condominium.kiosk_walk_in_photo")
     checkout = serializers.BooleanField(source="condominium.kiosk_checkout")
+    face_checkout = serializers.SerializerMethodField()
 
     class Meta:
         model = m.Kiosk
         fields = ["id", "name", "condominium", "condominium_name", "gate", "gate_name", "ring_timeout_seconds",
-                  "visitor_form", "photo_required", "privacy_notice", "walk_in", "walk_in_photo", "checkout", "prints_slips"]
+                  "visitor_form", "photo_required", "privacy_notice", "walk_in", "walk_in_photo", "checkout", "face_checkout", "prints_slips"]
+
+    def get_face_checkout(self, obj) -> bool:
+        return obj.condominium.kiosk_checkout and obj.condominium.kiosk_face_checkout
 
 
 class PushDeviceSerializer(serializers.ModelSerializer):
@@ -735,6 +767,7 @@ class QrCodeSerializer(serializers.Serializer):
 class QrCheckInSerializer(QrCodeSerializer):
     plate = serializers.CharField(max_length=12, required=False, allow_blank=True, default="")
     face_photo = serializers.ImageField(required=False)
+    face_descriptor = FaceDescriptorField(required=False, allow_null=True, default=None)
 
 
 class InvitationPassSerializer(serializers.ModelSerializer):

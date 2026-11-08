@@ -15,6 +15,7 @@ import {
 import type { IntercomCall, LiveKitConnection } from "@/lib/types";
 import { Credit } from "@/components/Credit";
 import { PrintSlip } from "@/components/PrintSlip";
+import { describeLive, describePhoto, loadFace } from "@/lib/face";
 
 type Outcome = { tone: "good" | "bad" | "info"; title: string; detail?: string };
 /** Call a resident, or register as a walk-in (printed slip, no call). */
@@ -319,6 +320,7 @@ function Calling({ kiosk, unit, details, onDone, onPass }: {
       form.set("company", details.company);
       form.set("consent", details.consent ? "true" : "false");
       if (details.photo) form.set("snapshot", details.photo, "visitor.jpg");
+      if (details.photo && details.face) form.set("face_descriptor", JSON.stringify(details.face));
       let started: { call: IntercomCall; livekit: LiveKitConnection };
       try {
         started = await kioskApi("/v1/kiosk/calls/", { method: "POST", body: form });
@@ -567,8 +569,19 @@ function Details({ kiosk, walkIn, unit, initial, onNext, onBack }: {
 }
 
 /** Explicit photo with preview and retake, then the privacy notice and consent. */
-function PhotoConsent({ kiosk, walkIn, onNext, onBack }: { kiosk: KioskSelf; walkIn: boolean; onNext: (photo: Blob) => void; onBack: () => void }) {
+function PhotoConsent({ kiosk, walkIn, onNext, onBack }: {
+  kiosk: KioskSelf; walkIn: boolean; onNext: (photo: Blob, face: number[] | null) => void; onBack: () => void;
+}) {
   const [photo, setPhoto] = useState<{ blob: Blob; url: string } | null>(null);
+  // Face template for face check-out: undefined while working it out, null when no clear face.
+  const [face, setFace] = useState<number[] | null | undefined>(undefined);
+  useEffect(() => {
+    if (!photo || !kiosk.face_checkout) return;
+    let cancelled = false;
+    setFace(undefined);
+    describePhoto(photo.blob).then((f) => { if (!cancelled) setFace(f); }).catch(() => { if (!cancelled) setFace(null); });
+    return () => { cancelled = true; };
+  }, [photo, kiosk.face_checkout]);
   const { video, error } = useCamera(!photo);
   const [count, setCount] = useState<number | null>(null);
   useEffect(() => () => { if (photo) URL.revokeObjectURL(photo.url); }, [photo]);
@@ -598,12 +611,27 @@ function PhotoConsent({ kiosk, walkIn, onNext, onBack }: { kiosk: KioskSelf; wal
         <div>
           <h1 className="text-3xl font-semibold">{photo ? "Happy with this photo?" : "A quick photo please"}</h1>
           <p className="mt-2 text-lg text-slate-300">{walkIn ? "Security uses it to check your pass." : "The resident sees it before answering."}</p>
+          {kiosk.face_checkout && (
+            <p className="mt-3 text-base text-slate-300">
+              You can also check out by looking at the kiosk camera when you leave. Only a face template made from this
+              photo is kept, and it is deleted when you check out or your pass ends.
+            </p>
+          )}
           <div className="mt-6"><Notice kiosk={kiosk} /></div>
+          {photo && kiosk.face_checkout && (
+            <p className={`mt-4 text-base ${face ? "text-emerald-300" : face === null ? "text-amber-300" : "text-slate-400"}`}>
+              {face ? "✓ Face check-out ready." : face === null
+                ? "We could not see your face clearly. Retake to use face check-out, or use the QR / PIN when you leave."
+                : "Checking the photo…"}
+            </p>
+          )}
           <div className="mt-8 flex flex-wrap gap-4">
             {photo ? (
               <>
                 <BigButton tone="ghost" onClick={() => setPhoto(null)}>Retake</BigButton>
-                <BigButton onClick={() => onNext(photo.blob)}>{walkIn ? "Agree & get my pass" : "Agree & call"}</BigButton>
+                <BigButton onClick={() => onNext(photo.blob, face ?? null)} disabled={kiosk.face_checkout && face === undefined}>
+                  {walkIn ? "Agree & get my pass" : "Agree & call"}
+                </BigButton>
               </>
             ) : (
               <BigButton onClick={() => setCount(3)} disabled={count !== null || !!error}>Take photo</BigButton>
@@ -646,7 +674,10 @@ function Face({ kiosk, pass, onCapture, onBack }: { kiosk: KioskSelf; pass: Visi
   return (
     <Frame kiosk={kiosk} onBack={onBack}>
       <h1 className="text-3xl font-semibold">Hi {pass.visitor_name}, a quick photo please</h1>
-      <p className="mt-2 text-lg text-slate-300">This invitation asks for a face photo. It is kept with the entry record for security.</p>
+      <p className="mt-2 text-lg text-slate-300">
+        This invitation asks for a face photo. It is kept with the entry record for security.
+        {kiosk.face_checkout && " A face template made from it also lets you check out by face; it is deleted when you check out or your pass ends."}
+      </p>
       <div className="relative mt-8 aspect-[4/3] w-full max-w-xl overflow-hidden rounded-3xl border border-white/10 bg-navy-950">
         <video ref={video} autoPlay playsInline muted className="h-full w-full scale-x-[-1] object-cover" />
         {count !== null && count > 0 && <div className="absolute inset-0 flex items-center justify-center text-8xl font-bold">{count}</div>}
@@ -699,6 +730,7 @@ function WalkIn({ kiosk, unit, details, onDone, onFail }: {
     form.set("company", details.company);
     form.set("consent", "true");
     if (details.photo) form.set("snapshot", details.photo, "visitor.jpg");
+    if (details.photo && details.face) form.set("face_descriptor", JSON.stringify(details.face));
     kioskApi<WalkInSlip>("/v1/kiosk/walk-ins/", { method: "POST", body: form })
       .then(setSlip)
       .catch((err) => fail.current(err instanceof ApiError && err.status === 403
@@ -790,14 +822,17 @@ function PassView({ kiosk, slip, title, autoPrint, onDone }: {
 
 const KEYPAD = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"];
 
-/** Check out: scan the pass QR with the camera, or type its 4-digit PIN. */
+type CheckOutBody = { code: string } | { pin: string } | { face: number[] };
+
+/** Check out: scan the pass QR with the camera, type its 4-digit PIN, or (when the site allows) show your face. */
 function CheckOut({ kiosk, onDone, onBack }: { kiosk: KioskSelf; onDone: (o: Outcome) => void; onBack: () => void }) {
   const { video, error } = useCamera(true);
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
+  const [looking, setLooking] = useState(false);
   const [problem, setProblem] = useState("");
 
-  const submit = useCallback(async (body: { code: string } | { pin: string }) => {
+  const submit = useCallback(async (body: CheckOutBody) => {
     setBusy(true);
     setProblem("");
     const outcome = await checkOut(body);
@@ -810,6 +845,21 @@ function CheckOut({ kiosk, onDone, onBack }: { kiosk: KioskSelf; onDone: (o: Out
   }, [onDone]);
 
   useQrScanner(video, !busy, (code) => submit({ code }));
+
+  async function byFace() {
+    if (busy || !video.current) return;
+    setBusy(true);
+    setLooking(true);
+    setProblem("");
+    const face = await describeLive(video.current).catch(() => null);
+    setLooking(false);
+    if (!face) {
+      setBusy(false);
+      setProblem("No clear face found. Look straight at the camera, or use your QR / PIN.");
+      return;
+    }
+    await submit({ face });
+  }
 
   function press(key: string) {
     if (busy) return;
@@ -824,16 +874,33 @@ function CheckOut({ kiosk, onDone, onBack }: { kiosk: KioskSelf; onDone: (o: Out
   return (
     <Frame kiosk={kiosk} onBack={onBack}>
       <h1 className="text-center text-4xl font-semibold">Check out</h1>
-      <p className="mt-2 text-center text-lg text-slate-300">Scan the QR code on your pass, or enter its 4-digit PIN.</p>
-      <div className="mt-10 grid w-full max-w-5xl items-start gap-10 lg:grid-cols-2">
+      <p className="mt-2 text-center text-lg text-slate-300">
+        {kiosk.face_checkout ? "Scan the QR code on your pass, enter its 4-digit PIN, or use your face." : "Scan the QR code on your pass, or enter its 4-digit PIN."}
+      </p>
+      <div className="mt-4 min-h-8 text-center text-xl text-rose-300" role="alert">{problem}</div>
+      <div className="mt-6 grid w-full max-w-5xl items-start gap-10 lg:grid-cols-2">
         <div>
-          <div className="mb-3 text-xl font-semibold">Scan QR</div>
+          <div className="mb-3 text-xl font-semibold">{kiosk.face_checkout ? "Scan QR or use your face" : "Scan QR"}</div>
           <div className="relative aspect-[4/3] w-full overflow-hidden rounded-3xl border border-white/10 bg-navy-950">
             <video ref={video} autoPlay playsInline muted className="h-full w-full scale-x-[-1] object-cover" />
-            <div className="pointer-events-none absolute inset-[18%] rounded-2xl border-4 border-primary-400/80 shadow-[0_0_0_9999px_rgba(7,15,36,0.45)]" />
+            {looking ? (
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <div className="h-[70%] w-[42%] animate-pulse rounded-[50%] border-4 border-emerald-300/90 shadow-[0_0_0_9999px_rgba(7,15,36,0.45)]" />
+                <div className="absolute bottom-4 rounded-full bg-navy-950/80 px-4 py-2 text-lg">Look at the camera…</div>
+              </div>
+            ) : (
+              <div className="pointer-events-none absolute inset-[18%] rounded-2xl border-4 border-primary-400/80 shadow-[0_0_0_9999px_rgba(7,15,36,0.45)]" />
+            )}
             {error && <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-rose-300">{error}</div>}
           </div>
           <p className="mt-3 text-slate-400">Hold your slip, or the photo of your pass, up to the camera.</p>
+          {kiosk.face_checkout && (
+            <button type="button" onClick={byFace} disabled={busy || !!error}
+              className="mt-4 flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-600 px-6 py-5 text-xl font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50">
+              <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M9 10h.01M15 10h.01M9.5 15a3.5 3.5 0 0 0 5 0" /></svg>
+              {looking ? "Recognising…" : "Check out with my face"}
+            </button>
+          )}
         </div>
         <div>
           <div className="mb-3 text-xl font-semibold">Enter PIN</div>
@@ -844,7 +911,7 @@ function CheckOut({ kiosk, onDone, onBack }: { kiosk: KioskSelf; onDone: (o: Out
               </span>
             ))}
           </div>
-          <div className="mt-3 h-7 text-center text-lg text-rose-300">{busy ? <span className="text-slate-300">Checking…</span> : problem}</div>
+          <div className="mt-3 h-7 text-center text-lg text-slate-300">{busy && !looking ? "Checking…" : ""}</div>
           <div className="mx-auto mt-2 grid max-w-sm grid-cols-3 gap-3">
             {KEYPAD.map((key) => (
               <button key={key} type="button" onClick={() => press(key)} disabled={busy}
@@ -860,7 +927,7 @@ function CheckOut({ kiosk, onDone, onBack }: { kiosk: KioskSelf; onDone: (o: Out
 }
 
 /** Check a visitor out with their pass QR or PIN, as the outcome to show. ``retry`` = wrong PIN, let them try again. */
-async function checkOut(body: { code: string } | { pin: string }): Promise<Outcome & { retry?: boolean }> {
+async function checkOut(body: CheckOutBody): Promise<Outcome & { retry?: boolean }> {
   try {
     const r = await kioskApi<WalkInCheckOut>("/v1/kiosk/checkout/", { method: "POST", body });
     const at = clock(r.walk_in.checked_out_at ?? new Date().toISOString());
@@ -869,6 +936,12 @@ async function checkOut(body: { code: string } | { pin: string }): Promise<Outco
       : { tone: "info", title: "Already checked out", detail: `Pass ${r.walk_in.pass_number} was checked out at ${at}.` };
   } catch (err) {
     const status = err instanceof ApiError ? err.status : 0;
+    if ("face" in body && (status === 404 || status === 409)) {
+      const reason = err instanceof ApiError ? (err.data as { reason?: string } | undefined)?.reason : "";
+      return { tone: "bad", title: "Face not recognised", retry: true, detail: reason === "ambiguous"
+        ? "We could not tell you apart from another visitor. Please use your QR or PIN."
+        : "We could not recognise you. Try again facing the camera, or use your QR or PIN." };
+    }
     if ("pin" in body && status === 404) return { tone: "bad", title: "Wrong PIN", detail: "That PIN does not match anyone on site. Please try again.", retry: true };
     if (status === 429) return { tone: "bad", title: "Too many attempts", detail: "Please wait a minute, or see the guardhouse." };
     if (status === 404) return { tone: "bad", title: "Unknown pass", detail: "Please see the guardhouse." };
@@ -934,6 +1007,10 @@ export default function KioskPage() {
     const form = new FormData();
     form.set("code", code);
     if (photo) form.set("face_photo", photo, "face.jpg");
+    if (photo && kiosk?.face_checkout) {
+      const face = await describePhoto(photo).catch(() => null);
+      if (face) form.set("face_descriptor", JSON.stringify(face));
+    }
     try {
       const r = await kioskApi<CheckInResult>("/v1/kiosk/checkin/", { method: "POST", body: form });
       if (r.result === "face_required" && r.invitation) setScreen({ name: "face", code, pass: r.invitation });
@@ -942,7 +1019,12 @@ export default function KioskPage() {
     } catch (err) {
       setScreen({ name: "result", outcome: { tone: "bad", title: "Something went wrong", detail: (err as Error).message } });
     }
-  }, []);
+  }, [kiosk?.face_checkout]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load the face models in the background so face check-out answers quickly.
+  useEffect(() => {
+    if (kiosk?.face_checkout) loadFace().catch(() => {});
+  }, [kiosk?.face_checkout]);
 
   if (!booted) return <div className="brand-panel min-h-dvh" />;
   if (screen.name === "setup" || !kiosk) {
@@ -981,7 +1063,7 @@ export default function KioskPage() {
       const { mode, unit, details } = screen;
       return <PhotoConsent kiosk={kiosk} walkIn={mode === "walkin"}
         onBack={() => setScreen(mode === "walkin" || kiosk.visitor_form ? { name: "details", mode, unit, details } : { name: "directory", mode })}
-        onNext={(photo) => setScreen({ name: mode === "walkin" ? "walkin" : "calling", unit, details: { ...details, photo, consent: true } })} />;
+        onNext={(photo, face) => setScreen({ name: mode === "walkin" ? "walkin" : "calling", unit, details: { ...details, photo, face, consent: true } })} />;
     }
     case "calling":
       return <Calling kiosk={kiosk} unit={screen.unit} details={screen.details} onDone={(outcome) => setScreen({ name: "result", outcome })}

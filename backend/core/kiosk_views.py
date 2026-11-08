@@ -89,6 +89,11 @@ class KioskCallThrottle(SimpleRateThrottle):
         return self.cache_format % {"scope": self.scope, "ident": f"kiosk-{request.auth.pk}"}
 
 
+def face_template(condo, data, photo):
+    """The face template sent with a photo, kept only when the site uses face check-out."""
+    return data.get("face_descriptor") if condo.kiosk_checkout and condo.kiosk_face_checkout and photo else None
+
+
 class KioskMeView(KioskView):
     @extend_schema(responses=s.KioskSelfSerializer)
     def get(self, request):
@@ -136,9 +141,10 @@ class StartCallView(KioskView):
             method=m.AccessLog.Method.INTERCOM, blocked_reason="Blocked visitor tried to call a unit")
         try:
             livekit.ensure_configured()  # Fail before ringing anyone.
-            call = intercom.start(self.kiosk, unit, name,
-                                  data.get("snapshot") if consented else None, visitor=visitor,
-                                  purpose=data["purpose"], company=data["company"].strip())
+            snapshot = data.get("snapshot") if consented else None
+            call = intercom.start(self.kiosk, unit, name, snapshot, visitor=visitor,
+                                  purpose=data["purpose"], company=data["company"].strip(),
+                                  face_descriptor=face_template(condo, data, snapshot))
             connection = livekit.connection_info(call.room_name, f"kiosk-{self.kiosk.pk}", self.kiosk.name)
         except livekit.LiveKitNotConfigured:
             return Response({"detail": "Video intercom is not configured on the server."},
@@ -207,7 +213,8 @@ class QrCheckInView(KioskView):
             return Response({"detail": "This kiosk is not linked to a gate."}, status=status.HTTP_409_CONFLICT)
         data = body.validated_data
         try:
-            log = access.handle_qr(self.kiosk, data["code"], data["plate"], data.get("face_photo"))
+            log = access.handle_qr(self.kiosk, data["code"], data["plate"], data.get("face_photo"),
+                                   face_template(self.kiosk.condominium, data, data.get("face_photo")))
         except access.FaceRequired:
             invitation = access.find_invitation(self.kiosk.condominium_id, data["code"])
             return Response({"result": "face_required", "reason": "Please look at the camera.", "invitation": _pass(invitation)})
@@ -263,7 +270,8 @@ class WalkInView(KioskView):
                                                 method=m.AccessLog.Method.WALK_IN,
                                                 blocked_reason="Blocked visitor tried to register as a walk-in")
         visit = visits.issue(self.kiosk, data["unit"], data["purpose"], name, company=data["company"].strip(),
-                             visitor=visitor, snapshot=data.get("snapshot"))
+                             visitor=visitor, snapshot=data.get("snapshot"),
+                             face_descriptor=face_template(condo, data, data.get("snapshot")))
         return Response(s.VisitSlipSerializer(visit).data, status=status.HTTP_201_CREATED)
 
 
@@ -279,13 +287,25 @@ class WalkInCheckOutView(KioskView):
 
     @extend_schema(request=s.KioskCheckOutSerializer, responses=s.WalkInCheckOutResultSerializer)
     def post(self, request):
-        """Check a visitor out with the QR on their pass, or its 4-digit PIN.
+        """Check a visitor out with the QR on their pass (or invitation), its 4-digit PIN, or their face template.
 
-        A PIN only matches a visitor still on site. After 5 wrong PINs the kiosk refuses PINs for a minute."""
+        A PIN or face only matches a visitor still on site. After 5 wrong PINs the kiosk refuses PINs for a
+        minute. A face must match one visitor closely and clearly better than anyone else; otherwise the
+        answer is 404 with ``reason`` (no_match, ambiguous or none_enrolled)."""
         body = s.KioskCheckOutSerializer(data=request.data)
         body.is_valid(raise_exception=True)
-        code, pin = body.validated_data["code"], body.validated_data["pin"]
+        code, pin, face = body.validated_data["code"], body.validated_data["pin"], body.validated_data["face"]
         condo = self.kiosk.condominium
+        if face and not code and not pin:
+            if not (condo.kiosk_checkout and condo.kiosk_face_checkout):
+                return Response({"detail": "Face check-out is turned off at this site."}, status=status.HTTP_409_CONFLICT)
+            with transaction.atomic():
+                visit, reason = visits.match_face(condo.pk, face, lock=True)
+                if visit is None:
+                    return Response({"detail": "Face not recognised.", "reason": reason}, status=status.HTTP_404_NOT_FOUND)
+                done = visits.check_out(visit)
+            return Response({"result": "checked_out" if done else "already_checked_out",
+                             "walk_in": s.VisitSlipSerializer(visit).data})
         if pin and not code:
             if not condo.kiosk_checkout:
                 return Response({"detail": "Self check-out is turned off at this site."}, status=status.HTTP_409_CONFLICT)

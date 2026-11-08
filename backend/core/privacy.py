@@ -49,22 +49,29 @@ class _Purge:
         return {
             "call_photos": self.files(calls, "visitor_snapshot"),
             "calls": self.update(calls.exclude(visitor_name="", visitor_company="", visitor__isnull=True),
-                                 visitor_name="", visitor_company="", visitor=None),
+                                 visitor_name="", visitor_company="", visitor=None, face_descriptor=None),
         }
 
     def visits(self, visits):
         return {
             "visit_photos": self.files(visits, "visitor_snapshot"),
             "visits": self.update(visits.exclude(visitor_name=REMOVED), visitor_name=REMOVED, company="",
-                                  vehicle_plate="", notes="", visitor=None),
+                                  vehicle_plate="", notes="", visitor=None, face_descriptor=None),
         }
 
 
 def purge_condominium(condo, now=None, dry_run=False):
     p = _Purge(dry_run)
-    cutoff = (now or timezone.now()) - timedelta(days=condo.visitor_data_retention_days)
+    now = now or timezone.now()
+    cutoff = now - timedelta(days=condo.visitor_data_retention_days)
     with transaction.atomic():
-        counts = p.calls(IntercomCall.objects.filter(condominium=condo, created_at__lt=cutoff))
+        # Face templates only live as long as the pass (and the call that led to it).
+        counts = {"face_templates": (
+            p.update(Visit.objects.filter(condominium=condo, valid_until__lt=now).exclude(face_descriptor=None),
+                     face_descriptor=None)
+            + p.update(IntercomCall.objects.filter(condominium=condo, created_at__lt=now - timedelta(days=1))
+                       .exclude(face_descriptor=None), face_descriptor=None))}
+        counts.update(p.calls(IntercomCall.objects.filter(condominium=condo, created_at__lt=cutoff)))
         counts.update(p.visits(Visit.objects.filter(condominium=condo, created_at__lt=cutoff)))
         logs = AccessLog.objects.filter(condominium=condo, occurred_at__lt=cutoff)
         counts["log_photos"] = p.files(logs, "snapshot")

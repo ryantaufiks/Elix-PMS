@@ -31,6 +31,8 @@ class IntercomCall(TimeStampedModel):
     visitor_purpose = models.CharField(max_length=20, choices=VisitPurpose.choices, blank=True)
     visitor_company = models.CharField(max_length=100, blank=True)
     visitor_snapshot = models.ImageField(upload_to="intercom/%Y/%m/", blank=True)
+    face_descriptor = models.JSONField(null=True, blank=True, editable=False,
+                                       help_text="Copied to the visit when the resident opens the gate.")
     answered_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )

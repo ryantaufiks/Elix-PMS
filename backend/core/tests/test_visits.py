@@ -1,3 +1,4 @@
+import json
 import shutil
 import tempfile
 from datetime import timedelta
@@ -203,6 +204,112 @@ class WalkInTests(APITestCase):
         self.assertIsNotNone(row["last_check_out"])
         history = client.get(f"/v1/visits/?visitor={visitor.pk}").data
         self.assertEqual(history["count"], 1)
+
+
+def face(seed, noise=0.0):
+    """A unit-length 128-d template; ``noise`` nudges it the way a second photo of the same face would."""
+    import math
+    import random
+
+    rng = random.Random(seed)
+    v = [rng.gauss(0, 1) for _ in range(128)]
+    if noise:
+        jitter = random.Random(seed + 1000)
+        v = [x + jitter.gauss(0, noise) for x in v]
+    n = math.sqrt(sum(x * x for x in v))
+    return [x / n for x in v]
+
+
+@mock.patch("core.visits.broadcast")
+class FaceCheckOutTests(APITestCase):
+    def setUp(self):
+        media = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, media, ignore_errors=True)
+        self.enterContext(override_settings(MEDIA_ROOT=media))
+        self.condo = make_condo(kiosk_face_checkout=True)
+        self.unit = make_unit(self.condo)
+        self.gate = m.AccessGate.objects.create(condominium=self.condo, name="Lobby")
+        self.kiosk = m.Kiosk.objects.create(condominium=self.condo, name="Lobby kiosk", gate=self.gate)
+        token = self.kiosk.issue_token()
+        self.kiosk.save()
+        self.client.credentials(HTTP_AUTHORIZATION=f"Kiosk {token}")
+
+    def register(self, name, template, photo=True):
+        data = {"unit": self.unit.pk, "visitor_name": name, "purpose": "guest", "consent": "true",
+                "face_descriptor": json.dumps(template)}
+        if photo:
+            data["snapshot"] = jpeg()
+        return self.client.post("/v1/kiosk/walk-ins/", data, format="multipart")
+
+    def check_out(self, template):
+        return self.client.post("/v1/kiosk/checkout/", {"face": template}, format="json")
+
+    def test_kiosk_knows_face_check_out_is_on(self, _):
+        self.assertTrue(self.client.get("/v1/kiosk/me/").data["face_checkout"])
+        self.condo.kiosk_checkout = False
+        self.condo.save()
+        self.assertFalse(self.client.get("/v1/kiosk/me/").data["face_checkout"])
+
+    def test_matches_the_right_visitor_and_forgets_the_face(self, _):
+        self.register("Alice", face(1))
+        self.register("Bob", face(2))
+        response = self.check_out(face(2, noise=0.02))
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["walk_in"]["visitor_name"], "Bob")
+        bob = m.Visit.objects.get(visitor_name="Bob")
+        self.assertIsNotNone(bob.checked_out_at)
+        self.assertIsNone(bob.face_descriptor)  # Forgotten at check-out.
+        self.assertIsNotNone(m.Visit.objects.get(visitor_name="Alice").face_descriptor)
+        # Bob has left: the same face no longer matches anyone.
+        self.assertEqual(self.check_out(face(2, noise=0.02)).data["reason"], "no_match")
+
+    def test_strangers_and_look_alikes_are_refused(self, _):
+        self.assertEqual(self.check_out(face(1)).data["reason"], "none_enrolled")
+        self.register("Alice", face(1))
+        self.assertEqual(self.check_out(face(9)).data["reason"], "no_match")
+        twin = face(1, noise=0.01)
+        self.register("Twin", twin)
+        self.assertEqual(self.check_out(face(1, noise=0.005)).data["reason"], "ambiguous")
+        self.assertFalse(m.Visit.objects.filter(checked_out_at__isnull=False).exists())
+
+    def test_template_validation_and_site_setting(self, _):
+        self.assertIn("face", self.client.post("/v1/kiosk/checkout/", {"face": [1, 2, 3]}, format="json").data)
+        self.assertEqual(self.register("Alice", [0.1] * 5).status_code, 400)
+        self.condo.kiosk_walk_in_photo = False
+        self.condo.save()
+        self.register("No photo", face(3), photo=False)  # Without a photo the template is not kept.
+        self.assertIsNone(m.Visit.objects.get(visitor_name="No photo").face_descriptor)
+        self.condo.kiosk_face_checkout = False
+        self.condo.save()
+        self.register("Off", face(4))
+        self.assertIsNone(m.Visit.objects.get(visitor_name="Off").face_descriptor)
+        self.assertEqual(self.check_out(face(4)).status_code, 409)
+
+    def test_templates_are_purged_when_the_pass_ends(self, _):
+        self.register("Alice", face(1))
+        visit = m.Visit.objects.get()
+        m.Visit.objects.filter(pk=visit.pk).update(valid_until=timezone.now() - timedelta(minutes=1))
+        self.assertEqual(privacy.purge_condominium(self.condo)["face_templates"], 1)
+        visit.refresh_from_db()
+        self.assertIsNone(visit.face_descriptor)
+
+    def test_call_and_invitation_visits_carry_the_face(self, _):
+        host = make_resident("host", self.unit)
+        call = m.IntercomCall.objects.create(condominium=self.condo, unit=self.unit, kiosk=self.kiosk, gate=self.gate,
+                                             room_name="r-face", visitor_name="Siti", face_descriptor=face(5))
+        with mock.patch("core.tasks.open_gate.delay"):
+            intercom.unlock(call, host)
+            invitation = make_invitation(self.unit, host, require_face=True)
+            access.handle_qr(self.kiosk, invitation.token, face_photo=jpeg(), face_descriptor=face(6))
+        self.assertEqual(self.check_out(face(5, noise=0.02)).data["walk_in"]["visitor_name"], "Siti")
+        self.assertEqual(self.check_out(face(6, noise=0.02)).data["walk_in"]["visitor_name"], "Tan Ah Kow")
+
+    def test_invitation_qr_checks_out_its_visit(self, _):
+        invitation = make_invitation(self.unit, make_resident("host", self.unit))
+        with mock.patch("core.tasks.open_gate.delay"):
+            access.handle_qr(self.kiosk, invitation.token)
+        response = self.client.post("/v1/kiosk/checkout/", {"code": invitation.share_url}, format="json")
+        self.assertEqual(response.data["result"], "checked_out", response.data)
 
 
 @mock.patch("core.visits.broadcast")
