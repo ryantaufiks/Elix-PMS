@@ -101,6 +101,15 @@ class KioskMeView(KioskView):
         return Response(s.KioskSelfSerializer(self.kiosk).data)
 
 
+class KioskWeatherView(KioskView):
+    @extend_schema(responses=s.WeatherSerializer)
+    def get(self, request):
+        """The weather at this kiosk's site, shown under the date."""
+        from .feed_views import weather_response
+
+        return weather_response(self.kiosk.condominium)
+
+
 class DirectoryView(KioskView, generics.ListAPIView):
     """Units a visitor can call: active units with at least one resident taking calls.
 

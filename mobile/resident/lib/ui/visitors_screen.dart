@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../api.dart';
 import '../models.dart';
+import 'paged_list.dart';
 import 'widgets.dart';
 
 /// Visitors to the resident's units: who is on site now, and past visits with check-in and check-out times.
@@ -21,56 +21,17 @@ class VisitorsScreen extends StatelessWidget {
       );
 }
 
-class _VisitList extends StatefulWidget {
+class _VisitList extends StatelessWidget {
   const _VisitList({required this.onSite});
   final bool onSite;
-  @override
-  State<_VisitList> createState() => _VisitListState();
-}
-
-class _VisitListState extends State<_VisitList> with AutomaticKeepAliveClientMixin {
-  List<Visit>? _items;
 
   @override
-  bool get wantKeepAlive => true;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final filter = widget.onSite ? 'state=on_site' : 'ordering=-created_at';
-      final rows = await Api.instance.list('/v1/visits/?$filter&page_size=100');
-      if (mounted) setState(() => _items = rows.map(Visit.new).toList());
-    } catch (e) {
-      if (mounted) {
-        setState(() => _items = []);
-        showError(context, e);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    if (_items == null) return const Center(child: CircularProgressIndicator());
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: _items!.isEmpty
-          ? ListView(children: [
-              EmptyState(icon: Icons.people_outline, text: widget.onSite ? 'No visitors on site for your unit.' : 'No visits yet.'),
-            ])
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-              itemCount: _items!.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 8),
-              itemBuilder: (context, i) => _VisitCard(_items![i]),
-            ),
-    );
-  }
+  Widget build(BuildContext context) => PagedList<Visit>(
+        path: onSite ? '/v1/visits/?state=on_site' : '/v1/visits/?ordering=-created_at',
+        parse: Visit.new,
+        itemBuilder: (context, visit) => _VisitCard(visit),
+        empty: EmptyState(icon: Icons.people_outline, text: onSite ? 'No visitors on site for your unit.' : 'No visits yet.'),
+      );
 }
 
 class _VisitCard extends StatelessWidget {

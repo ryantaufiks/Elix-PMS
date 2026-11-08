@@ -94,6 +94,10 @@ Pastikan perangkat lokal Anda telah terinstal:
 * Printer: jadikan printer 58 mm sebagai default printer di PC kiosk (ukuran kertas roll 58 mm) dan jalankan Chrome dengan `--kiosk --kiosk-printing` agar slip langsung tercetak tanpa dialog. Kiosk tanpa printer: hilangkan centang *Receipt printer connected* di *Gates & devices → Kiosks*, maka nomor pass dan QR ditampilkan di layar.
 
 ### 5. Menu APK resident: Access, Facility, Visitor, Feedback
+* Halaman login memakai latar cahaya biru yang bergerak pelan, dengan teks *Engage Link Identified Experience* dan "© 2026 ELIX. All rights reserved.".
+* Header Home: **cuaca** (suhu dan prakiraan 2 jam dari NEA/data.gov.sg, stasiun terdekat dengan kode pos condo) di kanan nama, dan **bell notifikasi** dengan jumlah yang belum dibaca. Notifikasi berisi semua aktivitas baru 30 hari terakhir: tamu datang/pulang, gerbang terbuka/ditolak, panggilan tak terjawab, status booking, dan balasan feedback.
+* Semua list di APK memakai pagination (10 per halaman, *‹ Page 2 of 5 ›*).
+* Kiosk juga menampilkan suhu dan prakiraan cuaca di bawah tanggal.
 * Home APK berisi 4 menu card (ikon sederhana) di atas *Recent activity* (maksimal 5; *See all* untuk semua riwayat).
 * **Access:** buka gerbang dari jarak jauh dengan *swipe to open*. Hanya gate yang dicentang *Residents can open this gate from the app* (Gates & devices) yang muncul; setiap pembukaan tercatat (metode *App*, nama resident, unit).
 * **Facility:** fasilitas dikonfigurasi admin di **Setup → Facilities & payments** (jam buka, hari buka, durasi slot, maks. slot per booking, booking per slot, kapasitas, harga per slot, deposit, berapa hari ke depan, batas booking per unit, batas waktu cancel, aturan, foto). Fasilitas gratis langsung confirmed. Fasilitas berbayar memakai **HitPay** milik kondo (PayNow, kartu, dll.) di dalam aplikasi: slot ditahan selama pembayaran (default 15 menit) dan booking hanya dikonfirmasi setelah API HitPay menyatakan pembayaran *completed* (halaman return dan webhook bertanda tangan hanya memicu pengecekan itu). Booking yang tidak dibayar otomatis dilepas. Refund dilakukan di dashboard HitPay lalu dicatat di menu **Bookings**.

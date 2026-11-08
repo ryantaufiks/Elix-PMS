@@ -33,7 +33,7 @@ class Credit extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = TextStyle(color: color ?? Theme.of(context).colorScheme.outline, fontSize: 12, height: 1.5);
-    return Text('Supported by Smart City Technologies Pte Ltd\n© 2026 Elix PMS. All rights reserved.', textAlign: TextAlign.center, style: style);
+    return Text('Supported by Smart City Technologies Pte Ltd\n© 2026 ELIX. All rights reserved.', textAlign: TextAlign.center, style: style);
   }
 }
 

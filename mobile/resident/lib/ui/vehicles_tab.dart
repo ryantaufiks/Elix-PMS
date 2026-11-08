@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api.dart';
 import '../models.dart';
 import '../session.dart';
+import 'paged_list.dart';
 import 'widgets.dart';
 
 class VehiclesTab extends StatefulWidget {
@@ -12,22 +13,9 @@ class VehiclesTab extends StatefulWidget {
 }
 
 class _VehiclesTabState extends State<VehiclesTab> {
-  List<Vehicle>? _items;
+  final _list = GlobalKey<PagedListState<Vehicle>>();
 
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final rows = await Api.instance.list('/v1/vehicles/?is_active=true&page_size=100');
-      if (mounted) setState(() => _items = rows.map(Vehicle.new).toList());
-    } catch (e) {
-      if (mounted) setState(() => _items = []);
-    }
-  }
+  void _load() => _list.currentState?.reload();
 
   Future<void> _add() async {
     final added = await showModalBottomSheet<bool>(context: context, isScrollControlled: true, builder: (_) => const _AddVehicleSheet());
@@ -59,28 +47,22 @@ class _VehiclesTabState extends State<VehiclesTab> {
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Vehicles')),
         floatingActionButton: FloatingActionButton.extended(onPressed: _add, icon: const Icon(Icons.add), label: const Text('Add vehicle')),
-        body: RefreshIndicator(
-          onRefresh: _load,
-          child: _items == null
-              ? const Center(child: CircularProgressIndicator())
-              : _items!.isEmpty
-                  ? ListView(children: const [EmptyState(icon: Icons.directions_car_outlined, text: 'Register your car so the barrier opens automatically.')])
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                      itemCount: _items!.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
-                      itemBuilder: (context, i) {
-                        final v = _items![i];
-                        return Card(
-                          child: ListTile(
-                            leading: const CircleAvatar(child: Icon(Icons.directions_car)),
-                            title: Text(v.plate, style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 1)),
-                            subtitle: Text([v.description, v.unitDisplay].where((s) => s.isNotEmpty).join(' · ')),
-                            trailing: IconButton(icon: const Icon(Icons.delete_outline), tooltip: 'Remove', onPressed: () => _remove(v)),
-                          ),
-                        );
-                      },
-                    ),
+        body: PagedList<Vehicle>(
+          key: _list,
+          path: '/v1/vehicles/?is_active=true',
+          parse: Vehicle.new,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+          empty: const EmptyState(icon: Icons.directions_car_outlined, text: 'Register your car so the barrier opens automatically.'),
+          itemBuilder: (context, v) {
+            return Card(
+              child: ListTile(
+                leading: const CircleAvatar(child: Icon(Icons.directions_car)),
+                title: Text(v.plate, style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 1)),
+                subtitle: Text([v.description, v.unitDisplay].where((s) => s.isNotEmpty).join(' · ')),
+                trailing: IconButton(icon: const Icon(Icons.delete_outline), tooltip: 'Remove', onPressed: () => _remove(v)),
+              ),
+            );
+          },
         ),
       );
 }

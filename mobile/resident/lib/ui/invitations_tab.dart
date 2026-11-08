@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import '../api.dart';
 import '../models.dart';
 import '../session.dart';
+import 'paged_list.dart';
 import 'widgets.dart';
 
 class InvitationsTab extends StatefulWidget {
@@ -13,27 +14,10 @@ class InvitationsTab extends StatefulWidget {
 }
 
 class _InvitationsTabState extends State<InvitationsTab> {
-  List<Invitation>? _items;
+  final _list = GlobalKey<PagedListState<Invitation>>();
   bool _showPast = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final status = _showPast ? '' : '&status=active';
-      final rows = await Api.instance.list('/v1/invitations/?ordering=-valid_from&page_size=100$status');
-      if (mounted) setState(() => _items = rows.map(Invitation.new).toList());
-    } catch (e) {
-      if (mounted) {
-        setState(() => _items = []);
-        showError(context, e);
-      }
-    }
-  }
+  Future<void> _load() async => _list.currentState?.reload();
 
   Future<void> _create() async {
     final created = await Navigator.of(context).push<Invitation>(MaterialPageRoute(builder: (_) => const CreateInvitationScreen(), fullscreenDialog: true));
@@ -46,39 +30,29 @@ class _InvitationsTabState extends State<InvitationsTab> {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Invitations'), actions: [
-          TextButton(onPressed: () => setState(() {
-                _showPast = !_showPast;
-                _items = null;
-                _load();
-              }), child: Text(_showPast ? 'Active only' : 'Show all')),
+          TextButton(onPressed: () => setState(() => _showPast = !_showPast), child: Text(_showPast ? 'Active only' : 'Show all')),
         ]),
         floatingActionButton: FloatingActionButton.extended(onPressed: _create, icon: const Icon(Icons.add), label: const Text('Invite visitor')),
-        body: RefreshIndicator(
-          onRefresh: _load,
-          child: _items == null
-              ? const Center(child: CircularProgressIndicator())
-              : _items!.isEmpty
-                  ? ListView(children: const [EmptyState(icon: Icons.confirmation_number_outlined, text: 'No invitations yet.\nInvite a visitor and share the QR code with them.')])
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                      itemCount: _items!.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
-                      itemBuilder: (context, i) {
-                        final inv = _items![i];
-                        return Card(
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                            title: Text(inv.visitorName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                            subtitle: Text('${purposeLabel[inv.purpose]} · ${formatDateTime(inv.validFrom)} → ${formatDateTime(inv.validUntil)}'),
-                            trailing: _statusChip(inv.status),
-                            onTap: () async {
-                              await Navigator.of(context).push(MaterialPageRoute(builder: (_) => InvitationDetailScreen(invitation: inv)));
-                              _load();
-                            },
-                          ),
-                        );
-                      },
-                    ),
+        body: PagedList<Invitation>(
+          key: _list,
+          path: '/v1/invitations/?ordering=-valid_from${_showPast ? '' : '&status=active'}',
+          parse: Invitation.new,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+          empty: const EmptyState(icon: Icons.confirmation_number_outlined, text: 'No invitations yet.\nInvite a visitor and share the QR code with them.'),
+          itemBuilder: (context, inv) {
+            return Card(
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                title: Text(inv.visitorName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text('${purposeLabel[inv.purpose]} · ${formatDateTime(inv.validFrom)} → ${formatDateTime(inv.validUntil)}'),
+                trailing: _statusChip(inv.status),
+                onTap: () async {
+                  await Navigator.of(context).push(MaterialPageRoute(builder: (_) => InvitationDetailScreen(invitation: inv)));
+                  _load();
+                },
+              ),
+            );
+          },
         ),
       );
 }

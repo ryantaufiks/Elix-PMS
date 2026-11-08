@@ -1,7 +1,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from . import amenity_views, auth_views, kiosk_views, report_views, views
+from . import amenity_views, auth_views, feed_views, kiosk_views, report_views, views
 
 router = DefaultRouter()
 router.register("condominiums", views.CondominiumViewSet)
@@ -41,7 +41,10 @@ urlpatterns = [
     path("payments/hitpay/return/", amenity_views.HitPayReturnView.as_view(), name="hitpay-return"),
     path("reports/", report_views.ReportCatalogView.as_view(), name="report-catalog"),
     path("reports/<slug:key>/", report_views.ReportView.as_view(), name="report"),
+    path("notifications/", feed_views.NotificationsView.as_view(), name="notifications"),
+    path("weather/", feed_views.WeatherView.as_view(), name="weather"),
     path("kiosk/me/", kiosk_views.KioskMeView.as_view(), name="kiosk-me"),
+    path("kiosk/weather/", kiosk_views.KioskWeatherView.as_view(), name="kiosk-weather"),
     path("kiosk/directory/", kiosk_views.DirectoryView.as_view(), name="kiosk-directory"),
     path("kiosk/calls/", kiosk_views.StartCallView.as_view(), name="kiosk-call-start"),
     path("kiosk/calls/<int:pk>/", kiosk_views.KioskCallView.as_view(), name="kiosk-call"),

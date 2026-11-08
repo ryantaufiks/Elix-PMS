@@ -8,6 +8,7 @@ import '../api.dart';
 import '../models.dart';
 import '../realtime.dart';
 import '../session.dart';
+import 'paged_list.dart';
 import 'widgets.dart';
 
 const facilityIcons = <String, IconData>{
@@ -58,77 +59,43 @@ class _FacilitiesScreenState extends State<FacilitiesScreen> {
       );
 }
 
-class _FacilityList extends StatefulWidget {
+class _FacilityList extends StatelessWidget {
   const _FacilityList({required this.onBooked});
   final VoidCallback onBooked;
-  @override
-  State<_FacilityList> createState() => _FacilityListState();
-}
-
-class _FacilityListState extends State<_FacilityList> with AutomaticKeepAliveClientMixin {
-  List<Facility>? _items;
-
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final rows = await Api.instance.list('/v1/facilities/?is_active=true&page_size=100');
-      if (mounted) setState(() => _items = rows.map(Facility.new).toList());
-    } catch (e) {
-      if (mounted) {
-        setState(() => _items = []);
-        showError(context, e);
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
-    if (_items == null) return const Center(child: CircularProgressIndicator());
     final outline = Theme.of(context).colorScheme.outline;
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: _items!.isEmpty
-          ? ListView(children: const [EmptyState(icon: Icons.event_busy, text: 'No facilities can be booked yet.')])
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: _items!.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
-              itemBuilder: (context, i) {
-                final f = _items![i];
-                return Card(
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: () async {
-                      final booked = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => BookFacilityScreen(facility: f)));
-                      if (booked == true) widget.onBooked();
-                    },
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      if (f.hasImage) SizedBox(height: 140, width: double.infinity, child: AuthImage('/v1/facilities/${f.id}/photo/')),
-                      ListTile(
-                        contentPadding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
-                        leading: CircleAvatar(
-                          backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
-                          child: Icon(facilityIcons[f.icon] ?? Icons.event_available_rounded, color: Theme.of(context).colorScheme.primary),
-                        ),
-                        title: Text(f.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: Text([f.location, '${f.opensAt}–${f.closesAt}'].where((s) => s.isNotEmpty).join(' · '),
-                            style: TextStyle(color: outline)),
-                        trailing: Text(f.priceLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
-                      ),
-                    ]),
-                  ),
-                );
-              },
-            ),
+    return PagedList<Facility>(
+      path: '/v1/facilities/?is_active=true',
+      parse: Facility.new,
+      spacing: 12,
+      empty: const EmptyState(icon: Icons.event_busy, text: 'No facilities can be booked yet.'),
+      itemBuilder: (context, f) {
+        return Card(
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () async {
+              final booked = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => BookFacilityScreen(facility: f)));
+              if (booked == true) onBooked();
+            },
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (f.hasImage) SizedBox(height: 140, width: double.infinity, child: AuthImage('/v1/facilities/${f.id}/photo/')),
+              ListTile(
+                contentPadding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+                leading: CircleAvatar(
+                  backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+                  child: Icon(facilityIcons[f.icon] ?? Icons.event_available_rounded, color: Theme.of(context).colorScheme.primary),
+                ),
+                title: Text(f.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text([f.location, '${f.opensAt}–${f.closesAt}'].where((s) => s.isNotEmpty).join(' · '),
+                    style: TextStyle(color: outline)),
+                trailing: Text(f.priceLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
+              ),
+            ]),
+          ),
+        );
+      },
     );
   }
 }
@@ -446,12 +413,9 @@ class _MyBookings extends StatefulWidget {
   State<_MyBookings> createState() => _MyBookingsState();
 }
 
-class _MyBookingsState extends State<_MyBookings> with AutomaticKeepAliveClientMixin {
-  List<Booking>? _items;
+class _MyBookingsState extends State<_MyBookings> {
+  final _list = GlobalKey<PagedListState<Booking>>();
   StreamSubscription? _events;
-
-  @override
-  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -468,14 +432,7 @@ class _MyBookingsState extends State<_MyBookings> with AutomaticKeepAliveClientM
     super.dispose();
   }
 
-  Future<void> _load() async {
-    try {
-      final rows = await Api.instance.list('/v1/bookings/?ordering=-starts_at&page_size=100');
-      if (mounted) setState(() => _items = rows.map(Booking.new).toList());
-    } catch (e) {
-      if (mounted) setState(() => _items = []);
-    }
-  }
+  void _load() => _list.currentState?.reload();
 
   Future<void> _pay(Booking b) async {
     try {
@@ -515,61 +472,54 @@ class _MyBookingsState extends State<_MyBookings> with AutomaticKeepAliveClientM
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
-    if (_items == null) return const Center(child: CircularProgressIndicator());
     final outline = Theme.of(context).colorScheme.outline;
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: _items!.isEmpty
-          ? ListView(children: const [EmptyState(icon: Icons.event_note, text: 'Your bookings appear here.')])
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: _items!.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 8),
-              itemBuilder: (context, i) {
-                final b = _items![i];
-                final color = switch (b.status) {
-                  'confirmed' => const Color(0xFF16A34A),
-                  'pending_payment' => const Color(0xFFD97706),
-                  _ => const Color(0xFF64748B),
-                };
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(children: [
-                        Icon(facilityIcons[b.facilityIcon] ?? Icons.event_available_rounded, color: Theme.of(context).colorScheme.primary),
-                        const SizedBox(width: 10),
-                        Expanded(child: Text(b.facilityName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16))),
-                        StatusChip(b.statusDisplay, color: color),
-                      ]),
-                      const SizedBox(height: 8),
-                      Text('${formatDateTime(b.startsAt)} – ${_hm.format(b.endsAt)} · ${b.guests} people'),
-                      Text(
-                        [b.unitDisplay, if (b.amount > 0) '${_money(b.amount, b.currency)} (${b.paymentStatusDisplay.toLowerCase()})'].join(' · '),
-                        style: TextStyle(color: outline, fontSize: 13),
+    return PagedList<Booking>(
+      key: _list,
+      path: '/v1/bookings/?ordering=-starts_at',
+      parse: Booking.new,
+      empty: const EmptyState(icon: Icons.event_note, text: 'Your bookings appear here.'),
+      itemBuilder: (context, b) {
+        final color = switch (b.status) {
+          'confirmed' => const Color(0xFF16A34A),
+          'pending_payment' => const Color(0xFFD97706),
+          _ => const Color(0xFF64748B),
+        };
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Icon(facilityIcons[b.facilityIcon] ?? Icons.event_available_rounded, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 10),
+                Expanded(child: Text(b.facilityName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16))),
+                StatusChip(b.statusDisplay, color: color),
+              ]),
+              const SizedBox(height: 8),
+              Text('${formatDateTime(b.startsAt)} – ${_hm.format(b.endsAt)} · ${b.guests} people'),
+              Text(
+                [b.unitDisplay, if (b.amount > 0) '${_money(b.amount, b.currency)} (${b.paymentStatusDisplay.toLowerCase()})'].join(' · '),
+                style: TextStyle(color: outline, fontSize: 13),
+              ),
+              if (b.cancelReason.isNotEmpty) Text(b.cancelReason, style: TextStyle(color: outline, fontSize: 13)),
+              if (b.awaitingPayment || b.canCancel)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                    if (b.canCancel) TextButton(onPressed: () => _cancel(b), child: const Text('Cancel')),
+                    if (b.awaitingPayment) ...[
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
+                        onPressed: () => _pay(b),
+                        child: const Text('Pay now'),
                       ),
-                      if (b.cancelReason.isNotEmpty) Text(b.cancelReason, style: TextStyle(color: outline, fontSize: 13)),
-                      if (b.awaitingPayment || b.canCancel)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                            if (b.canCancel) TextButton(onPressed: () => _cancel(b), child: const Text('Cancel')),
-                            if (b.awaitingPayment) ...[
-                              const SizedBox(width: 8),
-                              FilledButton(
-                                style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
-                                onPressed: () => _pay(b),
-                                child: const Text('Pay now'),
-                              ),
-                            ],
-                          ]),
-                        ),
-                    ]),
-                  ),
-                );
-              },
-            ),
+                    ],
+                  ]),
+                ),
+            ]),
+          ),
+        );
+      },
     );
   }
 }

@@ -39,6 +39,25 @@ export async function kioskApi<T>(path: string, options: { method?: string; body
   return data as T;
 }
 
+export type Weather = {
+  temperature: number | null;
+  humidity: number | null;
+  forecast: string;
+  area: string;
+  station: string;
+  valid: string;
+  updated_at: string;
+};
+
+/** Icon for an NEA 2-hour outlook ("Thundery Showers", "Partly Cloudy (Night)"…). */
+export function weatherIcon(forecast: string): "storm" | "rain" | "cloud" | "moon" | "sun" {
+  const f = forecast.toLowerCase();
+  if (f.includes("thunder")) return "storm";
+  if (f.includes("rain") || f.includes("shower")) return "rain";
+  if (["cloud", "haz", "mist", "fog", "wind"].some((w) => f.includes(w))) return "cloud";
+  return f.includes("night") ? "moon" : "sun";
+}
+
 export type KioskSelf = {
   id: number;
   name: string;

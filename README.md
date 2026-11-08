@@ -113,6 +113,7 @@ answers (video) and **swipes to unlock**, which opens the kiosk's gate.
 | Who | Call | Purpose |
 |---|---|---|
 | Kiosk | `GET /v1/kiosk/me/` | Config + heartbeat |
+| Kiosk | `GET /v1/kiosk/weather/` | Temperature and 2-hour outlook shown under the date |
 | Kiosk | `GET /v1/kiosk/directory/?q=05-12` | Units that take calls (no resident names) |
 | Kiosk | `POST /v1/kiosk/calls/` (`unit`, `visitor_name`, `snapshot` image) | Ring; returns LiveKit `url/room/token` |
 | Kiosk | `GET /v1/kiosk/calls/{id}/`, `POST …/hangup/` | Poll state / cancel |
@@ -242,6 +243,24 @@ breakdown appear).
 gate calls (native full-screen ringing when the app is closed, in-app screen with the visitor's photo
 when open), video with the kiosk, **swipe to open**, invite visitors and share the QR pass, register
 vehicles, and see the unit's recent entries. Staff use the web dashboard instead.
+
+The sign-in screen has a slowly drifting blue glow behind it (still when the phone's *Remove
+animations* setting is on). The home header shows the **weather** at the condo next to the resident's
+name and a **bell** with the number of new notifications. Every list in the app (activity, visitors,
+facilities, bookings, feedback, invitations, vehicles, notifications) is paged: 10 per page with
+*‹ Page 2 of 5 ›* underneath.
+
+- **Notifications** (`GET /v1/notifications/`): the last 30 days at the resident's units, one entry
+  per event: a visitor arrived or left, a gate opened or refused entry (the resident's own plate, app
+  or security; openings that belong to a call or an invitation are told by the visit), a missed visitor
+  call, a booking confirmed, cancelled or expired, and the management's reply to their feedback.
+  Opening the bell marks them read on that phone.
+- **Weather** (`GET /v1/weather/?condominium=`, kiosk: `GET /v1/kiosk/weather/`): NEA's realtime
+  readings on data.gov.sg (collection 1459): air temperature and humidity from the station nearest
+  the condo, and the 2-hour outlook of the nearest area. The condo is located from its postal code
+  with OneMap (cached for 30 days; no postal code means the centre of Singapore). Readings are cached
+  for 5 minutes on the server, so phones and kiosks never call data.gov.sg themselves; set
+  `DATA_GOV_SG_API_KEY` for a higher rate limit. When NEA is unreachable the weather is simply hidden.
 
 The home screen has four menu cards above the unit's recent activity (the latest 5; *See all* opens
 the full history):

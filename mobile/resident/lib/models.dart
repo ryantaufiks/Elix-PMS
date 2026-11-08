@@ -193,3 +193,24 @@ const feedbackCategories = {
   'security': 'Security', 'cleanliness': 'Cleanliness', 'facilities': 'Facilities', 'maintenance': 'Maintenance',
   'management': 'Management office', 'app': 'Elix app', 'other': 'Other',
 };
+
+/// One entry of the resident's notification feed (/v1/notifications/).
+class NotificationItem {
+  NotificationItem(this.json);
+  final Map<String, dynamic> json;
+  String get id => json['id'] as String;
+  String get kind => json['kind'] as String;
+  String get title => json['title'] as String;
+  String get body => json['body'] as String? ?? '';
+  DateTime get at => DateTime.parse(json['at'] as String).toLocal();
+}
+
+/// Current weather at the condo (NEA via the server).
+class Weather {
+  Weather(this.json);
+  final Map<String, dynamic> json;
+  double? get temperature => (json['temperature'] as num?)?.toDouble();
+  double? get humidity => (json['humidity'] as num?)?.toDouble();
+  String get forecast => json['forecast'] as String? ?? '';
+  String get area => json['area'] as String? ?? '';
+}

@@ -926,3 +926,29 @@ class FeedbackSummarySerializer(serializers.Serializer):
     average = serializers.FloatField(allow_null=True)
     by_rating = serializers.DictField(child=serializers.IntegerField())
     open = serializers.IntegerField()
+
+
+# --- Resident feed & weather ---------------------------------------------------
+
+class NotificationSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    kind = serializers.CharField(help_text="visit_in, visit_out, gate_open, gate_denied, call_missed, booking_confirmed, "
+                                           "booking_cancelled, booking_expired or feedback_reply")
+    title = serializers.CharField()
+    body = serializers.CharField()
+    at = serializers.DateTimeField()
+
+
+class NotificationPageSerializer(serializers.Serializer):
+    count = serializers.IntegerField()
+    results = NotificationSerializer(many=True)
+
+
+class WeatherSerializer(serializers.Serializer):
+    temperature = serializers.FloatField(allow_null=True, help_text="°C at the nearest NEA station")
+    humidity = serializers.FloatField(allow_null=True, help_text="Relative humidity, %")
+    forecast = serializers.CharField(help_text="2-hour outlook, e.g. Partly Cloudy (Day), Thundery Showers")
+    area = serializers.CharField()
+    station = serializers.CharField()
+    valid = serializers.CharField(help_text="Period of the outlook, e.g. 10.30 pm to 12.30 am")
+    updated_at = serializers.DateTimeField()

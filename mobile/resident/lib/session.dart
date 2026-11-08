@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'api.dart';
 import 'models.dart';
+import 'notifications.dart';
 import 'push.dart';
 import 'realtime.dart';
 
@@ -67,6 +68,7 @@ class Session extends ChangeNotifier {
     await Push.instance.unregister();
     Realtime.instance.stop();
     await Api.instance.signOut();
+    NotificationCenter.instance.reset();
     me = null;
     notifyListeners();
   }

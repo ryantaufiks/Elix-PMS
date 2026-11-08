@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../api.dart';
 import '../calls.dart';
 import '../models.dart';
+import '../notifications.dart';
 import '../realtime.dart';
 import '../session.dart';
 import '../theme.dart';
@@ -12,7 +13,9 @@ import 'access_screen.dart';
 import 'activity_screen.dart';
 import 'facilities_screen.dart';
 import 'feedback_screen.dart';
+import 'notifications_screen.dart';
 import 'visitors_screen.dart';
+import 'weather_badge.dart';
 import 'widgets.dart';
 
 /// Recent activity shown on the home screen; the rest is under "See all".
@@ -28,6 +31,7 @@ class _HomeTabState extends State<HomeTab> {
   List<AccessEntry>? _activity;
   List<IntercomCall> _ringing = [];
   StreamSubscription? _sub;
+  final _weather = GlobalKey<WeatherBadgeState>();
 
   @override
   void initState() {
@@ -35,6 +39,7 @@ class _HomeTabState extends State<HomeTab> {
     _load();
     _sub = Realtime.instance.events.listen((event) {
       if (event['type'] == 'access_log' || event['type'] == 'intercom_call') _load();
+      if (event['type'] == 'booking') NotificationCenter.instance.refresh();
     });
   }
 
@@ -45,6 +50,8 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   Future<void> _load() async {
+    NotificationCenter.instance.refresh();
+    _weather.currentState?.refresh();
     try {
       final logs = await Api.instance.list('/v1/access-logs/?page_size=$_recent');
       final calls = await Api.instance.list('/v1/intercom-calls/?status=ringing');
@@ -79,11 +86,23 @@ class _HomeTabState extends State<HomeTab> {
               borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Image.asset('assets/elix-logo.png', height: 26),
-              const SizedBox(height: 24),
-              Text('$greeting,', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 16)),
-              Text(me.firstName.isEmpty ? me.displayName : me.firstName,
-                  style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w600)),
+              Row(children: [
+                Image.asset('assets/elix-logo.png', height: 26),
+                const Spacer(),
+                _Bell(onTap: () => _open(const NotificationsScreen())),
+              ]),
+              const SizedBox(height: 16),
+              Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('$greeting,', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 16)),
+                    Text(me.firstName.isEmpty ? me.displayName : me.firstName,
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w600)),
+                  ]),
+                ),
+                if (me.residencies.isNotEmpty) WeatherBadge(key: _weather, condominium: me.residencies.first.condominium),
+              ]),
               const SizedBox(height: 16),
               Wrap(spacing: 8, runSpacing: 8, children: [
                 for (final r in me.residencies)
@@ -163,6 +182,32 @@ class _HomeTabState extends State<HomeTab> {
       ]),
     );
   }
+}
+
+/// Bell with the number of new notifications.
+class _Bell extends StatelessWidget {
+  const _Bell({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: NotificationCenter.instance,
+        builder: (context, _) {
+          final center = NotificationCenter.instance;
+          final unread = center.unread;
+          return IconButton(
+            tooltip: unread == 0 ? 'Notifications' : '$unread new notifications',
+            onPressed: onTap,
+            style: IconButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: 0.1)),
+            icon: Badge(
+              isLabelVisible: unread > 0,
+              backgroundColor: const Color(0xFFEF4444),
+              label: Text(center.more ? '$unread+' : '$unread'),
+              child: const Icon(Icons.notifications_none_rounded, color: Colors.white),
+            ),
+          );
+        },
+      );
 }
 
 class _MenuCard extends StatelessWidget {

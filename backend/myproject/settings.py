@@ -217,6 +217,9 @@ INTERCOM_UNLOCK_WINDOW_SECONDS = env.int("INTERCOM_UNLOCK_WINDOW_SECONDS", defau
 # mounted into the containers; leave blank to disable push.
 FCM_SERVICE_ACCOUNT_FILE = env("FCM_SERVICE_ACCOUNT_FILE", default="")
 
+# Weather from NEA's realtime readings on data.gov.sg. Works without a key; a key raises the rate limit.
+DATA_GOV_SG_API_KEY = env("DATA_GOV_SG_API_KEY", default="")
+
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": REDIS_URL}}
 
 if not DEBUG:

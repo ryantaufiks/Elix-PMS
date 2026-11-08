@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../session.dart';
 import '../theme.dart';
+import 'aurora.dart';
 import 'widgets.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -36,10 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: navyDeep,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(center: Alignment(0, -0.6), radius: 1.1, colors: [Color(0xFF1B3B8F), navy, navyDeep]),
-        ),
+      body: AuroraBackground(
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -49,7 +47,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   Image.asset('assets/elix-logo.png', height: 56),
                   const SizedBox(height: 12),
-                  const Text('Resident', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF94A3B8), letterSpacing: 3)),
+                  const Text('Engage Link Identified Experience', textAlign: TextAlign.center,
+                      style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, letterSpacing: 1.6)),
                   const SizedBox(height: 40),
                   Card(
                     child: Padding(

@@ -10,10 +10,11 @@ import { ApiError, wsUrl } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import {
   type CheckInResult, type DirectoryUnit, isWalkInCode, kioskApi, type KioskSelf, kioskToken, PURPOSES, type VisitorDetails,
-  type VisitorLookup, type VisitorPass, type WalkInCheckOut, type WalkInSlip,
+  type VisitorLookup, type VisitorPass, type WalkInCheckOut, type WalkInSlip, type Weather, weatherIcon,
 } from "@/lib/kiosk";
 import type { IntercomCall, LiveKitConnection } from "@/lib/types";
 import { Credit } from "@/components/Credit";
+import { Icon } from "@/components/icons";
 import { PrintSlip } from "@/components/PrintSlip";
 import { describeLive, describePhoto, loadFace } from "@/lib/face";
 
@@ -132,8 +133,29 @@ function BigButton({ onClick, children, tone = "primary", disabled }: { onClick:
   );
 }
 
+// One reading shared by every screen; the server refreshes it from NEA every 5 minutes.
+let weatherCache: { at: number; data: Weather | null } | null = null;
+
+function useWeather(enabled: boolean) {
+  const [data, setData] = useState<Weather | null>(weatherCache?.data ?? null);
+  useEffect(() => {
+    if (!enabled) return;
+    const load = () => {
+      if (weatherCache && Date.now() - weatherCache.at < 10 * 60_000) return setData(weatherCache.data);
+      kioskApi<Weather>("/v1/kiosk/weather/")
+        .then((w) => { weatherCache = { at: Date.now(), data: w }; setData(w); })
+        .catch(() => { weatherCache = { at: Date.now(), data: null }; setData(null); });
+    };
+    load();
+    const id = setInterval(load, 10 * 60_000);
+    return () => clearInterval(id);
+  }, [enabled]);
+  return data;
+}
+
 function Frame({ kiosk, children, onBack }: { kiosk: KioskSelf | null; children: React.ReactNode; onBack?: () => void }) {
   const [now, setNow] = useState(() => new Date());
+  const weather = useWeather(!!kiosk);
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 15_000);
     return () => clearInterval(id);
@@ -148,6 +170,13 @@ function Frame({ kiosk, children, onBack }: { kiosk: KioskSelf | null; children:
           <div className="text-sm text-slate-400">
             {new Intl.DateTimeFormat("en-SG", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Singapore" }).format(now)}
           </div>
+          {weather?.temperature != null && (
+            <div className="mt-1 flex items-center justify-end gap-2 text-sm text-slate-300" title={`${weather.station} · NEA`}>
+              <Icon name={weatherIcon(weather.forecast)} className="h-5 w-5 text-primary-300" />
+              <span className="text-base font-semibold text-white">{Math.round(weather.temperature)}°C</span>
+              <span>{weather.forecast}</span>
+            </div>
+          )}
         </div>
       </header>
       <main className="flex flex-1 flex-col items-center justify-center px-8 pb-10">{children}</main>
