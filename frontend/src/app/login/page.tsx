@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { Button, ErrorNote, Field, Input } from "@/components/ui";
 import { login, tokens } from "@/lib/api";
+import { Credit } from "@/components/Credit";
 
 function nextPath(): string {
   const next = new URLSearchParams(window.location.search).get("next") ?? "/";
@@ -53,6 +54,7 @@ export default function LoginPage() {
             <Button type="submit" variant="primary" size="lg" className="w-full" busy={busy}>Sign in</Button>
           </form>
           <p className="mt-8 text-xs text-muted">Residents: please use the Elix mobile app.</p>
+          <Credit className="mt-10 lg:hidden" />
         </div>
       </div>
       <div className="brand-panel relative hidden flex-col justify-between overflow-hidden p-14 text-white lg:flex">
@@ -73,7 +75,7 @@ export default function LoginPage() {
             ))}
           </ul>
         </div>
-        <p className="relative text-xs text-slate-500">© Elix PMS</p>
+        <Credit tone="dark" align="left" className="relative" />
       </div>
     </main>
   );

@@ -25,6 +25,18 @@ void showMessage(BuildContext context, String message) {
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), behavior: SnackBarBehavior.floating));
 }
 
+/// "Supported by … / © 2026" line shown at the foot of the login and profile screens.
+class Credit extends StatelessWidget {
+  const Credit({super.key, this.color});
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(color: color ?? Theme.of(context).colorScheme.outline, fontSize: 12, height: 1.5);
+    return Text('Supported by Smart City Technologies Pte Ltd\n© 2026 Elix PMS. All rights reserved.', textAlign: TextAlign.center, style: style);
+  }
+}
+
 /// Image from an endpoint that needs the JWT (QR codes, visitor snapshots).
 class AuthImage extends StatefulWidget {
   const AuthImage(this.path, {super.key, this.fit = BoxFit.cover});

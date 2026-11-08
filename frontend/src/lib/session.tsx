@@ -7,6 +7,7 @@ import { api, LOGOUT_EVENT, logout as clearTokens, tokens } from "./api";
 import { Onboarding } from "@/components/Onboarding";
 
 import type { Condominium, Me, Page, Role } from "./types";
+import { Credit } from "@/components/Credit";
 
 type Session = {
   me: Me;
@@ -144,8 +145,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
 function Centered({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
+    <div className="relative flex min-h-screen flex-col items-center justify-center px-4">
       <div className="max-w-sm text-center">{children}</div>
+      <Credit className="absolute inset-x-0 bottom-6" />
     </div>
   );
 }

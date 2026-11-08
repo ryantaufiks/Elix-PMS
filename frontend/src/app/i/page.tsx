@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 
 import type { VisitorPass } from "@/lib/kiosk";
+import { Credit } from "@/components/Credit";
 
 const when = new Intl.DateTimeFormat("en-SG", {
   weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Singapore",
@@ -83,6 +84,7 @@ export default function VisitorPassPage() {
           </details>
         )}
         <p className="mt-6 text-center text-xs text-muted">Keep this link private: anyone with it can use your invitation.</p>
+        <Credit className="mt-8" />
       </main>
     </div>
   );

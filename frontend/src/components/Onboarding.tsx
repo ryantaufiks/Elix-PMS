@@ -8,6 +8,7 @@ import type { Condominium } from "@/lib/types";
 
 import { FormFields, initialValues } from "./forms";
 import { Button, ErrorNote } from "./ui";
+import { Credit } from "./Credit";
 
 /** First run for the platform administrator: create the first condominium without leaving the dashboard. */
 export function Onboarding({ onCreated, onLogout }: { onCreated: (id: number) => void; onLogout: () => void }) {
@@ -51,6 +52,7 @@ export function Onboarding({ onCreated, onLogout }: { onCreated: (id: number) =>
             <Button type="submit" variant="primary" busy={busy}>Create condominium</Button>
           </div>
         </form>
+        <Credit className="mt-8" />
       </div>
     </div>
   );

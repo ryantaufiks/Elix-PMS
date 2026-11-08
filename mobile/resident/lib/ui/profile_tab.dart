@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../config.dart';
 import '../push.dart';
 import '../session.dart';
+import 'widgets.dart';
 
 class ProfileTab extends StatelessWidget {
   const ProfileTab({super.key});
@@ -53,6 +54,8 @@ class ProfileTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Center(child: Text('Elix $appVersion · $apiBase', style: TextStyle(color: outline, fontSize: 12))),
+        const SizedBox(height: 12),
+        const Credit(),
       ]),
     );
   }

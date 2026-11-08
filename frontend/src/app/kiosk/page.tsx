@@ -12,6 +12,7 @@ import {
   type VisitorPass,
 } from "@/lib/kiosk";
 import type { IntercomCall, LiveKitConnection } from "@/lib/types";
+import { Credit } from "@/components/Credit";
 
 type Outcome = { tone: "good" | "bad" | "info"; title: string; detail?: string };
 type Screen =
@@ -143,11 +144,13 @@ function Frame({ kiosk, children, onBack }: { kiosk: KioskSelf | null; children:
         </div>
       </header>
       <main className="flex flex-1 flex-col items-center justify-center px-8 pb-10">{children}</main>
-      {onBack && (
-        <footer className="px-8 pb-8">
-          <button onClick={onBack} className="rounded-xl border border-white/15 px-6 py-3 text-lg text-slate-300 hover:bg-white/5">← Back</button>
-        </footer>
-      )}
+      <div className="flex items-end justify-between gap-6 px-8 pb-6">
+        <div className="min-w-0 flex-1">
+          {onBack && <button onClick={onBack} className="rounded-xl border border-white/15 px-6 py-3 text-lg text-slate-300 hover:bg-white/5">← Back</button>}
+        </div>
+        <Credit tone="dark" className="shrink-0" />
+        <div className="flex-1" />
+      </div>
     </div>
   );
 }

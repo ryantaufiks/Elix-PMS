@@ -15,6 +15,7 @@ import { Icon, type IconName } from "./icons";
 import { useTheme } from "@/lib/theme";
 
 import { cx } from "./ui";
+import { Credit } from "./Credit";
 
 type NavItem = { href: string; label: string; icon: IconName; admin?: boolean; superuser?: boolean };
 const NAV: { title: string; items: NavItem[] }[] = [
@@ -202,7 +203,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
         <IncomingCalls />
-        <main className="mx-auto max-w-7xl px-4 pb-12 pt-6 sm:px-8 sm:pt-8">{children}</main>
+        <main className="mx-auto max-w-7xl px-4 pb-10 pt-6 sm:px-8 sm:pt-8">{children}</main>
+        <Credit className="border-t border-line px-4 py-5" />
       </div>
     </div>
   );
