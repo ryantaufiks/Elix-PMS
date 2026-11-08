@@ -726,7 +726,7 @@ function PassView({ kiosk, slip, title, autoPrint, onDone }: {
   const [printing, setPrinting] = useState(autoPrint);
   const [printed, setPrinted] = useState(false);
   // Back to the welcome screen on its own, soon, so the next person cannot read someone else's pass.
-  const seconds = 15;
+  const seconds = 25;
   const [left, setLeft] = useState(seconds);
 
   useEffect(() => {
@@ -773,11 +773,13 @@ function PassView({ kiosk, slip, title, autoPrint, onDone }: {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={slip.qr} alt={`QR code for pass ${slip.pass_number}`} className="h-72 w-72 rounded-2xl bg-white p-3" />
           {slip.pin && (
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center gap-2">
               <span className="text-lg text-slate-400">PIN</span>
-              {slip.pin.split("").map((d, i) => (
-                <span key={i} className="flex h-16 w-14 items-center justify-center rounded-xl border border-white/20 bg-white/10 font-mono text-4xl font-bold">{d}</span>
-              ))}
+              <div className="flex gap-3">
+                {slip.pin.split("").map((d, i) => (
+                  <span key={i} className="flex h-16 w-14 items-center justify-center rounded-xl border border-white/20 bg-white/10 font-mono text-4xl font-bold">{d}</span>
+                ))}
+              </div>
             </div>
           )}
         </div>

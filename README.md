@@ -154,7 +154,7 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
   (matched on the kiosk PC, optional per site). PINs are meant for unit access control later too.
 - **After a resident opens the gate** (Call a resident), the kiosk shows the visitor's pass: pass
   number, QR and the PIN under it, with a reminder to photograph or screenshot it for check-out, and a
-  *Print slip* button when the kiosk has a printer. Pass screens return to the start after 15 seconds
+  *Print slip* button when the kiosk has a printer. Pass screens return to the start after 25 seconds
   so the next visitor cannot read them.
 - **Visitor list:** every way in records a *visit* with the same daily pass number series: kiosk
   walk-ins, walk-ins registered by security, invitation check-ins (QR at the kiosk or plate at an LPR
