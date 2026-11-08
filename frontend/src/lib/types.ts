@@ -52,25 +52,6 @@ export type Condominium = {
   visitor_privacy_notice: string;
 };
 
-export type Visitor = {
-  id: number;
-  condominium: number;
-  full_name: string;
-  phone: string;
-  id_partial: string;
-  company: string;
-  face_consent_at: string | null;
-  last_visit_at: string | null;
-  /** From their latest visit. */
-  last_check_in: string | null;
-  last_check_out: string | null;
-  on_site: boolean;
-  visit_count: number;
-  is_blacklisted: boolean;
-  blacklist_reason: string;
-  created_at: string;
-};
-
 export type Block = { id: number; condominium: number; name: string };
 
 export type ManagedUser = UserSummary & {
@@ -293,6 +274,7 @@ export type Visit = {
   visitor: number | null;
   visitor_name: string;
   visitor_phone: string;
+  visitor_blocked: boolean;
   purpose: string;
   company: string;
   vehicle_plate: string;

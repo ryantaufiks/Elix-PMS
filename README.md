@@ -175,8 +175,8 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
   camera; re-entries the same day reuse the visit, and an exit camera checks the vehicle out) and
   gates opened over the intercom. Security can print any visit's slip from the dashboard (the
   guardhouse PC's default printer), add notes and check visitors out one by one or in bulk. The PIN of
-  visitors on site is shown under the pass number (and is searchable). *Visitor records* (Community)
-  shows each person's last check-in and check-out, and *Visits* opens their full history.
+  visitors on site is shown under the pass number (and is searchable). From the same row security can
+  block or unblock the visitor, and admins can erase their data for a PDPA deletion request.
 - **Slip printer:** connect the receipt printer to the kiosk PC, make it the default printer with a
   58 mm roll paper size, and start Chrome with `--kiosk --kiosk-printing` so slips print without a
   dialog. A kiosk without a printer (Gates & devices → Kiosks → untick *Receipt printer connected*)

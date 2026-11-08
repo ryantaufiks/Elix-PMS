@@ -36,7 +36,6 @@ const NAV: { title: string; items: NavItem[] }[] = [
     title: "Community",
     items: [
       { href: "/residents/", label: "Residents", icon: "users" },
-      { href: "/visitors/", label: "Visitor records", icon: "idcard" },
       { href: "/vehicles/", label: "Vehicles", icon: "car" },
       { href: "/feedback/", label: "Feedback", icon: "star" },
       { href: "/staff/", label: "Staff", icon: "shield", admin: true },

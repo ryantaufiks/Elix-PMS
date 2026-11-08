@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -230,34 +230,13 @@ class KioskSerializer(ModelCleanSerializer):
 # --- Visitors & access -------------------------------------------------------
 
 class VisitorSerializer(ModelCleanSerializer):
-    """``last_check_in`` / ``last_check_out`` / ``on_site`` come from their latest visit (see VisitorViewSet)."""
-
-    last_check_in = serializers.SerializerMethodField()
-    last_check_out = serializers.SerializerMethodField()
-    on_site = serializers.SerializerMethodField()
-    visit_count = serializers.SerializerMethodField()
-
     class Meta:
         model = m.Visitor
         fields = [
             "id", "condominium", "full_name", "phone", "id_partial", "company", "face_consent_at", "last_visit_at",
-            "last_check_in", "last_check_out", "on_site", "visit_count", "is_blacklisted", "blacklist_reason",
-            "created_by", "created_at",
+            "is_blacklisted", "blacklist_reason", "created_by", "created_at",
         ]
         read_only_fields = ["created_by", "face_consent_at", "last_visit_at"]
-
-    def get_last_check_in(self, obj) -> datetime | None:
-        return getattr(obj, "last_check_in", None)
-
-    def get_last_check_out(self, obj) -> datetime | None:
-        return getattr(obj, "last_check_out", None)
-
-    def get_on_site(self, obj) -> bool:
-        until = getattr(obj, "last_valid_until", None)
-        return bool(until and not getattr(obj, "last_check_out", None) and until >= timezone.now())
-
-    def get_visit_count(self, obj) -> int:
-        return getattr(obj, "visit_count", 0) or 0
 
 
 class InvitationSerializer(ModelCleanSerializer):
@@ -385,12 +364,13 @@ class VisitSerializer(ModelCleanSerializer):
     visitor_phone = serializers.SerializerMethodField()
     created_by_name = serializers.SerializerMethodField()
     checked_out_by_name = serializers.SerializerMethodField()
+    visitor_blocked = serializers.BooleanField(source="visitor.is_blacklisted", read_only=True, default=False)
 
     class Meta:
         model = m.Visit
         fields = [
             "id", "condominium", "unit", "unit_display", "source", "source_display", "kiosk", "kiosk_name", "gate",
-            "gate_name", "invitation", "intercom_call", "visitor", "visitor_name", "visitor_phone", "purpose", "company",
+            "gate_name", "invitation", "intercom_call", "visitor", "visitor_name", "visitor_phone", "visitor_blocked", "purpose", "company",
             "vehicle_plate", "notes", "has_snapshot", "pass_number", "pin", "issued_on", "valid_until", "state",
             "checked_out_at", "checked_out_by", "checked_out_by_name", "created_by", "created_by_name", "created_at",
         ]

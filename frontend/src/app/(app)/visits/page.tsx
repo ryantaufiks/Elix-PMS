@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 
 import { AuthImage, SearchInput, UnitPicker } from "@/components/bits";
-import { ConfirmDialog, EntityModal, Tabs } from "@/components/forms";
+import { ConfirmDialog, EntityModal, remove, Tabs } from "@/components/forms";
 import { Icon } from "@/components/icons";
 import { PrintSlip } from "@/components/PrintSlip";
 import {
@@ -37,7 +37,7 @@ const SOURCES = [
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Singapore" }).format(new Date());
 
 export default function VisitsPage() {
-  const { condo } = useSession();
+  const { condo, isAdmin } = useSession();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>("on_site");
   const [search, setSearch] = useState("");
@@ -49,6 +49,8 @@ export default function VisitsPage() {
   const [photo, setPhoto] = useState<Visit | null>(null);
   const [editing, setEditing] = useState<Visit | null>(null);
   const [leaving, setLeaving] = useState<Visit[] | null>(null);
+  const [blocking, setBlocking] = useState<Visit | null>(null);
+  const [erasing, setErasing] = useState<Visit | null>(null);
   const [registering, setRegistering] = useState(false);
   const [slip, setSlip] = useState<WalkInSlip | null>(null);
 
@@ -90,7 +92,7 @@ export default function VisitsPage() {
     <>
       <PageHeader
         title="Visitor list"
-        description="Everyone who came in: kiosk and guardhouse walk-ins, invitations and intercom. Check out visitors who leave without scanning their slip."
+        description={`Everyone who came in: kiosk and guardhouse walk-ins, invitations and intercom. Visitor details are deleted ${condo.visitor_data_retention_days} days after their last visit (PDPA), except blocked visitors.`}
         action={<Button variant="primary" onClick={() => setRegistering(true)}>Register visitor</Button>}
       />
       <Card>
@@ -156,7 +158,7 @@ export default function VisitsPage() {
                         </button>
                       ) : <span className="h-10 w-10 shrink-0 rounded-md bg-surface-3" />}
                       <div className="min-w-0">
-                        <div className="font-medium text-ink">{v.visitor_name}</div>
+                        <div className="font-medium text-ink">{v.visitor_name}{v.visitor_blocked && <span className="ml-2"><Badge tone="red">Blocked</Badge></span>}</div>
                         <div className="text-xs text-muted">{[visitPurpose(v.purpose, v.company), v.visitor_phone, v.vehicle_plate].filter(Boolean).join(" · ")}</div>
                         {v.notes && <div className="mt-1 max-w-xs whitespace-pre-line text-xs italic text-body">{v.notes}</div>}
                       </div>
@@ -181,6 +183,12 @@ export default function VisitsPage() {
                     <div className="inline-flex items-center gap-0.5">
                       <IconButton label="Print slip" onClick={() => print(v)}><Icon name="printer" className="h-[18px] w-[18px]" /></IconButton>
                       <IconButton label="Edit notes" onClick={() => setEditing(v)}><Icon name="pencil" className="h-[18px] w-[18px]" /></IconButton>
+                      {v.visitor && (
+                        <IconButton label={v.visitor_blocked ? "Unblock visitor" : "Block visitor"} onClick={() => setBlocking(v)}><Icon name="ban" className="h-[18px] w-[18px]" /></IconButton>
+                      )}
+                      {v.visitor && isAdmin && (
+                        <IconButton label="Erase visitor data" onClick={() => setErasing(v)}><Icon name="trash" className="h-[18px] w-[18px]" /></IconButton>
+                      )}
                       {!v.checked_out_at && (
                         <IconButton label="Check out" tone="primary" onClick={() => setLeaving([v])}><Icon name="checkout" className="h-[18px] w-[18px]" /></IconButton>
                       )}
@@ -211,6 +219,26 @@ export default function VisitsPage() {
           onSaved={() => { setEditing(null); refresh(); }}
         />
       )}
+      {blocking && (
+        <EntityModal
+          title={blocking.visitor_blocked ? `Unblock ${blocking.visitor_name}?` : `Block ${blocking.visitor_name}`}
+          submitLabel={blocking.visitor_blocked ? "Unblock" : "Block visitor"}
+          fields={blocking.visitor_blocked ? [] : [{ name: "blacklist_reason", label: "Reason (staff only)", type: "textarea", required: true }]}
+          record={{}}
+          endpoint={`/v1/visitors/${blocking.visitor}/`}
+          extra={{ is_blacklisted: !blocking.visitor_blocked, ...(blocking.visitor_blocked ? { blacklist_reason: "" } : {}) }}
+          onClose={() => setBlocking(null)}
+          onSaved={() => { setBlocking(null); refresh(); }}
+        />
+      )}
+      <ConfirmDialog
+        open={!!erasing}
+        title="Erase this visitor's data?"
+        confirmLabel="Erase permanently"
+        onClose={() => setErasing(null)}
+        message={<>For a PDPA deletion request: removes <strong>{erasing?.visitor_name}</strong>, their photos and their details from calls and invitations. Access-log entries remain without personal details. This cannot be undone.</>}
+        onConfirm={async () => { await remove(`/v1/visitors/${erasing!.visitor}/`); refresh(); }}
+      />
       <ConfirmDialog
         open={!!leaving}
         title={leaving && leaving.length > 1 ? `Check out ${leaving.length} visitors?` : `Check out ${leaving?.[0]?.pass_number}?`}

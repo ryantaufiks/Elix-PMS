@@ -187,23 +187,17 @@ class WalkInTests(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Kiosk {token}")
         self.assertEqual(self.client.get(url).status_code, 404)  # Only the kiosk that placed the call.
 
-    def test_visitor_records_show_last_check_in_and_out(self, _):
+    def test_visit_shows_whether_the_visitor_is_blocked(self, _):
         self.register(visitor_phone="9123 4567")
         visitor = m.Visitor.objects.get()
         staff = make_staff("guard", self.condo, m.StaffAssignment.Role.SECURITY)
         client = APIClient()
         client.force_authenticate(staff)
-        row = client.get(f"/v1/visitors/?condominium={self.condo.pk}").data["results"][0]
-        self.assertTrue(row["on_site"])
-        self.assertIsNotNone(row["last_check_in"])
-        self.assertIsNone(row["last_check_out"])
-        self.assertEqual(row["visit_count"], 1)
-        visits.check_out(m.Visit.objects.get())
-        row = client.get(f"/v1/visitors/{visitor.pk}/").data
-        self.assertFalse(row["on_site"])
-        self.assertIsNotNone(row["last_check_out"])
-        history = client.get(f"/v1/visits/?visitor={visitor.pk}").data
-        self.assertEqual(history["count"], 1)
+        url = f"/v1/visits/?condominium={self.condo.pk}"
+        self.assertFalse(client.get(url).data["results"][0]["visitor_blocked"])
+        r = client.patch(f"/v1/visitors/{visitor.pk}/", {"is_blacklisted": True, "blacklist_reason": "Harassed staff"}, format="json")
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(client.get(url).data["results"][0]["visitor_blocked"])
 
 
 def face(seed, noise=0.0):
