@@ -102,7 +102,7 @@ Pastikan perangkat lokal Anda telah terinstal:
 * Setup HitPay: isi API key dan salt (terenkripsi) di *Online payments*; biarkan *Sandbox* tercentang untuk uji coba, hilangkan centang untuk live.
 
 ### 6. Sidebar & notifikasi dashboard
-* Sidebar bisa diciutkan menjadi ikon saja (tombol panah di bawah sidebar); pilihan diingat per browser.
+* Grup menu sidebar (Operations, Community, Site setup, Platform) bisa dibuka-tutup seperti dropdown dengan klik judul grupnya; pilihan diingat per browser, dan grup halaman yang sedang dibuka selalu terbuka.
 * **Bell notifikasi** di top bar menampilkan aktivitas baru secara realtime untuk site yang dipilih: tamu masuk/keluar, panggilan intercom dan hasilnya, gerbang terbuka/ditolak, booking dan feedback baru. Badge merah menunjukkan jumlah yang belum dibaca; 50 notifikasi terakhir disimpan di browser.
 
 ### 7. Report Center

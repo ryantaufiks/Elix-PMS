@@ -39,7 +39,8 @@ chart colours were checked with a colour-blind-safety validator for both themes.
 `frontend/public/brand/` and `frontend/src/app/icon.png` / `apple-icon.png` (cropped from the source
 artwork `elix-logo.zip`, which is kept out of git). The dashboard home shows today's KPIs, an hourly
 traffic chart (with table view), live activity, gate health and entry methods.
-The sidebar collapses to an icon rail (button at its bottom, remembered per browser). The **bell** in
+Sidebar groups (Operations, Community, Site setup, Platform) fold open and closed like dropdowns,
+remembered per browser; the group of the current page always opens. The **bell** in
 the top bar lists live activity for the selected condo as it happens: visitors in and out, intercom
 calls and their outcome, gate openings and denials, bookings and new feedback. The last 50 are kept
 in the browser; opening the bell marks them read.
