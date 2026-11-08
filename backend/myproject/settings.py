@@ -157,7 +157,9 @@ REDIS_URL = env("REDIS_URL", default="redis://redis:6379/0")
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {"hosts": [REDIS_URL]},
+        # redis-py 6+ times out socket reads after 5 s by default, which kills every WebSocket consumer
+        # waiting on a blocking pop; the layer's own blocking timeout already bounds each read.
+        "CONFIG": {"hosts": [{"address": REDIS_URL, "socket_timeout": None}]},
     },
 }
 

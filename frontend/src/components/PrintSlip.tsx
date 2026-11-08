@@ -47,8 +47,8 @@ export function PrintSlip({ slip, onReady }: { slip: WalkInSlip; onReady: () => 
       <img src={slip.qr} alt="" onLoad={onReady} style={{ display: "block", width: "34mm", height: "34mm", margin: "3mm auto 0" }} />
       {slip.pin && (
         <div style={{ textAlign: "center", margin: "0 0 1.5mm" }}>
-          <span style={{ fontSize: "8pt" }}>PIN </span>
-          <span style={{ fontFamily: "ui-monospace, Menlo, Consolas, monospace", fontWeight: 800, fontSize: "16pt", letterSpacing: "0.2em" }}>{slip.pin}</span>
+          <div style={{ fontSize: "8pt" }}>PIN</div>
+          <div style={{ fontFamily: "ui-monospace, Menlo, Consolas, monospace", fontWeight: 800, fontSize: "18pt", lineHeight: 1.1, letterSpacing: "0.3em", paddingLeft: "0.3em" }}>{slip.pin}</div>
         </div>
       )}
       <div style={{ textAlign: "center", fontSize: "8pt" }}>Show this slip to security.<br />When you leave, scan the QR or enter the PIN at the kiosk.</div>

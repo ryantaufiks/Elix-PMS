@@ -91,16 +91,25 @@ class _CallScreenState extends State<CallScreen> with WidgetsBindingObserver {
     await _close();
   }
 
+  /// Leaves the screen straight away, then tears the room down in the background: LiveKit's
+  /// disconnect can hang when the kiosk leaves at the same moment (it does as soon as the gate opens).
   Future<void> _close({String? message}) async {
     if (_closing) return;
     _closing = true;
     Calls.instance.finished(widget.callId);
-    await _listener?.dispose();
-    await _room?.disconnect();
-    await _room?.dispose();
-    if (!mounted) return;
-    if (message != null) showMessage(context, message);
-    Navigator.of(context).maybePop();
+    final listener = _listener, room = _room;
+    if (mounted) {
+      if (message != null) showMessage(context, message);
+      // pop(), not maybePop(): PopScope still holds the canPop from the last build (false), and a
+      // refused pop would only call _hangUp again and leave the screen stuck.
+      final nav = Navigator.of(context);
+      if (nav.canPop()) nav.pop();
+    }
+    try {
+      await listener?.dispose().timeout(const Duration(seconds: 3));
+      await room?.disconnect().timeout(const Duration(seconds: 5));
+      await room?.dispose().timeout(const Duration(seconds: 3));
+    } catch (_) {}
   }
 
   /// The app is being closed mid-call: end the call so the kiosk does not keep waiting.
