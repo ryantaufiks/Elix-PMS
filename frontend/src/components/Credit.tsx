@@ -8,7 +8,7 @@ export function Credit({ tone = "light", align = "center", className }: { tone?:
   return (
     <footer className={cx("text-xs leading-relaxed", align === "left" ? "text-left" : "text-center", tone === "dark" ? "text-slate-400" : "text-muted", className)}>
       <div>Supported by <span className={cx("font-medium", tone === "dark" ? "text-slate-300" : "text-body")}>{SUPPORTED_BY}</span></div>
-      <div>© {COPYRIGHT_YEAR} Elix PMS. All rights reserved.</div>
+      <div>© {COPYRIGHT_YEAR} ELIX. All rights reserved.</div>
     </footer>
   );
 }
