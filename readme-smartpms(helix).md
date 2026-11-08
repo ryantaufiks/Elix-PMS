@@ -87,7 +87,7 @@ Pastikan perangkat lokal Anda telah terinstal:
 * Tombol **Walk in** di kiosk (aktif/nonaktif per site di *Site settings → Offer walk-in registration*) untuk tamu umum: pilih unit tujuan (wajib), isi data seperti saat *Call a resident*, foto (bisa dinonaktifkan: *Take the walk-in visitor's photo*), setujui privacy notice.
 * Kiosk mencetak slip berisi **nomor pass** dan QR check-out. Nomor di-reset setiap hari per site, satu seri per kategori: **V**001 Visitor, **D** Parcel, **F** Food, **C** Contractor, **P** Pick-up, **O** Other.
 * Gerbang **tidak** terbuka otomatis: tamu menunjukkan slip ke guard. Saat keluar, tamu scan QR slip di kiosk (*I have an invitation*), atau guard menekan *Check out* di halaman **Walk-ins** dashboard.
-* Printer: jadikan printer 58 mm sebagai default printer di PC kiosk (ukuran kertas roll 58 mm) dan jalankan Chrome dengan `--kiosk --kiosk-printing` agar slip langsung tercetak tanpa dialog. Panjang halaman cetak otomatis disesuaikan dengan panjang slip; jika masih ada kertas kosong, pilih ukuran kertas *receipt*/panjang variabel di driver printer dan matikan opsi *feed to page end*. Kiosk tanpa printer: hilangkan centang *Receipt printer connected* di *Gates & devices → Kiosks*, maka nomor pass dan QR ditampilkan di layar.
+* Printer: jadikan printer 58 mm sebagai default printer di PC kiosk (ukuran kertas roll 58 mm) dan jalankan Chrome dengan `--kiosk --kiosk-printing` agar slip langsung tercetak tanpa dialog. Kiosk tanpa printer: hilangkan centang *Receipt printer connected* di *Gates & devices → Kiosks*, maka nomor pass dan QR ditampilkan di layar.
 
 ---
 

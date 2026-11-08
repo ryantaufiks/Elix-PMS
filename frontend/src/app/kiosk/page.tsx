@@ -688,7 +688,7 @@ function WalkIn({ kiosk, unit, details, onDone, onFail }: {
     return () => clearTimeout(id);
   }, [slip, kiosk.prints_slips, onDone]);
 
-  const print = printSlip;
+  const print = () => window.print();
 
   if (!slip) {
     return (
@@ -730,23 +730,7 @@ function WalkIn({ kiosk, unit, details, onDone, onFail }: {
 const fullDate = (iso: string) =>
   new Intl.DateTimeFormat("en-SG", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Singapore" }).format(new Date(iso));
 
-/** Print the slip on a page exactly as long as the slip, so roll printers do not feed a full page of blank paper. */
-function printSlip() {
-  const slip = document.querySelector<HTMLElement>(".walkin-slip");
-  if (!slip) return;
-  const mm = Math.ceil((slip.getBoundingClientRect().height * 25.4) / 96) + 2;
-  let page = document.getElementById("walkin-slip-page");
-  if (!page) {
-    page = document.createElement("style");
-    page.id = "walkin-slip-page";
-    document.head.appendChild(page);
-  }
-  page.textContent = `@media print { @page { size: 58mm ${mm}mm; margin: 0; } }`;
-  window.print();
-}
-
-/** The 58 mm receipt: only this is printed (the rest of the page is hidden for print). On screen it sits
- *  off-canvas so its height can be measured for the page size. */
+/** The 58 mm receipt: only this is printed (the rest of the page is hidden for print). */
 function PrintSlip({ slip, onReady }: { slip: WalkInSlip; onReady: () => void }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -755,13 +739,13 @@ function PrintSlip({ slip, onReady }: { slip: WalkInSlip; onReady: () => void })
   return createPortal(
     <div className="walkin-slip">
       <style>{`
-        .walkin-slip { box-sizing: border-box; width: 48mm; padding: 3mm 0 4mm; color: #000; background: #fff;
-          font: 9pt/1.35 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
-        @media screen { .walkin-slip { position: fixed; left: -10000px; top: 0; visibility: hidden; } }
+        .walkin-slip { display: none; }
         @media print {
-          html, body { background: #fff !important; min-height: 0 !important; height: auto !important; }
+          @page { margin: 0; }
+          html, body { background: #fff !important; min-height: 0 !important; }
           body > *:not(.walkin-slip) { display: none !important; }
-          .walkin-slip { margin: 0 auto; }
+          .walkin-slip { display: block; width: 48mm; margin: 0 auto; padding: 3mm 0 6mm; color: #000; background: #fff;
+            font: 9pt/1.35 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
           .walkin-slip * { color: #000 !important; }
         }
       `}</style>
