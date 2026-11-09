@@ -232,7 +232,11 @@ class Visit(TimeStampedModel):
         constraints = [
             models.UniqueConstraint(fields=["condominium", "issued_on", "pass_number"], name="walkin_pass_number_per_day"),
         ]
-        indexes = [models.Index(fields=["condominium", "issued_on"])]
+        indexes = [
+            models.Index(fields=["condominium", "issued_on"]),
+            models.Index(fields=["condominium", "-created_at"]),  # The visitor list, newest first.
+            models.Index(fields=["unit", "-created_at"]),
+        ]
 
     def __str__(self):
         return f"{self.pass_number} {self.visitor_name} ({self.issued_on})"

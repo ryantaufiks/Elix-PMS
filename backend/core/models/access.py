@@ -97,6 +97,7 @@ class AccessLog(models.Model):
         ordering = ["-occurred_at"]
         indexes = [
             models.Index(fields=["condominium", "-occurred_at"]),
+            models.Index(fields=["unit", "-occurred_at"]),  # A resident's own activity.
             models.Index(fields=["plate_number"]),
         ]
 

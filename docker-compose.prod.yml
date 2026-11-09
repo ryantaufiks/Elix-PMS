@@ -23,6 +23,7 @@ services:
       MEDIA_ROOT: /data/media
       BACKUP_ROOT: /data/backups
       RUN_MIGRATIONS: "1"
+      DB_POOL: "1"
       DJANGO_COLLECTSTATIC: "1"
 
   gateway:

@@ -76,7 +76,15 @@ WSGI_APPLICATION = "myproject.wsgi.application"
 ASGI_APPLICATION = "myproject.asgi.application"
 
 DATABASES = {"default": env.db("DATABASE_URL")}
-DATABASES["default"]["CONN_MAX_AGE"] = env.int("DB_CONN_MAX_AGE", default=60)
+if env.bool("DB_POOL", default=False):
+    # The ASGI server runs sync views on many threads, and each thread would open (and keep) its own
+    # connection until Postgres runs out. A small shared pool per process caps and reuses them.
+    DATABASES["default"]["CONN_MAX_AGE"] = 0
+    DATABASES["default"].setdefault("OPTIONS", {})["pool"] = {
+        "min_size": 2, "max_size": env.int("DB_POOL_SIZE", default=10), "timeout": 10,
+    }
+else:
+    DATABASES["default"]["CONN_MAX_AGE"] = env.int("DB_CONN_MAX_AGE", default=60)
 
 AUTH_USER_MODEL = "core.User"
 

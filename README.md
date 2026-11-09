@@ -402,7 +402,8 @@ ENV_FILE=.env.prod docker compose -f docker-compose.yml -f docker-compose.prod.y
 ENV_FILE=.env.prod docker compose -f docker-compose.yml -f docker-compose.prod.yml exec web python manage.py createsuperuser
 ```
 
-- The gateway (dashboard + proxy to daphne) listens on `127.0.0.1:8000` only; `web` is not published.
+- The gateway (dashboard + proxy to the `web` service: Uvicorn, two processes) listens on
+  `127.0.0.1:8000` only; `web` is not published. A visitor who typed `http://` is redirected to `https://`.
 - In Cloudflare Zero Trust → Networks → Tunnels → *Public hostname*, set the service to
   `HTTP` / `localhost:8000`. HTTPS and WebSockets are handled by Cloudflare.
 - In `.env.prod`, set `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS=https://<host>`,
@@ -453,6 +454,16 @@ ENV_FILE=.env.prod $P up -d
   `maxmemory 200mb` / `volatile-lru`, gateway 128 MB): a misbehaving part restarts on its own instead of
   stalling the server.
 - **Container logs** are capped at 3 x 10 MB each.
+- **Web server**: Uvicorn with two processes (`WEB_WORKERS`), one per vCPU; WebSockets work across them
+  through the Redis channel layer. **Database connections** are pooled (`DB_POOL=1`, up to `DB_POOL_SIZE`
+  10 per process): without it, every thread of the ASGI server kept its own connection and Postgres ran
+  out at about 50 simultaneous users.
+- **Measured capacity** (load test on this server, Nov 2026, one 300-unit site): about 45 requests per
+  second; up to ~50 people acting at the same moment answers in under half a second, ~100–300 slows to
+  2–5 s without errors, errors start past ~400. 1,000 open app connections (WebSockets) cost almost
+  nothing. The limit is the 2 vCPUs: go to 4 vCPUs when several busy sites share the server.
+- **OS**: Debian security updates install themselves daily (`unattended-upgrades`, no automatic reboot);
+  reboot after a kernel update at a quiet hour.
 - The **dev stack** is stopped when not in use (`docker compose up -d` to work on it, `docker compose
   stop` after) and never builds the APK: that runs on GitHub Actions.
 

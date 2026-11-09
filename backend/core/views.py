@@ -24,6 +24,20 @@ from .scoping import ADMIN, ALL_STAFF, MANAGEMENT, resident_condo_ids, resident_
 from .validators import normalize_plate
 
 
+def _fans_out(model, path):
+    """Whether following ``path`` crosses a to-many relation (so one row can match more than once)."""
+    for name in path.split("__"):
+        if name == "pk":
+            return False
+        field = model._meta.get_field(name)
+        if field.many_to_many or field.one_to_many:
+            return True
+        if not field.is_relation:
+            return False
+        model = field.related_model
+    return False
+
+
 def _resolve_pk(source, path):
     """Follow an ORM-style path (``gate__condominium``) from an instance or validated-data dict to a pk."""
     first, *rest = path.split("__")
@@ -63,7 +77,11 @@ class ScopedViewSetMixin:
             scope |= Q(**{f"{self.condo_path}__in": resident_condo_ids(user)})
         if self.resident_unit_path:
             scope |= Q(**{f"{self.resident_unit_path}__in": resident_unit_ids(user)})
-        return qs.filter(scope).distinct()
+        qs = qs.filter(scope)
+        # DISTINCT only when a path can repeat rows: over every column (JSON included) it costs a sort of
+        # whole rows on every list and count, which is most of the database's work under load.
+        paths = [self.condo_path] + ([self.resident_unit_path] if self.resident_unit_path else [])
+        return qs.distinct() if any(_fans_out(qs.model, p) for p in paths) else qs
 
     def check_write(self, source):
         user = self.request.user
@@ -255,7 +273,7 @@ class ResidentDocumentViewSet(ScopedModelViewSet):
         if self.request.user.is_superuser:
             return qs
         own = m.ResidentDocument.objects.filter(residency__user=self.request.user, residency__is_active=True)
-        return (qs | own.distinct()).select_related("residency__user", "residency__unit__block", "uploaded_by")
+        return (qs | own).select_related("residency__user", "residency__unit__block", "uploaded_by")
 
     def perform_create(self, serializer):
         self.check_write(serializer.validated_data)
