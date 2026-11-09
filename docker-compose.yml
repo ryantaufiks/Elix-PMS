@@ -1,7 +1,16 @@
 # Base services shared by dev and prod.
 #   Dev  : docker compose up -d --build            (auto-loads docker-compose.override.yml)
 #   Prod : ENV_FILE=.env.prod docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Container logs: at most 3 x 10 MB each, so they never fill the disk.
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
 x-backend: &backend
+  <<: *logging
   build: ./backend
   env_file: ${ENV_FILE:-.env}
   environment:
@@ -19,6 +28,7 @@ x-backend: &backend
 
 services:
   db:
+    <<: *logging
     image: postgres:16-alpine
     env_file: ${ENV_FILE:-.env}
     volumes:
@@ -31,6 +41,7 @@ services:
     restart: unless-stopped
 
   redis:
+    <<: *logging
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
@@ -49,13 +60,12 @@ services:
       BACKUP_ROOT: /data/backups
       RUN_MIGRATIONS: "1"
 
+  # One worker that also runs the schedule (-B): a separate beat process would cost ~100 MB for a clock.
+  # A worker process that grows past ~300 MB (a big backup) is replaced after its task.
   worker:
     <<: *backend
-    command: ["celery", "-A", "myproject", "worker", "-l", "info", "--concurrency", "2"]
-
-  beat:
-    <<: *backend
-    command: ["celery", "-A", "myproject", "beat", "-l", "info", "--schedule", "/tmp/celerybeat-schedule"]
+    command: ["celery", "-A", "myproject", "worker", "-B", "-l", "info", "--concurrency", "2",
+              "--schedule", "/tmp/celerybeat-schedule", "--max-memory-per-child", "300000"]
 
 volumes:
   pgdata:

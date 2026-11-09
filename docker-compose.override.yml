@@ -18,11 +18,6 @@ services:
       - ./backend:/app
       - media:/data/media
 
-  beat:
-    volumes:
-      - ./backend:/app
-      - media:/data/media
-
   # Dashboard with hot reload: `docker compose --profile frontend up -d frontend`
   # then open http://127.0.0.1:3000 (API calls are proxied to the dev web service).
   frontend:

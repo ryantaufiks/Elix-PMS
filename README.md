@@ -8,7 +8,7 @@ Full architecture notes: [readme-smartpms(helix).md](readme-smartpms(helix).md).
 
 ```bash
 cp .env.example .env          # fill in DJANGO_SECRET_KEY, FIELD_ENCRYPTION_KEY, DB password
-docker compose up -d --build  # db, redis, web (runserver), worker, beat
+docker compose up -d --build  # db, redis, web (runserver), worker (with the beat schedule)
 docker compose exec web python manage.py createsuperuser
 docker compose exec web python manage.py test core
 ```
@@ -384,7 +384,7 @@ optionally `GOOGLE_SERVICES_JSON_BASE64`; optional variable `API_BASE`.
 **Platform → System settings** in the dashboard (also available in Django admin) is a single page for server-wide integrations: LiveKit (URL, key, secret,
 token lifetime, unlock window), the Firebase service-account JSON, the relay HTTP timeout and the LPR
 debounce. Secrets are stored encrypted and never shown again; a saved one shows *Saved* with *Remove*. Changes apply immediately to the web,
-worker and beat processes (no restart). Any blank field falls back to the matching `.env` variable
+worker processes (no restart). Any blank field falls back to the matching `.env` variable
 (`LIVEKIT_*`, `INTERCOM_UNLOCK_WINDOW_SECONDS`, `FCM_SERVICE_ACCOUNT_FILE`, `RELAY_HTTP_TIMEOUT`,
 `LPR_DEBOUNCE_SECONDS`); the page shows which source is live. Infrastructure values (database, Redis,
 `DJANGO_SECRET_KEY`, `FIELD_ENCRYPTION_KEY`, hosts) stay in `.env` because the server needs them to start.
@@ -437,11 +437,24 @@ Restore a platform backup (replaces the whole database and copies the files back
 P="docker compose -p elix-vms-prod -f docker-compose.yml -f docker-compose.prod.yml"
 docker cp elix-vms-prod-web-1:/data/backups/platform-<date>.tar.gz .    # or the downloaded file
 mkdir restore && tar -xzf platform-<date>.tar.gz -C restore
-ENV_FILE=.env.prod $P stop web worker beat
+ENV_FILE=.env.prod $P stop web worker
 ENV_FILE=.env.prod $P run --rm --no-deps -v "$PWD/restore:/restore" worker sh -c \
   'pg_restore --clean --if-exists --no-owner --no-privileges -d "$DATABASE_URL" /restore/database.dump && cp -a /restore/media/. /data/media/'
 ENV_FILE=.env.prod $P up -d
 ```
+
+### Server resources (4 GB, 2 vCPU)
+
+- **Swap** 2 GB (`/swapfile`, `vm.swappiness=10` in `/etc/sysctl.d/90-elix-memory.conf`): a cushion so
+  a peak (a dashboard build, the nightly backup) slows down instead of the kernel killing a process.
+- **One Celery worker runs the schedule too** (`worker -B`), instead of a separate beat container;
+  a worker process past ~300 MB is replaced after its task (`--max-memory-per-child`).
+- **Memory caps** in `docker-compose.prod.yml` (web 512 MB, worker 768 MB, db 512 MB, redis 256 MB with
+  `maxmemory 200mb` / `volatile-lru`, gateway 128 MB): a misbehaving part restarts on its own instead of
+  stalling the server.
+- **Container logs** are capped at 3 x 10 MB each.
+- The **dev stack** is stopped when not in use (`docker compose up -d` to work on it, `docker compose
+  stop` after) and never builds the APK: that runs on GitHub Actions.
 
 Dev and prod use separate Compose project names (`elix-vms-dev`, `elix-vms-prod`), so their
 databases and volumes never mix.

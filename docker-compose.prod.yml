@@ -4,8 +4,21 @@
 # ports are opened. Without Cloudflare, put any TLS reverse proxy in front of that port.
 name: elix-vms-prod
 
+# Memory caps: if one part misbehaves, that container restarts instead of the whole 4 GB server stalling.
 services:
+  db:
+    mem_limit: 512m
+
+  redis:
+    # Cache, channels and the task queue are small; evict only expiring cache keys if it ever fills.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "200mb", "--maxmemory-policy", "volatile-lru"]
+    mem_limit: 256m
+
+  worker:
+    mem_limit: 768m
+
   web:
+    mem_limit: 512m
     environment:
       MEDIA_ROOT: /data/media
       BACKUP_ROOT: /data/backups
@@ -13,6 +26,12 @@ services:
       DJANGO_COLLECTSTATIC: "1"
 
   gateway:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: 128m
     build: ./frontend
     ports:
       - "127.0.0.1:${PROD_PORT:-8000}:80"

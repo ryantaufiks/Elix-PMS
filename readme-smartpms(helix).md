@@ -14,7 +14,7 @@ Sistem ini menggunakan arsitektur terpisah (*Decoupled/Headless*):
 ## 📂 Struktur Repositori Utama
 ```text
 /opt/vms-project/
-├── docker-compose.yml       # Layanan dasar (db, redis, web, worker, beat)
+├── docker-compose.yml       # Layanan dasar (db, redis, web, worker + jadwal beat)
 ├── docker-compose.prod.yml  # Produksi: gateway di 127.0.0.1:8000 untuk Cloudflare Tunnel
 ├── frontend/                # Dashboard staf Next.js + TypeScript; Dockerfile + nginx.conf = gateway
 └── backend/
@@ -172,6 +172,7 @@ sudo sh get-docker.sh
 ---
 
 ## 📊 Manajemen Database & Monitoring
+* **Sumber daya server (4 GB, 2 vCPU):** swap 2 GB (`swappiness=10`) sebagai bantalan saat RAM penuh; jadwal Celery (beat) berjalan di dalam worker (hemat ±100 MB); batas memori per container prod (web 512 MB, worker 768 MB, db 512 MB, redis 256 MB, gateway 128 MB) agar satu komponen yang bermasalah di-restart sendiri tanpa membuat server hang; log container dibatasi 3 × 10 MB; stack dev dimatikan saat tidak dipakai.
 * **Backups** (menu *Platform → Backups*, khusus Platform admin):
   * *Platform backup*: seluruh database + semua file upload dalam satu arsip. Otomatis tiap malam jam 02:45 dan lewat tombol *Backup now*, disimpan 14 hari. Inilah yang dipakai untuk restore (langkahnya di README bagian *Backups*).
   * *Site export*: data satu site (JSON dan CSV yang bisa dibuka di Excel) beserta dokumen dan fotonya, untuk serah terima, audit, atau permintaan PDPA. Disimpan 7 hari, bukan untuk restore.
