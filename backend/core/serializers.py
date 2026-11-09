@@ -1002,3 +1002,40 @@ class WeatherSerializer(serializers.Serializer):
     station = serializers.CharField()
     valid = serializers.CharField(help_text="Period of the outlook, e.g. 10.30 pm to 12.30 am")
     updated_at = serializers.DateTimeField()
+
+
+class BackupDownloadSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = m.BackupDownload
+        fields = ["user_name", "ip", "at"]
+
+    def get_user_name(self, obj) -> str:
+        return (obj.user.get_full_name() or obj.user.get_username()) if obj.user else ""
+
+
+class BackupSerializer(serializers.ModelSerializer):
+    condominium_name = serializers.CharField(source="condominium.name", read_only=True, default="")
+    created_by_name = serializers.SerializerMethodField()
+    file_name = serializers.SerializerMethodField()
+    downloads = BackupDownloadSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = m.Backup
+        fields = ["id", "kind", "condominium", "condominium_name", "status", "file_name", "size", "error", "automatic",
+                  "created_by_name", "created_at", "finished_at", "expires_at", "downloads"]
+        read_only_fields = ["status", "size", "error", "automatic", "created_at", "finished_at", "expires_at"]
+
+    def get_created_by_name(self, obj) -> str:
+        return (obj.created_by.get_full_name() or obj.created_by.get_username()) if obj.created_by else ""
+
+    def get_file_name(self, obj) -> str:
+        return obj.file.name if obj.file else ""
+
+    def validate(self, attrs):
+        if attrs["kind"] == m.Backup.Kind.SITE and not attrs.get("condominium"):
+            raise serializers.ValidationError({"condominium": "Choose the site to export."})
+        if attrs["kind"] == m.Backup.Kind.PLATFORM:
+            attrs["condominium"] = None
+        return attrs

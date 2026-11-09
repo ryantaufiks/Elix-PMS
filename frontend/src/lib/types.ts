@@ -39,6 +39,23 @@ export type ResidentDocument = {
   created_at: string;
 };
 
+export type Backup = {
+  id: number;
+  kind: "platform" | "site";
+  condominium: number | null;
+  condominium_name: string;
+  status: "pending" | "running" | "ready" | "failed";
+  file_name: string;
+  size: number;
+  error: string;
+  automatic: boolean;
+  created_by_name: string;
+  created_at: string;
+  finished_at: string | null;
+  expires_at: string;
+  downloads: { user_name: string; ip: string | null; at: string }[];
+};
+
 export type Me = UserSummary & {
   is_superuser: boolean;
   staff_assignments: StaffAssignment[];

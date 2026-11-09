@@ -49,6 +49,7 @@ const paths = {
   search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14ZM20 20l-4-4",
   download: "M12 4v11M7 10l5 5 5-5M5 20h14",
   file: "M6 3h8l5 5v13H6zM14 3v5h5M9 13h6M9 17h6",
+  archive: "M3 4h18v4H3zM5 8v12h14V8M10 12h4",
   key: "M15 7a4 4 0 1 1-3.9 4.9L3 20v-3h2v-2h2l2.1-2.1A4 4 0 0 1 15 7ZM16 8h.01",
 };
 

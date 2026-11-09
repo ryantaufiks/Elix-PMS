@@ -6,8 +6,10 @@ x-backend: &backend
   env_file: ${ENV_FILE:-.env}
   environment:
     MEDIA_ROOT: /data/media
+    BACKUP_ROOT: /data/backups
   volumes:
     - media:/data/media
+    - backups:/data/backups
   depends_on:
     db:
       condition: service_healthy
@@ -44,6 +46,7 @@ services:
     <<: *backend
     environment:
       MEDIA_ROOT: /data/media
+      BACKUP_ROOT: /data/backups
       RUN_MIGRATIONS: "1"
 
   worker:
@@ -58,3 +61,4 @@ volumes:
   pgdata:
   redisdata:
   media:
+  backups:

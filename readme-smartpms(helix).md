@@ -164,6 +164,10 @@ sudo sh get-docker.sh
 ---
 
 ## 📊 Manajemen Database & Monitoring
+* **Backups** (menu *Platform → Backups*, khusus Platform admin):
+  * *Platform backup*: seluruh database + semua file upload dalam satu arsip. Otomatis tiap malam jam 02:45 dan lewat tombol *Backup now*, disimpan 14 hari. Inilah yang dipakai untuk restore (langkahnya di README bagian *Backups*).
+  * *Site export*: data satu site (JSON dan CSV yang bisa dibuka di Excel) beserta dokumen dan fotonya, untuk serah terima, audit, atau permintaan PDPA. Disimpan 7 hari, bukan untuk restore.
+  * Password, kredensial perangkat/pembayaran, token pass dan template wajah tidak pernah ikut. Setiap unduhan tercatat (siapa, kapan, IP). Arsip ada di disk server: sesekali unduh platform backup dan simpan salinannya di tempat lain.
 * **Akses Django Admin:** `https://api.domain-anda.com/v1/admin/` (Digunakan untuk mengonfigurasi `AccessGate`, token API kondo, dan pendaftaran `Condominium` baru).
 * **Log Antrean Celery:** Anda dapat memeriksa aktivitas latar belakang pembukaan pintu via Docker log:
    ```bash

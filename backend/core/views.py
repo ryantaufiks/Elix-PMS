@@ -15,10 +15,11 @@ from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 
-from . import access, intercom, livekit, privacy, push, relays, visits
+from . import access, backups, intercom, livekit, privacy, push, relays, visits
 from . import visitor_identity as identity
 from . import models as m
 from . import serializers as s
+from .auth_views import client_ip
 from .scoping import ADMIN, ALL_STAFF, MANAGEMENT, resident_condo_ids, resident_unit_ids, staff_condo_ids
 from .validators import normalize_plate
 
@@ -856,6 +857,36 @@ class SystemSettingsView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return m.SystemSettings.load()
+
+
+class BackupViewSet(mixins.CreateModelMixin, mixins.DestroyModelMixin, viewsets.ReadOnlyModelViewSet):
+    """Platform backups and site exports (platform administrator only). Creating one queues it;
+    poll the list until it is ``ready``. Every download is recorded."""
+
+    queryset = m.Backup.objects.select_related("condominium", "created_by").prefetch_related("downloads__user")
+    serializer_class = s.BackupSerializer
+    permission_classes = [IsSuperuser]
+    filterset_fields = ["kind", "condominium", "status"]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        backup = backups.start(data["kind"], data.get("condominium"), user=request.user)
+        if backup is None:
+            return Response({"detail": "This backup is already running."}, status=status.HTTP_409_CONFLICT)
+        return Response(self.get_serializer(backup).data, status=status.HTTP_202_ACCEPTED)
+
+    @extend_schema(responses={(200, "application/octet-stream"): OpenApiResponse(description="The archive")})
+    @action(detail=True)
+    def download(self, request, pk=None):
+        backup = self.get_object()
+        if backup.status != m.Backup.Status.READY or not backup.file:
+            raise ValidationError("This backup is not ready.")
+        m.BackupDownload.objects.create(backup=backup, user=request.user, ip=client_ip(request) or None)
+        response = FileResponse(backup.file.open("rb"), as_attachment=True, filename=backup.file.name)
+        response["Cache-Control"] = "private, no-store"
+        return response
 
 
 @extend_schema(request=None, responses={200: OpenApiResponse(description="{'ok': bool, 'detail': str}")})

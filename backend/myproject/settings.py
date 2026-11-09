@@ -109,6 +109,10 @@ STORAGES = {
 # It is never served publicly; production access goes through authenticated views.
 MEDIA_URL = "/media/"
 MEDIA_ROOT = env("MEDIA_ROOT", default=str(BASE_DIR / "media"))
+# Platform backups and site exports (System → Backups). Outside MEDIA_ROOT on purpose.
+BACKUP_ROOT = env("BACKUP_ROOT", default=str(BASE_DIR / "backups"))
+BACKUP_KEEP_DAYS = env.int("BACKUP_KEEP_DAYS", default=14)
+SITE_EXPORT_KEEP_DAYS = env.int("SITE_EXPORT_KEEP_DAYS", default=7)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -194,6 +198,14 @@ CELERY_BEAT_SCHEDULE = {
     "flush-expired-tokens": {
         "task": "core.tasks.flush_expired_tokens",
         "schedule": crontab(hour=4, minute=15),
+    },
+    "platform-backup": {
+        "task": "core.tasks.daily_platform_backup",
+        "schedule": crontab(hour=2, minute=45),
+    },
+    "prune-backups": {
+        "task": "core.tasks.prune_backups",
+        "schedule": crontab(hour=4, minute=30),
     },
     "purge-visitor-data": {
         "task": "core.tasks.purge_visitor_data",

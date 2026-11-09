@@ -2,7 +2,7 @@ from .access import AccessLog, IntercomCall
 from .amenities import Booking, Facility, PaymentSettings
 from .community import Feedback
 from .devices import AccessGate, Direction, IntegrationAccount, Kiosk, LprCamera, Provider, RelayController
-from .system import SystemSettings
+from .system import Backup, BackupDownload, SystemSettings
 from .tenancy import Block, Condominium, Unit
 from .users import PushDevice, Residency, ResidentDocument, StaffAssignment, User
 from .vehicles import Vehicle

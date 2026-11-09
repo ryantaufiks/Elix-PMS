@@ -128,3 +128,26 @@ def flush_expired_tokens():
     from django.core.management import call_command
 
     call_command("flushexpiredtokens")
+
+
+@shared_task
+def run_backup(backup_id: int) -> str:
+    from . import backups
+
+    return backups.run(backup_id).status
+
+
+@shared_task
+def daily_platform_backup():
+    from . import backups
+    from .models import Backup
+
+    backup = backups.start(Backup.Kind.PLATFORM, automatic=True)
+    return backup.pk if backup else None
+
+
+@shared_task
+def prune_backups() -> int:
+    from . import backups
+
+    return backups.prune()

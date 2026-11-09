@@ -4,7 +4,7 @@ from django.db import transaction
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
-from .models import AccessLog, ResidentDocument, User
+from .models import AccessLog, Backup, ResidentDocument, User
 from .realtime import broadcast
 
 logger = logging.getLogger(__name__)
@@ -41,5 +41,11 @@ def revoke_sessions_on_password_change(sender, instance, update_fields=None, **k
 @receiver(post_delete, sender=ResidentDocument)
 def delete_document_file(sender, instance, **kwargs):
     """The file goes with its record, also when the resident or their residency is removed."""
+    if instance.file:
+        transaction.on_commit(lambda: instance.file.storage.delete(instance.file.name))
+
+
+@receiver(post_delete, sender=Backup)
+def delete_backup_file(sender, instance, **kwargs):
     if instance.file:
         transaction.on_commit(lambda: instance.file.storage.delete(instance.file.name))

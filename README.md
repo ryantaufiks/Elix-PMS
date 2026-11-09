@@ -379,6 +379,36 @@ ENV_FILE=.env.prod docker compose -f docker-compose.yml -f docker-compose.prod.y
 - Without Cloudflare, put any TLS reverse proxy (Caddy, nginx + certbot) in front of
   `127.0.0.1:8000` and have it set `X-Forwarded-Proto: https`.
 
+### Backups
+
+**Platform → Backups** (platform admins only) has two kinds of archive, made by the Celery worker:
+
+- **Platform backup**: `platform-<date>.tar.gz` with `database.dump` (`pg_dump -Fc` of the whole
+  database) and `media/` (every uploaded file). Made nightly at 02:45 and on *Backup now*; kept
+  `BACKUP_KEEP_DAYS` (14). This is the one to restore from.
+- **Site export**: `site-<code>-<date>.zip` with one site's records as JSON and CSV (`data/`) and the
+  documents and photos they point to (`files/`), for handover, audit or a PDPA request. Kept
+  `SITE_EXPORT_KEEP_DAYS` (7). Not for restoring: sites share the database and people can belong to
+  several sites.
+
+Passwords, device and payment credentials, pass tokens and face templates are never exported. Archives
+live in the `backups` volume (`BACKUP_ROOT`, outside `MEDIA_ROOT`), readable by the app user only, and
+every download is recorded (who, when, IP). The volume is on the server's disk: download a platform
+backup now and then and keep a copy elsewhere. The image ships `pg_dump` 16 to match the `postgres:16`
+server (`PG_MAJOR` build argument; change both together).
+
+Restore a platform backup (replaces the whole database and copies the files back):
+
+```bash
+P="docker compose -p elix-vms-prod -f docker-compose.yml -f docker-compose.prod.yml"
+docker cp elix-vms-prod-web-1:/data/backups/platform-<date>.tar.gz .    # or the downloaded file
+mkdir restore && tar -xzf platform-<date>.tar.gz -C restore
+ENV_FILE=.env.prod $P stop web worker beat
+ENV_FILE=.env.prod $P run --rm --no-deps -v "$PWD/restore:/restore" worker sh -c \
+  'pg_restore --clean --if-exists --no-owner --no-privileges -d "$DATABASE_URL" /restore/database.dump && cp -a /restore/media/. /data/media/'
+ENV_FILE=.env.prod $P up -d
+```
+
 Dev and prod use separate Compose project names (`elix-vms-dev`, `elix-vms-prod`), so their
 databases and volumes never mix.
 

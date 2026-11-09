@@ -1,6 +1,9 @@
 import json
+import os
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.files.storage import FileSystemStorage
 from django.db import models
 
 from core.fields import EncryptedTextField
@@ -79,3 +82,65 @@ class SystemSettings(TimeStampedModel):
     @classmethod
     def load(cls):
         return cls.objects.filter(pk=1).first() or cls(pk=1)
+
+
+class BackupStorage(FileSystemStorage):
+    """Files under BACKUP_ROOT: outside MEDIA_ROOT, so backups never end up inside the next backup or
+    behind a media URL. The folder is read on every use (not fixed when the app starts), so tests and
+    overridden settings write where they should."""
+
+    @property
+    def base_location(self):
+        return settings.BACKUP_ROOT
+
+    @property
+    def location(self):
+        return os.path.abspath(self.base_location)
+
+
+def backup_storage():
+    return BackupStorage()
+
+
+class Backup(TimeStampedModel):
+    """A platform backup (database + media, for disaster recovery) or one site's data export
+    (records and their files, for handover, audit or a PDPA request). Platform admins only."""
+
+    class Kind(models.TextChoices):
+        PLATFORM = "platform", "Platform backup"
+        SITE = "site", "Site export"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Waiting"
+        RUNNING = "running", "Running"
+        READY = "ready", "Ready"
+        FAILED = "failed", "Failed"
+
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    condominium = models.ForeignKey("core.Condominium", null=True, blank=True, on_delete=models.CASCADE, related_name="+")
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    file = models.FileField(storage=backup_storage, blank=True)
+    size = models.BigIntegerField(default=0)
+    error = models.TextField(blank=True)
+    automatic = models.BooleanField(default=False, help_text="Made by the daily schedule rather than by hand.")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    finished_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(help_text="Deleted with its file after this.")
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.get_kind_display()} {self.created_at:%Y-%m-%d %H:%M}"
+
+
+class BackupDownload(models.Model):
+    """Who downloaded which backup, and when: the archives hold every resident's personal data."""
+
+    backup = models.ForeignKey(Backup, on_delete=models.CASCADE, related_name="downloads")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-at"]
