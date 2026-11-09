@@ -379,7 +379,7 @@ warning on the run if one is not). Before the first upload:
   types `phoneCall`, `camera` and `microphone` that the call plugin declares (with a short video of an
   intercom call), Data safety (name, phone, photos/video during calls, documents, plates, payments via
   HitPay), and a demo resident account on a demo site for *App access*.
-- The manifest removes the photo/video/audio library permissions that `open_filex` adds: the app only
+- The manifest removes the shared-storage and photo/video/audio library permissions plugins add: the app only
   opens PDFs from its own cache, and Play rejects those permissions without a core need.
 - A new *personal* developer account must run a closed test (12 testers, 14 days) before production;
   an *organisation* account (D-U-N-S number) does not.

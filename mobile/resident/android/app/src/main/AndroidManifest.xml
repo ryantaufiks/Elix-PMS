@@ -9,8 +9,9 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- open_filex asks for the photo/video/audio library, which Google Play only allows for apps
-         built around it. The app only opens PDFs it downloaded into its own cache. -->
+    <!-- Plugins ask for shared storage and the photo/video/audio library, which Google Play only allows
+         for apps built around them. The app only opens PDFs it downloaded into its own cache. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" tools:node="remove" />
