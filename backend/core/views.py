@@ -112,7 +112,7 @@ class MeView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return m.User.objects.prefetch_related(
-            "staff_assignments__condominium", "residencies__unit"
+            "staff_assignments__condominium", "residencies__unit__block", "residencies__unit__condominium"
         ).get(pk=self.request.user.pk)
 
 
@@ -228,7 +228,7 @@ class StaffAssignmentViewSet(MembershipViewSet):
 
 
 class ResidencyViewSet(MembershipViewSet):
-    queryset = m.Residency.objects.select_related("user", "unit")
+    queryset = m.Residency.objects.select_related("user", "unit__block", "unit__condominium")
     serializer_class = s.ResidencySerializer
     staff_write_roles = MANAGEMENT
     condo_path = "unit__condominium"
@@ -748,7 +748,7 @@ class ManagedUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixin
     search_fields = ["username", "first_name", "last_name", "email", "phone"]
 
     def get_queryset(self):
-        qs = m.User.objects.prefetch_related("residencies__unit__block", "staff_assignments") \
+        qs = m.User.objects.prefetch_related("residencies__unit__block", "residencies__unit__condominium", "staff_assignments") \
             .order_by("first_name", "last_name", "username")
         if getattr(self, "swagger_fake_view", False):
             return qs.none()

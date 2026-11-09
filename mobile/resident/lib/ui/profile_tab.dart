@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../appearance.dart';
 import '../config.dart';
 import '../push.dart';
 import '../session.dart';
@@ -43,6 +44,22 @@ class ProfileTab extends StatelessWidget {
             leading: Icon(Push.instance.available ? Icons.notifications_active_outlined : Icons.notifications_off_outlined),
             title: Text(Push.instance.available ? 'Calls ring even when the app is closed' : 'Calls ring only while the app is open'),
             subtitle: Push.instance.available ? null : const Text('Push notifications are not set up for this app build.'),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text('Theme', style: TextStyle(color: outline)),
+        const SizedBox(height: 8),
+        ListenableBuilder(
+          listenable: Appearance.instance,
+          builder: (context, _) => SegmentedButton<ThemeMode>(
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto_outlined), label: Text('Auto')),
+              ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode_outlined), label: Text('Light')),
+              ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode_outlined), label: Text('Dark')),
+            ],
+            selected: {Appearance.instance.mode},
+            onSelectionChanged: (s) => Appearance.instance.set(s.first),
           ),
         ),
         const SizedBox(height: 24),

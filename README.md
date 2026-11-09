@@ -248,7 +248,9 @@ The sign-in screen has a slowly drifting blue glow behind it (still when the pho
 animations* setting is on). The home header shows the **weather** at the condo next to the resident's
 name and a **bell** with the number of new notifications. Every list in the app (activity, visitors,
 facilities, bookings, feedback, invitations, vehicles, notifications) is paged: 9 per page with
-*‹ Page 2 of 5 ›* underneath.
+*‹ Page 2 of 5 ›* underneath. The app opens on a splash (the ELIX logo with a breathing glow on navy); the home
+header shows the condo's name from its site settings. The theme (Auto follows the phone, Light or Dark) is chosen in
+Profile → Theme and remembered on the phone.
 
 - **Notifications** (`GET /v1/notifications/`): the last 30 days at the resident's units, one entry
   per event: a visitor arrived or left, a gate opened or refused entry (the resident's own plate, app

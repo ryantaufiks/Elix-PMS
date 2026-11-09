@@ -85,13 +85,22 @@ class _HomeTabState extends State<HomeTab> {
               gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF1B3B8F), navy, navyDeep]),
               borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
             ),
-            // Two columns: logo, greeting, name and units on the left; the bell level with the logo and
+            // Two columns: condo name, greeting, name and units on the left; the bell level with the condo name and
             // the weather centred against the name and units on the right.
             child: IntrinsicHeight(
               child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    SizedBox(height: 40, child: Align(alignment: Alignment.centerLeft, child: Image.asset('assets/elix-logo.png', height: 26))),
+                    SizedBox(
+                      height: 40,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                            me.residencies.isEmpty || me.residencies.first.condominiumName.isEmpty ? 'Elix' : me.residencies.first.condominiumName,
+                            maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     Text('$greeting,', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 16)),
                     Text(me.firstName.isEmpty ? me.displayName : me.firstName,

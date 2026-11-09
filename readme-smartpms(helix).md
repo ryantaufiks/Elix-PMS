@@ -94,8 +94,11 @@ Pastikan perangkat lokal Anda telah terinstal:
 * Printer: jadikan printer 58 mm sebagai default printer di PC kiosk (ukuran kertas roll 58 mm) dan jalankan Chrome dengan `--kiosk --kiosk-printing` agar slip langsung tercetak tanpa dialog. Kiosk tanpa printer: hilangkan centang *Receipt printer connected* di *Gates & devices → Kiosks*, maka nomor pass dan QR ditampilkan di layar.
 
 ### 5. Menu APK resident: Access, Facility, Visitor, Feedback
+* Saat aplikasi dibuka muncul **splash screen**: logo ELIX di tengah latar navy dengan cahaya biru yang berdenyut, lalu masuk ke login atau Home.
+* Header Home menampilkan **nama condo** (dari pengaturan Site) sebagai pengganti logo.
 * Halaman login memakai latar cahaya biru yang bergerak, kartu login *glassmorphism* (blur transparan) dengan tombol gradasi biru, dan teks *Engage Link Identified Experience* dan "© 2026 ELIX. All rights reserved.".
 * Header Home: **cuaca** (suhu dan prakiraan 2 jam dari NEA/data.gov.sg, stasiun terdekat dengan kode pos condo) di kanan nama (tanpa latar, ukuran besar), dan **bell notifikasi** dengan jumlah yang belum dibaca. Notifikasi berisi semua aktivitas baru 30 hari terakhir: tamu datang/pulang, gerbang terbuka/ditolak, panggilan tak terjawab, status booking, dan balasan feedback.
+* **Tema** dipilih di *Profile → Theme*: *Auto* (ikut HP), *Light* atau *Dark*; tersimpan di HP.
 * Semua list di APK memakai pagination (maksimal 9 per halaman, *‹ Page 2 of 5 · 41 items ›*).
 * Tombol unduh APK (*Residents → Resident app (Android)*) selalu menuju build terbaru: link-nya berisi versi (`elix-resident.apk?v=<versi>`, ditulis `scripts/fetch-resident-apk.sh` ke `downloads/elix-resident.json`), jadi cache HP atau Cloudflare tidak memberi APK lama.
 * Kiosk juga menampilkan suhu dan prakiraan cuaca di bawah tanggal.

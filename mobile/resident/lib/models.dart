@@ -5,6 +5,7 @@ class Residency {
   int get id => json['id'] as int;
   int get unit => json['unit'] as int;
   int get condominium => json['condominium'] as int;
+  String get condominiumName => json['condominium_name'] as String? ?? '';
   String get unitDisplay => json['unit_display'] as String? ?? '';
   bool get active => json['is_active'] as bool? ?? true;
   bool get receivesCalls => json['receives_intercom_calls'] as bool? ?? true;

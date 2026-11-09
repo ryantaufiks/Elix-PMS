@@ -107,13 +107,14 @@ class StaffAssignmentSerializer(ModelCleanSerializer):
 class ResidencySerializer(ModelCleanSerializer):
     user_detail = UserSummarySerializer(source="user", read_only=True)
     condominium = serializers.IntegerField(source="unit.condominium_id", read_only=True)
+    condominium_name = serializers.CharField(source="unit.condominium.name", read_only=True)
     unit_display = serializers.CharField(source="unit.__str__", read_only=True)
 
     class Meta:
         model = m.Residency
         fields = [
-            "id", "user", "user_detail", "unit", "unit_display", "condominium", "resident_type", "is_primary_contact",
-            "receives_intercom_calls", "start_date", "end_date", "is_active",
+            "id", "user", "user_detail", "unit", "unit_display", "condominium", "condominium_name", "resident_type",
+            "is_primary_contact", "receives_intercom_calls", "start_date", "end_date", "is_active",
         ]
 
 

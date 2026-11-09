@@ -101,9 +101,11 @@ class PagedListState<T> extends State<PagedList<T>> with AutomaticKeepAliveClien
   Widget build(BuildContext context) {
     super.build(context);
     final items = _items;
+    // Keep the pager clear of the phone's own navigation bar (gesture bar or home buttons).
+    final padding = widget.padding.copyWith(bottom: widget.padding.bottom + MediaQuery.paddingOf(context).bottom);
     return RefreshIndicator(
       onRefresh: reload,
-      child: ListView(controller: _scroll, padding: widget.padding, children: [
+      child: ListView(controller: _scroll, padding: padding, children: [
         ...widget.header,
         if (items == null)
           const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
