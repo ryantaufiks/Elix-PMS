@@ -4,7 +4,7 @@ from .community import Feedback
 from .devices import AccessGate, Direction, IntegrationAccount, Kiosk, LprCamera, Provider, RelayController
 from .system import SystemSettings
 from .tenancy import Block, Condominium, Unit
-from .users import PushDevice, Residency, StaffAssignment, User
+from .users import PushDevice, Residency, ResidentDocument, StaffAssignment, User
 from .vehicles import Vehicle
 from .visitors import Invitation, Visit, Visitor, VisitPurpose
 

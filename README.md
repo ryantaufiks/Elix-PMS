@@ -58,7 +58,7 @@ On first sign-in with no condominium, the platform admin is guided through creat
 | | Invitations | all staff (create/cancel: admin, staff) | QR code and share link, status filters |
 | | Bookings | all staff (cancel, record refunds: admin, staff) | Facility bookings from the resident app with payment status; upcoming / all, filters |
 | | Reports | all staff (several sites: superusers) | Report Center: consolidated summary, visitor, access, vehicle, intercom and invitation reports with period presets, filters and smart search; *Print / PDF* (A4) and *Excel* / *CSV* export |
-| Community | Residents | all staff (manage: admin, staff) | Add residents with their app login, unit role, intercom on/off, password reset, move out |
+| Community | Residents | all staff (manage: admin, staff) | Add residents with their app login, unit role, intercom on/off, password reset, move out, documents (ownership, tenancy; admin and staff only) |
 | | Vehicles | all staff (edit: admin, staff) | Resident plates used by LPR auto-open |
 | | Feedback | all staff (reply: admin, staff) | Residents' 1–5 star ratings by category, average and distribution, reply and status shown in the app |
 | | Staff | admin | Create officer / staff / site-admin accounts, change role, reset password, remove |
@@ -267,6 +267,10 @@ Profile → Theme and remembered on the phone.
 The home screen has four menu cards above the unit's recent activity (the latest 5; *See all* opens
 the full history):
 
+- **Documents** (Profile): the resident's own documents kept by the management (proof of ownership,
+  tenancy agreement), uploaded under *Residents → Documents*, usually before the account is made.
+  PDFs open in the phone's viewer, photos in the app. Files are stored under random names and only
+  served through the API, never as public media.
 - **Access:** open gates remotely with *swipe to open*. Only gates with *Residents can open this gate
   from the app* (Gates & devices) are listed; each opening is logged as *App* with the resident and unit
   (rate-limited, `RESIDENT_OPEN_RATE`, default 10/min).
@@ -297,6 +301,7 @@ live. The webhook URL shown there (`/v1/payments/hitpay/webhook/`) is also sent 
 | Admin | `GET/PATCH /v1/payment-settings/?condominium=` | HitPay account (key and salt write-only) |
 | HitPay | `POST /v1/payments/hitpay/webhook/`, `GET /v1/payments/hitpay/return/?booking=` | Payment notification; page after paying |
 | Resident / staff | `POST /v1/feedback/` (`rating`, `category`, `comment`), `GET /v1/feedback/`, `POST …/{id}/reply/` (admin), `GET …/summary/` | Feedback |
+| Admin, staff / resident | `GET/POST /v1/resident-documents/` (`residency`, `kind`, `title`, `file`: PDF/JPG/PNG ≤ 8 MB), `DELETE …/{id}/`, `GET …/{id}/download/` | Residents' documents; residents read only their own, officers none |
 
 **Builds run on GitHub Actions, not on the server** (Gradle needs more RAM than the 4 GB production
 box has; a local build there hangs it). `.github/workflows/resident-apk.yml` builds on every push that

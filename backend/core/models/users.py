@@ -1,3 +1,6 @@
+import uuid
+from pathlib import Path
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
@@ -57,6 +60,38 @@ class Residency(TimeStampedModel):
     @property
     def condominium(self):
         return self.unit.condominium
+
+
+def _document_path(document, filename):
+    # A random name: the stored path says nothing about the person or what the file is.
+    return f"documents/{uuid.uuid4().hex}{Path(filename).suffix.lower()}"
+
+
+class ResidentDocument(TimeStampedModel):
+    """A file the management keeps for a resident at a unit (proof of ownership, tenancy agreement…).
+
+    Uploaded by the management, usually before the resident's account exists; the resident sees their
+    own documents in the app. Files are only served through the API, never as public media."""
+
+    class Kind(models.TextChoices):
+        OWNERSHIP = "ownership", "Proof of ownership"
+        TENANCY = "tenancy", "Tenancy agreement"
+        IDENTITY = "identity", "Identity document"
+        OTHER = "other", "Other"
+
+    residency = models.ForeignKey(Residency, on_delete=models.CASCADE, related_name="documents")
+    kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.OTHER)
+    title = models.CharField(max_length=150)
+    file = models.FileField(upload_to=_document_path)
+    file_name = models.CharField(max_length=255, help_text="Name of the uploaded file, offered when downloading.")
+    size = models.PositiveIntegerField(default=0)
+    uploaded_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
 
 
 class PushDevice(TimeStampedModel):

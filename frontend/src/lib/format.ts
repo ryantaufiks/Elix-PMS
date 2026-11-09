@@ -63,5 +63,12 @@ export const RESIDENT_TYPE_LABEL: Record<string, string> = {
   owner: "Owner", tenant: "Tenant", family: "Family", helper: "Helper",
 };
 
+export const DOCUMENT_KIND_LABEL: Record<string, string> = {
+  ownership: "Proof of ownership", tenancy: "Tenancy agreement", identity: "Identity document", other: "Other",
+};
+
+export const fileSize = (bytes: number) =>
+  bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
 export const userName = (u?: { first_name: string; last_name: string; username: string } | null) =>
   u ? [u.first_name, u.last_name].filter(Boolean).join(" ") || u.username : "";

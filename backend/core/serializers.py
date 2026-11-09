@@ -118,6 +118,55 @@ class ResidencySerializer(ModelCleanSerializer):
         ]
 
 
+DOCUMENT_TYPES = {b"%PDF-": ".pdf", b"\xff\xd8\xff": ".jpg", b"\x89PNG\r\n\x1a\n": ".png"}
+DOCUMENT_MAX_BYTES = 8 * 1024 * 1024  # The gateway accepts 10 MB per request.
+
+
+class ResidentDocumentSerializer(serializers.ModelSerializer):
+    """A resident's document. The file is uploaded once and downloaded from ``…/{id}/download/``."""
+
+    file = serializers.FileField(write_only=True)
+    condominium = serializers.IntegerField(source="residency.unit.condominium_id", read_only=True)
+    unit_display = serializers.CharField(source="residency.unit.__str__", read_only=True)
+    resident_name = serializers.SerializerMethodField()
+    uploaded_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = m.ResidentDocument
+        fields = ["id", "residency", "condominium", "unit_display", "resident_name", "kind", "title", "file",
+                  "file_name", "size", "uploaded_by_name", "created_at"]
+        read_only_fields = ["file_name", "size", "created_at"]
+
+    def get_resident_name(self, obj) -> str:
+        user = obj.residency.user
+        return user.get_full_name() or user.get_username()
+
+    def get_uploaded_by_name(self, obj) -> str:
+        return (obj.uploaded_by.get_full_name() or obj.uploaded_by.get_username()) if obj.uploaded_by else ""
+
+    def validate_file(self, upload):
+        if upload.size > DOCUMENT_MAX_BYTES:
+            raise serializers.ValidationError("The file is larger than 8 MB.")
+        head = upload.read(8)
+        upload.seek(0)
+        # Judge the file by its content, not its name: only PDF, JPEG and PNG are kept.
+        suffix = next((ext for magic, ext in DOCUMENT_TYPES.items() if head.startswith(magic)), None)
+        if suffix is None:
+            raise serializers.ValidationError("Upload a PDF, JPG or PNG file.")
+        upload.document_suffix = suffix
+        return upload
+
+    def validate(self, attrs):
+        if self.instance is not None and "residency" in attrs and attrs["residency"] != self.instance.residency:
+            raise serializers.ValidationError({"residency": "A document cannot be moved to another resident."})
+        upload = attrs.get("file")
+        if upload is not None:
+            attrs["file_name"] = upload.name[-255:]
+            attrs["size"] = upload.size
+            upload.name = f"document{upload.document_suffix}"
+        return attrs
+
+
 class MeSerializer(serializers.ModelSerializer):
     staff_assignments = StaffAssignmentSerializer(many=True, read_only=True)
     residencies = ResidencySerializer(many=True, read_only=True)

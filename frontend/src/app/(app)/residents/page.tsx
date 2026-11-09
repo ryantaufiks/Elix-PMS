@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import useSWR from "swr";
 
 import { SearchInput, UnitPicker } from "@/components/bits";
+import { ResidentDocuments } from "@/components/documents";
 import { ConfirmDialog, EntityModal, FormFields, type FieldDef, initialValues, remove } from "@/components/forms";
 import { EditPerson, fieldErrorsOf, personFields, SetPassword } from "@/components/people";
 import { Icon } from "@/components/icons";
@@ -45,6 +46,7 @@ export default function ResidentsPage() {
   const [editingResidency, setEditingResidency] = useState<Residency | null>(null);
   const [password, setPassword] = useState<Residency | null>(null);
   const [removing, setRemoving] = useState<Residency | null>(null);
+  const [documents, setDocuments] = useState<Residency | null>(null);
   const { data, mutate } = useSWR<Page<Residency>>(
     `/v1/residencies/${query({ unit__condominium: condo.id, resident_type: type, search: unitSearch(search), page })}`,
     { keepPreviousData: true },
@@ -92,6 +94,7 @@ export default function ResidentsPage() {
                       <Button size="sm" variant="ghost" onClick={() => setEditingResidency(r)}>Unit role</Button>
                       <Button size="sm" variant="ghost" onClick={() => setEditingPerson(r)}>Profile</Button>
                       <Button size="sm" variant="ghost" onClick={() => setPassword(r)}>Password</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setDocuments(r)}>Documents</Button>
                       <Button size="sm" variant="ghost" onClick={() => setRemoving(r)}>Remove</Button>
                     </Td>
                   )}
@@ -110,6 +113,7 @@ export default function ResidentsPage() {
           onClose={() => setEditingResidency(null)} onSaved={() => { setEditingResidency(null); mutate(); }} />
       )}
       {editingPerson && <EditPerson userId={editingPerson.user} onClose={() => setEditingPerson(null)} onSaved={() => { setEditingPerson(null); mutate(); }} />}
+      {documents && <ResidentDocuments residency={documents.id} title={`${userName(documents.user_detail)}, ${documents.unit_display}`} onClose={() => setDocuments(null)} />}
       {password && <SetPassword userId={password.user} name={userName(password.user_detail)} onClose={() => setPassword(null)} />}
       <ConfirmDialog open={!!removing} title="Remove from unit?" confirmLabel="Remove" onClose={() => setRemoving(null)}
         message={<>Remove <strong>{removing && userName(removing.user_detail)}</strong> from <strong>{removing?.unit_display}</strong>? They stop receiving calls and lose access for this unit. To keep the history, use <em>Unit role</em> and untick &quot;Currently living here&quot;.</>}

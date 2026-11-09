@@ -98,6 +98,7 @@ Pastikan perangkat lokal Anda telah terinstal:
 * Header Home menampilkan **nama condo** (dari pengaturan Site) sebagai pengganti logo.
 * Halaman login memakai latar cahaya biru yang bergerak, kartu login *glassmorphism* (blur transparan) dengan tombol gradasi biru, dan teks *Engage Link Identified Experience* dan "© 2026 ELIX. All rights reserved.".
 * Header Home: **cuaca** (suhu dan prakiraan 2 jam dari NEA/data.gov.sg, stasiun terdekat dengan kode pos condo) di kanan nama (tanpa latar, ukuran besar), dan **bell notifikasi** dengan jumlah yang belum dibaca. Notifikasi berisi semua aktivitas baru 30 hari terakhir: tamu datang/pulang, gerbang terbuka/ditolak, panggilan tak terjawab, status booking, dan balasan feedback.
+* **Dokumen** di *Profile → Documents*: file kepemilikan/kontrak sewa milik resident yang di-upload manajemen (*Residents → Documents*), biasanya sebelum akun dibuat. Resident hanya melihat dokumennya sendiri; PDF dibuka di viewer HP, foto di dalam aplikasi.
 * **Tema** dipilih di *Profile → Theme*: *Auto* (ikut HP), *Light* atau *Dark*; tersimpan di HP.
 * Semua list di APK memakai pagination (maksimal 9 per halaman, *‹ Page 2 of 5 · 41 items ›*).
 * Tombol unduh APK (*Residents → Resident app (Android)*) selalu menuju build terbaru: link-nya berisi versi (`elix-resident.apk?v=<versi>`, ditulis `scripts/fetch-resident-apk.sh` ke `downloads/elix-resident.json`), jadi cache HP atau Cloudflare tidak memberi APK lama.
@@ -118,13 +119,14 @@ Pastikan perangkat lokal Anda telah terinstal:
 |---|---|
 | **Platform admin** (super admin, Smart City) | Semua site: condominium, System settings, semua user |
 | **Site admin** | Site sendiri: semua menu termasuk Site setup, Gates & devices, Facilities & payments, dan akun Staff/Officer di menu **Staff** |
-| **Staff** (kantor manajemen) | Site sendiri: residents & akun app-nya, vehicles, invitations, bookings (batal/refund), balas feedback, plus semua tugas officer. Tidak bisa Site setup dan akun staff |
+| **Staff** (kantor manajemen) | Site sendiri: residents & akun app-nya, dokumen resident, vehicles, invitations, bookings (batal/refund), balas feedback, plus semua tugas officer. Tidak bisa Site setup dan akun staff |
 | **Officer** (guard) | Site sendiri: buka gerbang, Visitor list, intercom, block tamu, reports; residents/vehicles hanya lihat |
 
 ### 8. Keamanan
 * Login dashboard, APK dan Django admin dibatasi percobaannya (per IP dan per username); webhook kamera LPR juga dibatasi dan terkunci 5 menit setelah 20 password salah.
 * Logout, ganti password atau menonaktifkan akun langsung mencabut semua sesi orang tersebut di semua perangkat.
 * Site admin/Staff hanya bisa menautkan orang yang sudah terdaftar di site-nya; orang baru dibuat lewat *Add staff* / *Add resident*.
+* Dokumen resident (PDF/JPG/PNG maks. 8 MB, dicek dari isi file) disimpan dengan nama acak dan hanya bisa diunduh lewat API: Site admin/Staff site itu dan resident pemiliknya saja, Officer tidak bisa. File ikut terhapus saat dokumen atau residentnya dihapus.
 * Export Excel/CSV aman dari *formula injection*; HSTS aktif; log server tidak menyimpan token; dokumentasi API hanya untuk Platform admin.
 
 ### 9. Report Center

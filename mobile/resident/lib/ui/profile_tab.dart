@@ -4,6 +4,7 @@ import '../appearance.dart';
 import '../config.dart';
 import '../push.dart';
 import '../session.dart';
+import 'documents_screen.dart';
 import 'widgets.dart';
 
 class ProfileTab extends StatelessWidget {
@@ -38,6 +39,16 @@ class ProfileTab extends StatelessWidget {
               ),
             ),
           ),
+        const SizedBox(height: 8),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.folder_outlined),
+            title: const Text('Documents'),
+            subtitle: const Text('Proof of ownership, tenancy agreement'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DocumentsScreen())),
+          ),
+        ),
         const SizedBox(height: 8),
         Card(
           child: ListTile(

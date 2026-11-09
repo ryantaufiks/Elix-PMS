@@ -215,3 +215,17 @@ class Weather {
   String get forecast => json['forecast'] as String? ?? '';
   String get area => json['area'] as String? ?? '';
 }
+
+/// A file the management keeps for the resident (/v1/resident-documents/): ownership, tenancy…
+class ResidentDocument {
+  ResidentDocument(this.json);
+  final Map<String, dynamic> json;
+  int get id => json['id'] as int;
+  String get kind => json['kind'] as String? ?? 'other';
+  String get title => json['title'] as String? ?? '';
+  String get fileName => json['file_name'] as String? ?? 'document';
+  String get unitDisplay => json['unit_display'] as String? ?? '';
+  int get size => json['size'] as int? ?? 0;
+  DateTime get createdAt => DateTime.parse(json['created_at'] as String).toLocal();
+  bool get isImage => RegExp(r'\.(jpe?g|png)$', caseSensitive: false).hasMatch(fileName);
+}

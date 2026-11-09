@@ -26,6 +26,19 @@ export type Residency = {
   is_active: boolean;
 };
 
+export type ResidentDocument = {
+  id: number;
+  residency: number;
+  unit_display: string;
+  resident_name: string;
+  kind: "ownership" | "tenancy" | "identity" | "other";
+  title: string;
+  file_name: string;
+  size: number;
+  uploaded_by_name: string;
+  created_at: string;
+};
+
 export type Me = UserSummary & {
   is_superuser: boolean;
   staff_assignments: StaffAssignment[];

@@ -237,6 +237,46 @@ class ResidencyViewSet(MembershipViewSet):
     search_fields = ["user__first_name", "user__last_name", "user__username", "unit__unit_number", "unit__floor", "unit__block__name"]
 
 
+class ResidentDocumentViewSet(ScopedModelViewSet):
+    """Documents the management keeps for each resident (ownership, tenancy…). Site admins and staff
+    manage them; officers never see them; a resident sees only their own, read-only."""
+
+    queryset = m.ResidentDocument.objects.select_related("residency__user", "residency__unit__block", "uploaded_by")
+    serializer_class = s.ResidentDocumentSerializer
+    condo_path = "residency__unit__condominium"
+    staff_read_roles = MANAGEMENT
+    staff_write_roles = MANAGEMENT
+    filterset_fields = ["residency", "kind", "residency__unit__condominium"]
+    search_fields = ["title", "file_name"]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.request.user.is_superuser:
+            return qs
+        own = m.ResidentDocument.objects.filter(residency__user=self.request.user, residency__is_active=True)
+        return (qs | own.distinct()).select_related("residency__user", "residency__unit__block", "uploaded_by")
+
+    def perform_create(self, serializer):
+        self.check_write(serializer.validated_data)
+        serializer.save(uploaded_by=self.request.user)
+
+    def perform_update(self, serializer):
+        old = serializer.instance.file.name if "file" in serializer.validated_data else None
+        super().perform_update(serializer)
+        if old and old != serializer.instance.file.name:
+            serializer.instance.file.storage.delete(old)
+
+    @extend_schema(responses={(200, "application/octet-stream"): OpenApiResponse(description="The document")})
+    @action(detail=True)
+    def download(self, request, pk=None):
+        document = self.get_object()
+        if not document.file:
+            raise ValidationError("This document has no file.")
+        response = FileResponse(document.file.open("rb"), as_attachment=True, filename=document.file_name or document.file.name)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
 class VehicleViewSet(ScopedModelViewSet):
     queryset = m.Vehicle.objects.all()
     serializer_class = s.VehicleSerializer
