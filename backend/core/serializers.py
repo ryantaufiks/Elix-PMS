@@ -719,9 +719,10 @@ class SetPasswordSerializer(serializers.Serializer):
 
 
 class SystemSettingsSerializer(ModelCleanSerializer):
-    secret_fields = ("livekit_api_secret", "fcm_service_account_json")
+    secret_fields = ("livekit_api_secret", "fcm_service_account_json", "openai_api_key")
     livekit_configured = serializers.SerializerMethodField()
     fcm_configured = serializers.SerializerMethodField()
+    openai_configured = serializers.SerializerMethodField()
     sources = serializers.SerializerMethodField()
 
     class Meta:
@@ -729,13 +730,19 @@ class SystemSettingsSerializer(ModelCleanSerializer):
         fields = [
             "livekit_url", "livekit_api_key", "livekit_api_secret", "livekit_token_ttl_seconds",
             "intercom_unlock_window_seconds", "fcm_service_account_json", "relay_http_timeout",
-            "lpr_debounce_seconds", "livekit_configured", "fcm_configured", "sources", "updated_at",
+            "lpr_debounce_seconds", "openai_api_key", "assistant_mode", "assistant_chat_model", "assistant_transcribe_model",
+            "assistant_tts_model", "assistant_realtime_model", "assistant_voice", "assistant_max_session_seconds",
+            "assistant_daily_sessions", "livekit_configured", "fcm_configured", "openai_configured", "sources", "updated_at",
         ]
         read_only_fields = ["updated_at"]
 
     def get_livekit_configured(self, obj) -> bool:
         from . import config
         return all(config.source(n) for n in ("LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET"))
+
+    def get_openai_configured(self, obj) -> bool:
+        from . import config
+        return bool(config.get("OPENAI_API_KEY"))
 
     def get_fcm_configured(self, obj) -> bool:
         from . import push
@@ -1039,3 +1046,90 @@ class BackupSerializer(serializers.ModelSerializer):
         if attrs["kind"] == m.Backup.Kind.PLATFORM:
             attrs["condominium"] = None
         return attrs
+
+
+# --- Kiosk AI assistant ------------------------------------------------------------------------------
+
+class KioskAssistantMapSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+
+
+class KioskAssistantSerializer(serializers.Serializer):
+    enabled = serializers.BooleanField()
+    name = serializers.CharField()
+    greeting = serializers.CharField(allow_blank=True)
+    mode = serializers.CharField()
+    max_session_seconds = serializers.IntegerField()
+    maps = KioskAssistantMapSerializer(many=True)
+
+
+class KioskAssistantStartSerializer(serializers.Serializer):
+    session = serializers.IntegerField()
+    mode = serializers.CharField()
+    greeting = serializers.CharField(allow_blank=True)
+    greeting_audio = serializers.CharField(allow_blank=True, help_text="Base64 MP3 (speech-to-text mode).")
+    client_secret = serializers.CharField(allow_blank=True, help_text="One-minute OpenAI client secret (realtime mode).")
+
+
+class KioskAssistantTurnSerializer(serializers.Serializer):
+    audio = serializers.FileField(required=False, help_text="What the visitor said (WebM/Opus, up to 2 MB).")
+    text = serializers.CharField(required=False, allow_blank=True, max_length=1000, help_text="Typed instead of spoken.")
+    history = serializers.JSONField(required=False, binary=True, help_text="Recent turns: [{role, content}].")
+
+    def validate_audio(self, value):
+        if value.size > 2 * 1024 * 1024:
+            raise serializers.ValidationError("Recording too long.")
+        return value
+
+    def validate(self, attrs):
+        if not attrs.get("audio") and not attrs.get("text", "").strip():
+            raise serializers.ValidationError("Send audio or text.")
+        return attrs
+
+
+class KioskAssistantReplySerializer(serializers.Serializer):
+    heard = serializers.CharField(allow_blank=True)
+    reply = serializers.CharField(allow_blank=True)
+    audio = serializers.CharField(allow_blank=True, help_text="Base64 MP3 of the reply.")
+    actions = serializers.ListField(child=serializers.DictField())
+
+
+class AssistantSettingsSerializer(ModelCleanSerializer):
+    secret_fields = ("openai_api_key",)
+
+    class Meta:
+        model = m.AssistantSettings
+        fields = ["condominium", "enabled", "name", "greeting", "languages", "instructions", "openai_api_key", "updated_at"]
+        read_only_fields = ["condominium", "updated_at"]
+
+
+class AssistantModuleSerializer(ModelCleanSerializer):
+    class Meta:
+        model = m.AssistantModule
+        fields = ["id", "condominium", "title", "content", "order", "is_active"]
+
+
+class AssistantMapSerializer(ModelCleanSerializer):
+    image = serializers.ImageField(write_only=True, required=False)
+    has_image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = m.AssistantMap
+        fields = ["id", "condominium", "name", "description", "image", "has_image", "order", "is_active"]
+
+    def get_has_image(self, obj) -> bool:
+        return bool(obj.image)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if self.instance is None and not attrs.get("image"):
+            raise serializers.ValidationError({"image": "Upload the map image."})
+        return attrs
+
+
+class AssistantTestSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=1000)
+    history = serializers.JSONField(required=False, write_only=True)
+    reply = serializers.CharField(read_only=True)
+    actions = serializers.ListField(child=serializers.DictField(), read_only=True)

@@ -25,7 +25,22 @@ const tuningFields: FieldDef[] = [
   { name: "relay_http_timeout", label: "Relay HTTP timeout (seconds)", type: "number", hint: "Default 5." },
   { name: "lpr_debounce_seconds", label: "Ignore repeated plate reads for (seconds)", type: "number", hint: "Default 20." },
 ];
-const ALL = [...livekitFields, ...fcmFields, ...tuningFields];
+const VOICES = ["alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse", "marin", "cedar"].map((v) => ({ value: v, label: v[0].toUpperCase() + v.slice(1) }));
+const assistantFields: FieldDef[] = [
+  { name: "openai_api_key", label: "OpenAI API key", type: "secret", wide: true, hint: "platform.openai.com > API keys. Used by every site unless the site sets its own key." },
+  { name: "assistant_mode", label: "Mode", type: "select", wide: true, options: [
+    { value: "pipeline", label: "Speech to text: transcribe, answer, speak (lower cost, short pause per answer)" },
+    { value: "realtime", label: "Realtime voice: live two-way conversation (most natural, higher cost)" },
+  ] },
+  { name: "assistant_voice", label: "Voice", type: "select", options: VOICES },
+  { name: "assistant_chat_model", label: "Chat model", hint: "Speech-to-text mode. Default gpt-4.1-mini." },
+  { name: "assistant_transcribe_model", label: "Transcription model", hint: "Default gpt-4o-mini-transcribe." },
+  { name: "assistant_tts_model", label: "Text-to-speech model", hint: "Speech-to-text mode. Default gpt-4o-mini-tts." },
+  { name: "assistant_realtime_model", label: "Realtime model", hint: "Realtime mode. Default gpt-realtime-mini." },
+  { name: "assistant_max_session_seconds", label: "Longest conversation (seconds)", type: "number", required: true, hint: "Default 180." },
+  { name: "assistant_daily_sessions", label: "Conversations per kiosk per day", type: "number", required: true, hint: "Caps each kiosk's OpenAI bill. Default 100." },
+];
+const ALL = [...livekitFields, ...fcmFields, ...assistantFields, ...tuningFields];
 
 function SourceNote({ sources, names }: { sources: SystemSettings["sources"]; names: string[] }) {
   const fromEnv = names.filter((n) => sources[n] === ".env");
@@ -59,6 +74,7 @@ export default function SystemSettingsPage() {
       for (const f of ALL) {
         const v = values[f.name];
         if ((f.type === "secret" || f.type === "secret-text") && v === "") continue;
+        if (f.required && (v === "" || v === null)) continue;  // Keep the saved value rather than clear a required one.
         body[f.name] = f.type === "number" ? (v === "" || v === null ? null : Number(v)) : v;
       }
       await api("/v1/system-settings/", { method: "PATCH", body });
@@ -102,6 +118,14 @@ export default function SystemSettingsPage() {
             <div className="flex justify-end gap-2 border-t border-line pt-4">
               <Button busy={busy === "fcm"} onClick={() => save("fcm")}>Save &amp; test Firebase</Button>
             </div>
+          </div>
+        </Card>
+        <Card>
+          <CardHeader title="Kiosk AI assistant (OpenAI)" action={data.openai_configured ? <Badge tone="green">Configured</Badge> : <Badge tone="amber">Not configured</Badge>} />
+          <div className="space-y-4 p-5 sm:p-6">
+            <p className="text-sm text-muted">Visitors talk to the assistant on the kiosk. Each site turns it on and writes what it knows under Site setup → AI Assistant. Nothing visitors say is stored.</p>
+            <FormFields fields={assistantFields} values={values} errors={errors} record={record} onChange={change} />
+            <SourceNote sources={data.sources} names={["openai_api_key"]} />
           </div>
         </Card>
         <Card>

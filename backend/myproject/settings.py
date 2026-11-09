@@ -134,6 +134,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "kiosk_call": env("KIOSK_CALL_RATE", default="10/min"),
         "kiosk_checkin": env("KIOSK_CHECKIN_RATE", default="30/min"),
+        "kiosk_assistant": env("KIOSK_ASSISTANT_RATE", default="30/min"),
         "visitor_pass": env("VISITOR_PASS_RATE", default="60/min"),
         "resident_open": env("RESIDENT_OPEN_RATE", default="10/min"),
         "payment_callback": env("PAYMENT_CALLBACK_RATE", default="120/min"),
@@ -228,6 +229,9 @@ INTERCOM_UNLOCK_WINDOW_SECONDS = env.int("INTERCOM_UNLOCK_WINDOW_SECONDS", defau
 # Firebase Cloud Messaging (push to resident app). Path to a service-account JSON file
 # mounted into the containers; leave blank to disable push.
 FCM_SERVICE_ACCOUNT_FILE = env("FCM_SERVICE_ACCOUNT_FILE", default="")
+
+# Kiosk AI assistant: platform OpenAI key when System settings leaves it blank.
+OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
 
 # Weather from NEA's realtime readings on data.gov.sg. Works without a key; a key raises the rate limit.
 DATA_GOV_SG_API_KEY = env("DATA_GOV_SG_API_KEY", default="")

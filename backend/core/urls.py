@@ -11,6 +11,8 @@ router.register("staff-assignments", views.StaffAssignmentViewSet)
 router.register("residencies", views.ResidencyViewSet)
 router.register("resident-documents", views.ResidentDocumentViewSet)
 router.register("backups", views.BackupViewSet)
+router.register("assistant-modules", views.AssistantModuleViewSet)
+router.register("assistant-maps", views.AssistantMapViewSet)
 router.register("vehicles", views.VehicleViewSet)
 router.register("integration-accounts", views.IntegrationAccountViewSet)
 router.register("gates", views.AccessGateViewSet)
@@ -37,6 +39,8 @@ urlpatterns = [
     path("system-settings/", views.SystemSettingsView.as_view(), name="system-settings"),
     path("system-settings/test-livekit/", views.test_livekit, name="system-settings-test-livekit"),
     path("system-settings/test-fcm/", views.test_fcm, name="system-settings-test-fcm"),
+    path("assistant-settings/", views.AssistantSettingsView.as_view(), name="assistant-settings"),
+    path("assistant-settings/test/", views.AssistantTestView.as_view(), name="assistant-test"),
     path("dashboard/summary/", views.DashboardSummaryView.as_view(), name="dashboard-summary"),
     path("payment-settings/", amenity_views.PaymentSettingsView.as_view(), name="payment-settings"),
     path("payments/hitpay/webhook/", amenity_views.HitPayWebhookView.as_view(), name="hitpay-webhook"),
@@ -46,6 +50,11 @@ urlpatterns = [
     path("notifications/", feed_views.NotificationsView.as_view(), name="notifications"),
     path("weather/", feed_views.WeatherView.as_view(), name="weather"),
     path("kiosk/me/", kiosk_views.KioskMeView.as_view(), name="kiosk-me"),
+    path("kiosk/assistant/", kiosk_views.KioskAssistantView.as_view(), name="kiosk-assistant"),
+    path("kiosk/assistant/sessions/", kiosk_views.KioskAssistantStartView.as_view(), name="kiosk-assistant-start"),
+    path("kiosk/assistant/sessions/<int:pk>/turns/", kiosk_views.KioskAssistantTurnView.as_view(), name="kiosk-assistant-turn"),
+    path("kiosk/assistant/sessions/<int:pk>/end/", kiosk_views.KioskAssistantEndView.as_view(), name="kiosk-assistant-end"),
+    path("kiosk/assistant/maps/<int:pk>/", kiosk_views.KioskAssistantMapView.as_view(), name="kiosk-assistant-map"),
     path("kiosk/weather/", kiosk_views.KioskWeatherView.as_view(), name="kiosk-weather"),
     path("kiosk/directory/", kiosk_views.DirectoryView.as_view(), name="kiosk-directory"),
     path("kiosk/calls/", kiosk_views.StartCallView.as_view(), name="kiosk-call-start"),

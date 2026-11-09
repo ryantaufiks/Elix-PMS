@@ -15,6 +15,7 @@ FIELDS = {
     "FCM_SERVICE_ACCOUNT_JSON": "fcm_service_account_json",
     "RELAY_HTTP_TIMEOUT": "relay_http_timeout",
     "LPR_DEBOUNCE_SECONDS": "lpr_debounce_seconds",
+    "OPENAI_API_KEY": "openai_api_key",
 }
 
 

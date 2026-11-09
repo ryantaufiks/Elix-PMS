@@ -205,6 +205,39 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
 | Staff | `POST /v1/visits/{id}/check_out/`, `POST /v1/visits/bulk_check_out/` (`ids`) | Check out one or many |
 | Public | `GET /v1/public/invitations/<token>/`, `…/qr/` | Visitor pass data and QR PNG (rate-limited) |
 
+### Kiosk AI assistant (OpenAI)
+
+An **Ask <name>** button on the kiosk opens a voice concierge: directions (it can put a site map or
+floor plan on screen), facilities and hours, rules, deliveries, and help registering. It asks the unit,
+name and purpose by voice, then opens the walk-in form with them filled in (photo, consent and the
+unit are still confirmed on screen). It can also open the call, invitation-scan and check-out screens.
+It only talks about the site and never reveals or confirms anything about residents.
+
+- **Platform admin** (System settings → Kiosk AI assistant): the OpenAI API key (encrypted; `.env`
+  fallback `OPENAI_API_KEY`), the voice, the models, the longest conversation (180 s) and the
+  conversations per kiosk per day (100).
+- **Mode**: *Speech to text* (default) records what the visitor says, transcribes it
+  (`gpt-4o-mini-transcribe`), answers with a chat model (`gpt-4.1-mini`) and speaks the answer
+  (`gpt-4o-mini-tts`): lower cost, a short pause per answer. *Realtime* talks to OpenAI over WebRTC
+  (`gpt-realtime-mini`): live two-way voice that can be interrupted, at a higher cost. The server mints a
+  one-minute client secret per conversation; the API key never reaches the kiosk.
+- **Site admin** (Site setup → AI Assistant): on/off, name, greeting, languages (it answers in the
+  visitor's language), extra guidance, an optional own OpenAI key for the site, **knowledge** modules
+  (plain text: directions, facilities, rules, contacts, getting here) and **maps** (images with what they
+  show). *Try it* asks typed questions with the saved knowledge.
+- **Privacy**: nothing said is stored. The kiosk keeps the conversation in memory and sends the recent
+  turns with each request; the server only counts conversations and turns for the limits. The kiosk
+  tells visitors their voice is processed by OpenAI to answer them.
+
+| Who | Endpoint | Purpose |
+|---|---|---|
+| Kiosk | `GET /v1/kiosk/assistant/` | Whether it is on, name, greeting, mode, maps |
+| Kiosk | `POST /v1/kiosk/assistant/sessions/` | Start: spoken greeting (speech to text) or a client secret (realtime) |
+| Kiosk | `POST /v1/kiosk/assistant/sessions/{id}/turns/` (`audio` or `text`, `history`) | One exchange: what was heard, the answer, its MP3 and screen actions |
+| Kiosk | `POST …/sessions/{id}/end/`, `GET /v1/kiosk/assistant/maps/{id}/` | End; a map image |
+| Site admin | `GET/PATCH /v1/assistant-settings/?condominium=`, `POST /v1/assistant-settings/test/` | Settings; typed test |
+| Site admin | `/v1/assistant-modules/`, `/v1/assistant-maps/` (`…/{id}/image/`) | Knowledge and maps |
+
 ## Report Center
 
 *Operations → Reports*, for every staff member. Officers report on their own site; superusers can

@@ -50,6 +50,29 @@ class SystemSettings(TimeStampedModel):
         help_text="Repeated reads of the same plate at the same gate within this window are ignored. Default 20.",
     )
 
+    # Kiosk AI assistant (OpenAI)
+    class AssistantMode(models.TextChoices):
+        PIPELINE = "pipeline", "Speech to text (lower cost)"
+        REALTIME = "realtime", "Realtime voice (most natural)"
+
+    openai_api_key = EncryptedTextField("OpenAI API key", blank=True, default="",
+                                        help_text="Used by every site's kiosk assistant unless the site has its own key.")
+    assistant_mode = models.CharField(
+        "Assistant mode", max_length=10, choices=AssistantMode.choices, default=AssistantMode.PIPELINE,
+        help_text="Speech to text: transcribe, answer, speak (a short pause per answer). Realtime: live two-way voice.",
+    )
+    assistant_chat_model = models.CharField("Chat model", max_length=60, default="gpt-4.1-mini")
+    assistant_transcribe_model = models.CharField("Transcription model", max_length=60, default="gpt-4o-mini-transcribe")
+    assistant_tts_model = models.CharField("Text-to-speech model", max_length=60, default="gpt-4o-mini-tts")
+    assistant_realtime_model = models.CharField("Realtime model", max_length=60, default="gpt-realtime-mini")
+    assistant_voice = models.CharField("Voice", max_length=30, default="coral")
+    assistant_max_session_seconds = models.PositiveIntegerField(
+        "Longest conversation (seconds)", default=180, help_text="A conversation ends after this long.",
+    )
+    assistant_daily_sessions = models.PositiveIntegerField(
+        "Conversations per kiosk per day", default=100, help_text="Caps the OpenAI bill of each kiosk.",
+    )
+
     class Meta:
         verbose_name = verbose_name_plural = "System settings"
 

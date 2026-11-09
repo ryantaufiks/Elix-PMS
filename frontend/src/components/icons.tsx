@@ -50,6 +50,8 @@ const paths = {
   download: "M12 4v11M7 10l5 5 5-5M5 20h14",
   file: "M6 3h8l5 5v13H6zM14 3v5h5M9 13h6M9 17h6",
   archive: "M3 4h18v4H3zM5 8v12h14V8M10 12h4",
+  sparkle: "M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8Z",
+  send: "M4 12 20 4l-6 16-3-7-7-1Z",
   key: "M15 7a4 4 0 1 1-3.9 4.9L3 20v-3h2v-2h2l2.1-2.1A4 4 0 0 1 15 7ZM16 8h.01",
 };
 

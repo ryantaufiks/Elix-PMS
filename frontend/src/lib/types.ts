@@ -119,11 +119,43 @@ export type SystemSettings = {
   lpr_debounce_seconds: number | null;
   has_livekit_api_secret: boolean;
   has_fcm_service_account_json: boolean;
+  has_openai_api_key: boolean;
+  assistant_mode: "pipeline" | "realtime";
+  assistant_chat_model: string;
+  assistant_transcribe_model: string;
+  assistant_tts_model: string;
+  assistant_realtime_model: string;
+  assistant_voice: string;
+  assistant_max_session_seconds: number;
+  assistant_daily_sessions: number;
   livekit_configured: boolean;
   fcm_configured: boolean;
+  openai_configured: boolean;
   sources: Record<string, "admin" | ".env" | "">;
   updated_at: string | null;
 };
+
+export type AssistantSettings = {
+  condominium: number;
+  enabled: boolean;
+  name: string;
+  greeting: string;
+  languages: string;
+  instructions: string;
+  has_openai_api_key: boolean;
+  updated_at: string;
+};
+
+export type AssistantModule = { id: number; condominium: number; title: string; content: string; order: number; is_active: boolean };
+
+export type AssistantMap = { id: number; condominium: number; name: string; description: string; has_image: boolean; order: number; is_active: boolean };
+
+export type AssistantAction =
+  | { type: "show_map"; map_id: number }
+  | { type: "start_walk_in"; unit: string; visitor_name: string; purpose: string; company: string }
+  | { type: "call_resident"; unit: string }
+  | { type: "open_screen"; screen: "invitation" | "checkout" }
+  | { type: "end_conversation" };
 
 export type Unit = {
   id: number;

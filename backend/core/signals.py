@@ -4,7 +4,7 @@ from django.db import transaction
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
-from .models import AccessLog, Backup, ResidentDocument, User
+from .models import AccessLog, AssistantMap, Backup, ResidentDocument, User
 from .realtime import broadcast
 
 logger = logging.getLogger(__name__)
@@ -49,3 +49,9 @@ def delete_document_file(sender, instance, **kwargs):
 def delete_backup_file(sender, instance, **kwargs):
     if instance.file:
         transaction.on_commit(lambda: instance.file.storage.delete(instance.file.name))
+
+
+@receiver(post_delete, sender=AssistantMap)
+def delete_assistant_map_image(sender, instance, **kwargs):
+    if instance.image:
+        transaction.on_commit(lambda: instance.image.storage.delete(instance.image.name))

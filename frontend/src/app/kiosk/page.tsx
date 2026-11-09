@@ -9,7 +9,7 @@ import { Room, RoomEvent, Track, type RemoteTrack } from "livekit-client";
 import { ApiError, wsUrl } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import {
-  type CheckInResult, type DirectoryUnit, isWalkInCode, kioskApi, type KioskSelf, kioskToken, PURPOSES, type VisitorDetails,
+  type CheckInResult, type DirectoryUnit, isWalkInCode, kioskApi, type KioskAssistant, type KioskSelf, kioskToken, PURPOSES, type VisitorDetails,
   type VisitorLookup, type VisitorPass, type WalkInCheckOut, type WalkInSlip, type Weather, weatherIcon,
 } from "@/lib/kiosk";
 import type { IntercomCall, LiveKitConnection } from "@/lib/types";
@@ -17,6 +17,8 @@ import { Credit } from "@/components/Credit";
 import { Icon } from "@/components/icons";
 import { PrintSlip } from "@/components/PrintSlip";
 import { describeLive, describePhoto, loadFace } from "@/lib/face";
+import type { AssistantAction } from "@/lib/types";
+import { AssistantPanel } from "./assistant";
 
 type Outcome = { tone: "good" | "bad" | "info"; title: string; detail?: string };
 /** Call a resident, or register as a walk-in (printed slip, no call). */
@@ -24,8 +26,8 @@ type Mode = "call" | "walkin";
 type Screen =
   | { name: "setup" }
   | { name: "home" }
-  | { name: "directory"; mode: Mode }
-  | { name: "identify"; mode: Mode; unit: DirectoryUnit }
+  | { name: "directory"; mode: Mode; query?: string; prefill?: Prefill }
+  | { name: "identify"; mode: Mode; unit: DirectoryUnit; prefill?: Prefill }
   | { name: "details"; mode: Mode; unit: DirectoryUnit; details: VisitorDetails }
   | { name: "photo"; mode: Mode; unit: DirectoryUnit; details: VisitorDetails }
   | { name: "calling" | "walkin"; unit: DirectoryUnit; details: VisitorDetails }
@@ -33,7 +35,10 @@ type Screen =
   | { name: "checkout" }
   | { name: "pass"; slip: WalkInSlip; unit: DirectoryUnit }
   | { name: "face"; code: string; pass: VisitorPass }
-  | { name: "result"; outcome: Outcome };
+  | { name: "result"; outcome: Outcome }
+  | { name: "assistant" };
+/** What the visitor already told the assistant, filled into the walk-in form. */
+type Prefill = Partial<Pick<VisitorDetails, "name" | "purpose" | "company">>;
 
 const IDLE_MS = 90_000;
 
@@ -223,8 +228,9 @@ function Setup({ onReady }: { onReady: (kiosk: KioskSelf, token: string) => void
   );
 }
 
-function Home({ kiosk, onCall, onWalkIn, onScan, onCheckOut, onAdmin }: {
-  kiosk: KioskSelf; onCall: () => void; onWalkIn: () => void; onScan: () => void; onCheckOut: () => void; onAdmin: () => void;
+function Home({ kiosk, assistant, onAssistant, onCall, onWalkIn, onScan, onCheckOut, onAdmin }: {
+  kiosk: KioskSelf; assistant: KioskAssistant | null; onAssistant: () => void;
+  onCall: () => void; onWalkIn: () => void; onScan: () => void; onCheckOut: () => void; onAdmin: () => void;
 }) {
   const taps = useRef<number[]>([]);
   const buttons = 2 + Number(kiosk.walk_in) + Number(kiosk.checkout);
@@ -233,6 +239,16 @@ function Home({ kiosk, onCall, onWalkIn, onScan, onCheckOut, onAdmin }: {
     <Frame kiosk={kiosk}>
       <h1 className="text-center text-4xl font-semibold tracking-tight sm:text-5xl">Welcome</h1>
       <p className="mt-3 text-center text-lg text-slate-300">How would you like to enter{kiosk.gate_name ? ` through ${kiosk.gate_name}` : ""}?</p>
+      {assistant?.enabled && (
+        <button onClick={onAssistant}
+          className="mt-8 flex items-center gap-4 rounded-full border border-primary-300/40 bg-gradient-to-r from-primary-500/30 to-cyan-400/20 py-3 pl-3 pr-8 text-left shadow-[0_0_40px_rgba(47,140,255,0.35)] transition hover:from-primary-500/40">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-primary-400 to-cyan-400"><Icon name="mic" className="h-7 w-7 text-white" /></span>
+          <span>
+            <span className="block text-xl font-semibold">Ask {assistant.name}</span>
+            <span className="block text-slate-300">Directions, facilities, or help registering. Just speak.</span>
+          </span>
+        </button>
+      )}
       <div className={`mt-12 grid w-full gap-6 ${grid}`}>
         <button onClick={onCall} className="group rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
           <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
@@ -280,8 +296,8 @@ function Home({ kiosk, onCall, onWalkIn, onScan, onCheckOut, onAdmin }: {
   );
 }
 
-function Directory({ kiosk, walkIn, onPick, onBack }: { kiosk: KioskSelf; walkIn: boolean; onPick: (unit: DirectoryUnit) => void; onBack: () => void }) {
-  const [q, setQ] = useState("");
+function Directory({ kiosk, walkIn, query = "", onPick, onBack }: { kiosk: KioskSelf; walkIn: boolean; query?: string; onPick: (unit: DirectoryUnit) => void; onBack: () => void }) {
+  const [q, setQ] = useState(query);
   const [units, setUnits] = useState<DirectoryUnit[] | null>(null);
   useEffect(() => {
     const id = setTimeout(() => {
@@ -980,10 +996,22 @@ async function checkOut(body: CheckOutBody): Promise<Outcome & { retry?: boolean
 
 // --- App ---------------------------------------------------------------------
 
+/** Fill what the visitor told the assistant into empty fields only (a returning visitor's record wins). */
+function withPrefill(details: VisitorDetails, prefill?: Prefill): VisitorDetails {
+  if (!prefill) return details;
+  return {
+    ...details,
+    name: details.name || prefill.name || "",
+    purpose: details.purpose || prefill.purpose || "",
+    company: details.company || prefill.company || "",
+  };
+}
+
 export default function KioskPage() {
   const [kiosk, setKiosk] = useState<KioskSelf | null>(null);
   const [screen, setScreen] = useState<Screen>({ name: "home" });
   const [booted, setBooted] = useState(false);
+  const [assistant, setAssistant] = useState<KioskAssistant | null>(null);
   const home = useCallback(() => setScreen({ name: "home" }), []);
 
   useEffect(() => {
@@ -1004,16 +1032,33 @@ export default function KioskPage() {
       .finally(() => setBooted(true));
   }, []);
 
-  // Heartbeat so the dashboard shows this kiosk online.
+  // Heartbeat so the dashboard shows this kiosk online; also picks up assistant changes.
   useEffect(() => {
     if (!kiosk) return;
-    const id = setInterval(() => kioskApi<KioskSelf>("/v1/kiosk/me/").then(setKiosk).catch(() => {}), 60_000);
+    const loadAssistant = () => kioskApi<KioskAssistant>("/v1/kiosk/assistant/").then(setAssistant).catch(() => setAssistant(null));
+    loadAssistant();
+    const id = setInterval(() => {
+      kioskApi<KioskSelf>("/v1/kiosk/me/").then(setKiosk).catch(() => {});
+      loadAssistant();
+    }, 60_000);
     return () => clearInterval(id);
   }, [kiosk?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Screens the assistant opens for the visitor.
+  const assistantAction = useCallback((action: AssistantAction) => {
+    if (!kiosk) return;
+    if (action.type === "start_walk_in") {
+      const prefill: Prefill = { name: action.visitor_name, purpose: action.purpose, company: action.company };
+      setScreen({ name: "directory", mode: kiosk.walk_in ? "walkin" : "call", query: action.unit, prefill });
+    } else if (action.type === "call_resident") setScreen({ name: "directory", mode: "call", query: action.unit });
+    else if (action.type === "open_screen") setScreen(action.screen === "checkout" && kiosk.checkout ? { name: "checkout" } : { name: "scan" });
+    else home();
+  }, [kiosk, home]);
+
   // Return to the welcome screen when left idle (never mid-call).
   useEffect(() => {
-    if (screen.name === "home" || screen.name === "setup" || screen.name === "calling") return;
+    // The assistant closes itself when the conversation goes quiet.
+    if (screen.name === "home" || screen.name === "setup" || screen.name === "calling" || screen.name === "assistant") return;
     let timer = setTimeout(home, IDLE_MS);
     const reset = () => {
       clearTimeout(timer);
@@ -1062,17 +1107,24 @@ export default function KioskPage() {
   switch (screen.name) {
     case "home":
       return (
-        <Home kiosk={kiosk}
+        <Home kiosk={kiosk} assistant={assistant}
+          onAssistant={() => { document.documentElement.requestFullscreen?.().catch(() => {}); setScreen({ name: "assistant" }); }}
           onCall={() => { document.documentElement.requestFullscreen?.().catch(() => {}); setScreen({ name: "directory", mode: "call" }); }}
           onWalkIn={() => { document.documentElement.requestFullscreen?.().catch(() => {}); setScreen({ name: "directory", mode: "walkin" }); }}
           onScan={() => { document.documentElement.requestFullscreen?.().catch(() => {}); setScreen({ name: "scan" }); }}
           onCheckOut={() => { document.documentElement.requestFullscreen?.().catch(() => {}); setScreen({ name: "checkout" }); }}
           onAdmin={() => { if (window.confirm("Sign this kiosk out?")) { kioskToken.clear(); setKiosk(null); setScreen({ name: "setup" }); } }} />
       );
+    case "assistant":
+      return (
+        <Frame kiosk={kiosk}>
+          {assistant ? <AssistantPanel info={assistant} onAction={assistantAction} onClose={home} /> : null}
+        </Frame>
+      );
     case "directory": {
-      const mode = screen.mode;
-      return <Directory kiosk={kiosk} walkIn={mode === "walkin"} onBack={home} onPick={(unit) => {
-        if (mode === "walkin" || kiosk.visitor_form) setScreen({ name: "identify", mode, unit });
+      const { mode, prefill } = screen;
+      return <Directory kiosk={kiosk} walkIn={mode === "walkin"} query={screen.query} onBack={home} onPick={(unit) => {
+        if (mode === "walkin" || kiosk.visitor_form) setScreen({ name: "identify", mode, unit, prefill });
         else if (kiosk.photo_required) setScreen({ name: "photo", mode, unit, details: { ...emptyDetails(), consent: true } });
         else setScreen({ name: "calling", unit, details: emptyDetails() });
       }} />;
@@ -1080,8 +1132,8 @@ export default function KioskPage() {
     case "identify":
       return <Identify kiosk={kiosk} onBack={() => setScreen({ name: "directory", mode: screen.mode })}
         onBlocked={() => setScreen({ name: "result", outcome: { tone: "bad", title: "Please see the guardhouse", detail: "The security team will help you." } })}
-        onFound={(details) => setScreen({ name: "details", mode: screen.mode, unit: screen.unit, details })}
-        onNew={(details) => setScreen({ name: "details", mode: screen.mode, unit: screen.unit, details })} />;
+        onFound={(details) => setScreen({ name: "details", mode: screen.mode, unit: screen.unit, details: withPrefill(details, screen.prefill) })}
+        onNew={(details) => setScreen({ name: "details", mode: screen.mode, unit: screen.unit, details: withPrefill(details, screen.prefill) })} />;
     case "details": {
       const { mode, unit } = screen;
       const photo = mode === "walkin" ? kiosk.walk_in_photo : kiosk.photo_required;

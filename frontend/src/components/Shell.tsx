@@ -49,6 +49,7 @@ const NAV: { title: string; items: NavItem[] }[] = [
       { href: "/setup/units/", label: "Blocks & units", icon: "grid", admin: true },
       { href: "/setup/devices/", label: "Gates & devices", icon: "cpu", admin: true },
       { href: "/setup/facilities/", label: "Facilities & payments", icon: "calendar", admin: true },
+      { href: "/setup/assistant/", label: "AI Assistant", icon: "sparkle", admin: true },
     ],
   },
   {

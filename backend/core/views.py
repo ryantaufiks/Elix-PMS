@@ -15,7 +15,7 @@ from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 
-from . import access, backups, intercom, livekit, privacy, push, relays, visits
+from . import access, assistant, backups, intercom, livekit, privacy, push, relays, visits
 from . import visitor_identity as identity
 from . import models as m
 from . import serializers as s
@@ -857,6 +857,82 @@ class SystemSettingsView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return m.SystemSettings.load()
+
+
+# --- Kiosk AI assistant (site admins) -------------------------------------------------------------------
+
+class AssistantSettingsView(generics.GenericAPIView):
+    """The site's kiosk assistant: on/off, name, greeting, languages, guidance and its own optional OpenAI
+    key (``?condominium=``). Site admins and platform admins."""
+
+    serializer_class = s.AssistantSettingsSerializer
+
+    def condo(self):
+        try:
+            condo = m.Condominium.objects.get(pk=self.request.query_params.get("condominium"))
+        except (m.Condominium.DoesNotExist, ValueError, TypeError):
+            raise ValidationError({"condominium": "Choose the site."})
+        if not self.request.user.is_superuser and condo.pk not in staff_condo_ids(self.request.user, (ADMIN,)):
+            raise PermissionDenied("Only the site admin manages the assistant.")
+        return condo
+
+    def get_object(self):
+        condo = self.condo()
+        return m.AssistantSettings.objects.get_or_create(condominium=condo)[0]
+
+    def get(self, request):
+        return Response(self.get_serializer(self.get_object()).data)
+
+    def patch(self, request):
+        serializer = self.get_serializer(self.get_object(), data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
+class AssistantTestView(AssistantSettingsView):
+    @extend_schema(request=s.AssistantTestSerializer, responses=s.AssistantTestSerializer)
+    def post(self, request):
+        """Ask the assistant a typed question with the saved knowledge (no voice), to check its answers."""
+        condo = self.condo()
+        body = s.AssistantTestSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        if not assistant.api_key(condo):
+            raise ValidationError({"message": "Add an OpenAI API key first (System settings, or this site's own key)."})
+        history = assistant.clean_history(body.validated_data.get("history") or [])
+        try:
+            text, actions = assistant.reply(condo, [*history, {"role": "user", "content": body.validated_data["message"]}])
+        except assistant.AssistantError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response({"message": body.validated_data["message"], "reply": text, "actions": actions})
+
+
+class AssistantModuleViewSet(ScopedModelViewSet):
+    queryset = m.AssistantModule.objects.all()
+    serializer_class = s.AssistantModuleSerializer
+    staff_read_roles = (ADMIN,)
+    filterset_fields = ["condominium", "is_active"]
+
+
+class AssistantMapViewSet(ScopedModelViewSet):
+    queryset = m.AssistantMap.objects.all()
+    serializer_class = s.AssistantMapSerializer
+    staff_read_roles = (ADMIN,)
+    filterset_fields = ["condominium", "is_active"]
+
+    def perform_update(self, serializer):
+        old = serializer.instance.image.name if "image" in serializer.validated_data else None
+        super().perform_update(serializer)
+        if old and old != serializer.instance.image.name:
+            serializer.instance.image.storage.delete(old)
+
+    @extend_schema(responses={(200, "image/*"): OpenApiResponse(description="Map image")})
+    @action(detail=True)
+    def image(self, request, pk=None):
+        found = self.get_object()
+        response = FileResponse(found.image.open("rb"))
+        response["Cache-Control"] = "private, max-age=3600"
+        return response
 
 
 class BackupViewSet(mixins.CreateModelMixin, mixins.DestroyModelMixin, viewsets.ReadOnlyModelViewSet):

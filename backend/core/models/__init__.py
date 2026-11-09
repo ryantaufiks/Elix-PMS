@@ -1,3 +1,4 @@
+from .assistant import AssistantMap, AssistantModule, AssistantSession, AssistantSettings
 from .access import AccessLog, IntercomCall
 from .amenities import Booking, Facility, PaymentSettings
 from .community import Feedback

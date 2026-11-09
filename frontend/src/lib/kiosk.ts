@@ -39,6 +39,24 @@ export async function kioskApi<T>(path: string, options: { method?: string; body
   return data as T;
 }
 
+/** An authenticated file (an assistant map) as a Blob. */
+export async function kioskBlob(path: string): Promise<Blob> {
+  const token = kioskToken.get();
+  const response = await fetch(path, { headers: token ? { Authorization: `Kiosk ${token}` } : {} });
+  if (!response.ok) throw new ApiError(response.status, `Request failed (HTTP ${response.status})`, undefined);
+  return response.blob();
+}
+
+/** The site's AI assistant as this kiosk offers it. */
+export type KioskAssistant = {
+  enabled: boolean;
+  name: string;
+  greeting: string;
+  mode: "pipeline" | "realtime";
+  max_session_seconds: number;
+  maps: { id: number; name: string }[];
+};
+
 export type Weather = {
   temperature: number | null;
   humidity: number | null;

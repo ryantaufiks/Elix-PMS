@@ -1,7 +1,11 @@
 """API for kiosk tablets (``Authorization: Kiosk <token>``)."""
+import base64
+
 from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Exists, OuterRef, Q
+from django.http import FileResponse
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -10,7 +14,7 @@ from rest_framework.settings import api_settings
 from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
 
-from . import access, intercom, livekit, visits
+from . import access, assistant, intercom, livekit, visits
 from . import visitor_identity as identity
 from . import models as m
 from . import serializers as s
@@ -340,3 +344,105 @@ class KioskCallPassView(KioskCallView):
         if visit is None:
             return Response({"detail": "No pass for this call."}, status=status.HTTP_404_NOT_FOUND)
         return Response(s.VisitSlipSerializer(visit).data)
+
+
+# --- AI assistant -------------------------------------------------------------------------------------
+
+class KioskAssistantThrottle(KioskCallThrottle):
+    scope = "kiosk_assistant"
+
+
+class KioskAssistantView(KioskView):
+    @extend_schema(responses=s.KioskAssistantSerializer)
+    def get(self, request):
+        """Whether this kiosk offers the assistant, how it introduces itself, and its maps."""
+        condo = self.kiosk.condominium
+        site = assistant.site_settings(condo)
+        maps = m.AssistantMap.objects.filter(condominium=condo, is_active=True)
+        return Response(s.KioskAssistantSerializer({
+            "enabled": assistant.available(condo), "name": site.name, "greeting": site.greeting,
+            "mode": m.SystemSettings.load().assistant_mode,
+            "max_session_seconds": m.SystemSettings.load().assistant_max_session_seconds,
+            "maps": [{"id": x.pk, "name": x.name} for x in maps],
+        }).data)
+
+
+class AssistantSessionMixin:
+    def session(self, pk):
+        found = m.AssistantSession.objects.filter(pk=pk, kiosk=self.kiosk).first()
+        if found is None:
+            raise Rejected({"detail": "Unknown conversation."}, status.HTTP_404_NOT_FOUND)
+        try:
+            assistant.check_session(found)
+        except assistant.AssistantError as exc:
+            raise Rejected({"detail": str(exc)}, status.HTTP_409_CONFLICT)
+        return found
+
+
+def _audio(data):
+    return base64.b64encode(data).decode() if data else ""
+
+
+class KioskAssistantStartView(KioskView):
+    throttle_classes = [KioskAssistantThrottle]
+
+    @extend_schema(request=None, responses=s.KioskAssistantStartSerializer)
+    def post(self, request):
+        """Start a conversation. Speech-to-text mode gets the spoken greeting; realtime mode a one-minute
+        client secret for the WebRTC connection to OpenAI (the API key stays on the server)."""
+        condo = self.kiosk.condominium
+        try:
+            session = assistant.start_session(self.kiosk)
+            body = {"session": session.pk, "mode": session.mode, "greeting": assistant.site_settings(condo).greeting,
+                    "greeting_audio": "", "client_secret": ""}
+            if session.mode == m.AssistantSession.Mode.REALTIME:
+                body["client_secret"] = assistant.realtime_secret(condo)
+            elif body["greeting"]:
+                body["greeting_audio"] = _audio(assistant.speak(condo, body["greeting"]))
+        except assistant.AssistantError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response(s.KioskAssistantStartSerializer(body).data, status=status.HTTP_201_CREATED)
+
+
+class KioskAssistantTurnView(AssistantSessionMixin, KioskView):
+    throttle_classes = [KioskAssistantThrottle]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    @extend_schema(request=s.KioskAssistantTurnSerializer, responses=s.KioskAssistantReplySerializer)
+    def post(self, request, pk):
+        """One exchange in speech-to-text mode: what the visitor said (``audio`` or ``text``) and the recent
+        ``history`` in; what was heard, the answer, its speech and any screen actions out. Nothing is kept."""
+        session = self.session(pk)
+        body = s.KioskAssistantTurnSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        data = body.validated_data
+        condo = self.kiosk.condominium
+        try:
+            heard = data.get("text", "").strip() or (assistant.transcribe(condo, data["audio"]) if data.get("audio") else "")
+            if not heard:
+                return Response(s.KioskAssistantReplySerializer({"heard": "", "reply": "", "audio": "", "actions": []}).data)
+            history = assistant.clean_history(data.get("history") or [])
+            text, actions = assistant.reply(condo, [*history, {"role": "user", "content": heard[:assistant.MAX_TEXT]}])
+            audio = assistant.speak(condo, text) if text else b""
+        except assistant.AssistantError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        m.AssistantSession.objects.filter(pk=session.pk).update(turns=session.turns + 1)
+        return Response(s.KioskAssistantReplySerializer({"heard": heard, "reply": text, "audio": _audio(audio), "actions": actions}).data)
+
+
+class KioskAssistantEndView(KioskView):
+    @extend_schema(request=None, responses={204: None})
+    def post(self, request, pk):
+        m.AssistantSession.objects.filter(pk=pk, kiosk=self.kiosk, ended_at__isnull=True).update(ended_at=timezone.now())
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class KioskAssistantMapView(KioskView):
+    @extend_schema(responses={(200, "image/*"): None})
+    def get(self, request, pk):
+        found = m.AssistantMap.objects.filter(pk=pk, condominium=self.kiosk.condominium, is_active=True).first()
+        if found is None or not found.image:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        response = FileResponse(found.image.open("rb"))
+        response["Cache-Control"] = "private, max-age=3600"
+        return response
