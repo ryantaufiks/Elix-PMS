@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../session.dart';
 import '../theme.dart';
 import 'aurora.dart';
+import 'web_page_screen.dart';
 import 'widgets.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -92,7 +93,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       ]),
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
+                  Center(
+                    child: TextButton(
+                      onPressed: () => WebPageScreen.open(context, 'Privacy policy', '/privacy/'),
+                      child: const Text('Privacy policy', style: TextStyle(color: Color(0xFF94A3B8))),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   const Credit(color: Color(0xFF94A3B8)),
                 ]),
               ),

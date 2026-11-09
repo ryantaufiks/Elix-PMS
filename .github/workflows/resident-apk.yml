@@ -1,5 +1,6 @@
 # Builds the resident Android app on GitHub's runners (the production server is too small for Gradle)
-# and publishes the APK to the "resident-latest" release.
+# and publishes the APK to the "resident-latest" release. The same run builds the Play Store bundle
+# (elix-resident.aab, signed with the same key as the upload key) as a workflow artifact.
 #
 # Repository secrets (Settings > Secrets and variables > Actions):
 #   ANDROID_KEYSTORE_BASE64      base64 of mobile/resident/android/elix-release.jks (required: updates only
@@ -86,10 +87,36 @@ jobs:
             --build-number=${{ github.run_number }}
           cp build/app/outputs/flutter-apk/app-release.apk elix-resident.apk
 
+      - name: Build app bundle (Google Play)
+        run: |
+          flutter build appbundle --release \
+            --dart-define=API_BASE=${{ vars.API_BASE || 'https://myelix.kurmapos.online' }} \
+            --build-number=${{ github.run_number }}
+          cp build/app/outputs/bundle/release/app-release.aab elix-resident.aab
+
+      # Google Play requires native libraries aligned for 16 KB memory pages (Android 15+).
+      - name: Check 16 KB page alignment
+        run: |
+          ZIPALIGN=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)zipalign
+          "$ZIPALIGN" -c -P 16 4 elix-resident.apk || echo "::warning::The APK is not zip-aligned for 16 KB pages."
+          rm -rf so && mkdir so && unzip -q -o elix-resident.apk 'lib/arm64-v8a/*.so' 'lib/x86_64/*.so' -d so || true
+          bad=0
+          for f in $(find so -name '*.so'); do
+            if readelf -lW "$f" | awk '$1=="LOAD" && strtonum($NF) < 16384 {found=1} END {exit !found}'; then
+              echo "::warning::$f is not aligned for 16 KB pages"; bad=1
+            fi
+          done
+          if [ "$bad" = 0 ]; then echo "All native libraries are 16 KB aligned."; fi
+
       - uses: actions/upload-artifact@v4
         with:
           name: elix-resident-apk
           path: mobile/resident/elix-resident.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: elix-resident-aab
+          path: mobile/resident/elix-resident.aab
 
       - name: Publish to the resident-latest release
         env:

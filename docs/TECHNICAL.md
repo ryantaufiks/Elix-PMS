@@ -362,6 +362,28 @@ optionally `GOOGLE_SERVICES_JSON_BASE64`; optional variable `API_BASE`.
   `android/key.properties` (both git-ignored, on the server). Back them up: Android only installs
   updates signed with the same key.
 
+### Google Play
+
+The same workflow also builds `elix-resident.aab` (artifact *elix-resident-aab* on the run), the
+format Google Play takes, and checks that native libraries are aligned for 16 KB memory pages (a
+warning on the run if one is not). Before the first upload:
+
+- **Signing:** choose *Use existing app signing key* in Play Console and upload `elix-release.jks`
+  (Play's PEPK tool). If Google generates a new key instead, phones with the sideloaded APK cannot
+  update to the Play build without uninstalling first.
+- **Store listing and policy links:** privacy policy at `https://<your-host>/privacy/`, account
+  deletion at `https://<your-host>/account-deletion/` (both public pages of the web app, also linked
+  from the app's login and Profile; the contact address is `PRIVACY_EMAIL` in
+  `frontend/src/lib/legal.ts`).
+- **Declarations:** `USE_FULL_SCREEN_INTENT` (calling app: the video intercom), the foreground service
+  types `phoneCall`, `camera` and `microphone` that the call plugin declares (with a short video of an
+  intercom call), Data safety (name, phone, photos/video during calls, documents, plates, payments via
+  HitPay), and a demo resident account on a demo site for *App access*.
+- The manifest removes the photo/video/audio library permissions that `open_filex` adds: the app only
+  opens PDFs from its own cache, and Play rejects those permissions without a core need.
+- A new *personal* developer account must run a closed test (12 testers, 14 days) before production;
+  an *organisation* account (D-U-N-S number) does not.
+
 ## Privacy (PDPA)
 
 - **Notification and consent:** the kiosk shows the site's privacy notice before taking any details or

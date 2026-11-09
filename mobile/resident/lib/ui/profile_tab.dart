@@ -5,6 +5,7 @@ import '../config.dart';
 import '../push.dart';
 import '../session.dart';
 import 'documents_screen.dart';
+import 'web_page_screen.dart';
 import 'widgets.dart';
 
 class ProfileTab extends StatelessWidget {
@@ -49,14 +50,15 @@ class ProfileTab extends StatelessWidget {
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DocumentsScreen())),
           ),
         ),
-        const SizedBox(height: 8),
-        Card(
-          child: ListTile(
-            leading: Icon(Push.instance.available ? Icons.notifications_active_outlined : Icons.notifications_off_outlined),
-            title: Text(Push.instance.available ? 'Calls ring even when the app is closed' : 'Calls ring only while the app is open'),
-            subtitle: Push.instance.available ? null : const Text('Push notifications are not set up for this app build.'),
+        if (Push.instance.available) ...[
+          const SizedBox(height: 8),
+          const Card(
+            child: ListTile(
+              leading: Icon(Icons.notifications_active_outlined),
+              title: Text('Calls ring even when the app is closed'),
+            ),
           ),
-        ),
+        ],
         const SizedBox(height: 16),
         Text('Theme', style: TextStyle(color: outline)),
         const SizedBox(height: 8),
@@ -80,7 +82,12 @@ class ProfileTab extends StatelessWidget {
           icon: const Icon(Icons.logout),
           label: const Text('Sign out'),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          TextButton(onPressed: () => WebPageScreen.open(context, 'Privacy policy', '/privacy/'), child: const Text('Privacy policy')),
+          TextButton(onPressed: () => WebPageScreen.open(context, 'Delete account', '/account-deletion/'), child: const Text('Delete account')),
+        ]),
+        const SizedBox(height: 8),
         Center(child: Text('Elix $appVersion · $apiBase', style: TextStyle(color: outline, fontSize: 12))),
         const SizedBox(height: 12),
         const Credit(),

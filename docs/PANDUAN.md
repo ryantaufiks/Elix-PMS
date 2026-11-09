@@ -109,6 +109,8 @@ Pastikan perangkat lokal Anda telah terinstal:
 * **Tema** dipilih di *Profile → Theme*: *Auto* (ikut HP), *Light* atau *Dark*; tersimpan di HP.
 * Semua list di APK memakai pagination (maksimal 9 per halaman, *‹ Page 2 of 5 · 41 items ›*).
 * Tombol unduh APK (*Residents → Resident app (Android)*) selalu menuju build terbaru: link-nya berisi versi (`elix-resident.apk?v=<versi>`, ditulis `scripts/fetch-resident-apk.sh` ke `downloads/elix-resident.json`), jadi cache HP atau Cloudflare tidak memberi APK lama.
+* **Kebijakan privasi** (`/privacy/`) dan **hapus akun** (`/account-deletion/`) adalah halaman publik di web, dibuka dari link di halaman login dan *Profile* APK. Alamat email kontaknya ada di `PRIVACY_EMAIL` (`frontend/src/lib/legal.ts`).
+* **Google Play:** workflow GitHub Actions juga membuat `elix-resident.aab` (artifact *elix-resident-aab*) untuk di-upload ke Play Console, dan mengecek kesiapan 16 KB page size. Saat setup di Play Console pilih *Use existing app signing key* (upload `elix-release.jks`) agar HP yang memakai APK dari link bisa update ke versi Play Store. Permission galeri foto/video dari plugin `open_filex` dihapus karena tidak dipakai. Detail deklarasi ada di `docs/TECHNICAL.md` (bagian *Google Play*).
 * Kiosk juga menampilkan suhu dan prakiraan cuaca di bawah tanggal.
 * Home APK berisi 4 menu card (ikon sederhana) di atas *Recent activity* (maksimal 5; *See all* untuk semua riwayat).
 * **Access:** buka gerbang dari jarak jauh dengan *swipe to open*. Hanya gate yang dicentang *Residents can open this gate from the app* (Gates & devices) yang muncul; setiap pembukaan tercatat (metode *App*, nama resident, unit).
