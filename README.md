@@ -382,7 +382,7 @@ optionally `GOOGLE_SERVICES_JSON_BASE64`; optional variable `API_BASE`.
 
 **Platform → System settings** in the dashboard (also available in Django admin) is a single page for server-wide integrations: LiveKit (URL, key, secret,
 token lifetime, unlock window), the Firebase service-account JSON, the relay HTTP timeout and the LPR
-debounce. Secrets are stored encrypted and never shown again. Changes apply immediately to the web,
+debounce. Secrets are stored encrypted and never shown again; a saved one shows *Saved* with *Remove*. Changes apply immediately to the web,
 worker and beat processes (no restart). Any blank field falls back to the matching `.env` variable
 (`LIVEKIT_*`, `INTERCOM_UNLOCK_WINDOW_SECONDS`, `FCM_SERVICE_ACCOUNT_FILE`, `RELAY_HTTP_TIMEOUT`,
 `LPR_DEBOUNCE_SECONDS`); the page shows which source is live. Infrastructure values (database, Redis,
@@ -456,7 +456,7 @@ databases and volumes never mix.
 | Resident | own units, condo gates/blocks | own vehicles and invitations |
 
 Third-party secrets (eWeLink, Shelly, camera, relay LAN passwords) are encrypted at rest with
-`FIELD_ENCRYPTION_KEY` and are write-only in the API and admin. Back the key up: without it the
+`FIELD_ENCRYPTION_KEY` and are write-only in the API and admin (send `null` to remove one; blank keeps it). Back the key up: without it the
 stored credentials cannot be read.
 
 Hardening:

@@ -39,7 +39,8 @@ export function initialValues(fields: FieldDef[], record: Values | null, default
   return values;
 }
 
-/** Body for the API: hidden fields dropped, blank numbers -> null, blank secrets omitted on update. */
+/** Body for the API: hidden fields dropped, blank numbers -> null, blank secrets omitted on update
+ * (kept as they are), secrets marked for removal (null) sent as null. */
 function toBody(fields: FieldDef[], values: Values, isUpdate: boolean): Values {
   const body: Values = {};
   for (const f of fields) {
@@ -75,10 +76,19 @@ export function FormFields({ fields, values, onChange, errors, record }: {
       {fields.map((f) => {
         if (f.show && !f.show(values)) return null;
         const value = values[f.name];
+        const secret = f.type === "secret" || f.type === "secret-text";
         const saved = Boolean(record?.[`has_${f.name}`]);
-        const secretHint = saved ? "Saved. Leave blank to keep it." : undefined;
+        const removing = secret && value === null;
+        const secretHint = removing ? "Removed when you save." : saved ? "Leave blank to keep it." : undefined;
         let control: React.ReactNode;
-        if (f.type === "checkbox") {
+        if (removing) {
+          control = (
+            <div className="flex items-center justify-between gap-3 rounded-md border border-dashed border-rose-400/60 bg-rose-500/5 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">
+              <span>Will be removed</span>
+              <button type="button" className="font-medium text-ink underline-offset-2 hover:underline" onClick={() => onChange(f.name, "")}>Undo</button>
+            </div>
+          );
+        } else if (f.type === "checkbox") {
           control = <Checkbox label={f.label} checked={Boolean(value)} onChange={(e) => onChange(f.name, e.target.checked)} />;
         } else if (f.type === "select") {
           control = (
@@ -121,9 +131,15 @@ export function FormFields({ fields, values, onChange, errors, record }: {
                 {f.hint && <p className="mt-1 text-xs text-muted">{f.hint}</p>}
               </div>
             ) : (
-              <Field label={f.label} hint={errors[f.name] ? undefined : f.hint ?? secretHint}>
+              <Field label={f.label} hint={errors[f.name] ? undefined : removing ? secretHint : f.hint ?? secretHint}>
                 {control}
               </Field>
+            )}
+            {secret && saved && !removing && (
+              <div className="mt-1 flex items-center gap-2 text-xs">
+                <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 font-medium text-emerald-700 dark:text-emerald-300">Saved</span>
+                <button type="button" className="font-medium text-rose-600 hover:underline dark:text-rose-400" onClick={() => onChange(f.name, null)}>Remove</button>
+              </div>
             )}
             {errors[f.name] && <p className="mt-1 text-xs font-medium text-rose-600 dark:text-rose-400">{errors[f.name]}</p>}
           </div>

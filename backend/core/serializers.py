@@ -15,7 +15,7 @@ class ModelCleanSerializer(serializers.ModelSerializer):
     """Runs the model's clean() so API writes obey the same rules as the admin.
 
     ``secret_fields`` are write-only; responses carry ``has_<field>`` instead,
-    and sending a blank value on update keeps the stored secret.
+    sending a blank value on update keeps the stored secret, and sending ``null`` removes it.
     """
 
     secret_fields = ()
@@ -23,7 +23,7 @@ class ModelCleanSerializer(serializers.ModelSerializer):
     def get_extra_kwargs(self):
         extra = super().get_extra_kwargs()
         for name in self.secret_fields:
-            extra.setdefault(name, {}).update(write_only=True, required=False, allow_blank=True)
+            extra.setdefault(name, {}).update(write_only=True, required=False, allow_blank=True, allow_null=True)
         return extra
 
     def to_representation(self, instance):
@@ -34,10 +34,11 @@ class ModelCleanSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
-        if self.instance is not None:
-            for name in self.secret_fields:
-                if attrs.get(name) == "":
-                    attrs.pop(name)
+        for name in self.secret_fields:
+            if name in attrs and attrs[name] is None:
+                attrs[name] = ""  # Remove the stored secret.
+            elif self.instance is not None and attrs.get(name) == "":
+                attrs.pop(name)
 
         model = self.Meta.model
         concrete = {f.name for f in model._meta.concrete_fields}

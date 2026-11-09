@@ -134,6 +134,7 @@ Pastikan perangkat lokal Anda telah terinstal:
 * Logout, ganti password atau menonaktifkan akun langsung mencabut semua sesi orang tersebut di semua perangkat.
 * Site admin/Staff hanya bisa menautkan orang yang sudah terdaftar di site-nya; orang baru dibuat lewat *Add staff* / *Add resident*.
 * Dokumen resident (PDF/JPG/PNG maks. 8 MB, dicek dari isi file) disimpan dengan nama acak dan hanya bisa diunduh lewat API: Site admin/Staff site itu dan resident pemiliknya saja, Officer tidak bisa. File ikut terhapus saat dokumen atau residentnya dihapus.
+* Semua kolom rahasia (API key, password perangkat, HitPay, OpenAI) disimpan terenkripsi dan tidak pernah ditampilkan lagi. Kalau sudah tersimpan, muncul label *Saved* dengan tombol **Remove** untuk menghapusnya (bisa *Undo* sebelum Save); kolom yang dikosongkan tetap menyimpan nilai lama.
 * Export Excel/CSV aman dari *formula injection*; HSTS aktif; log server tidak menyimpan token; dokumentasi API hanya untuk Platform admin.
 
 ### 9. Report Center

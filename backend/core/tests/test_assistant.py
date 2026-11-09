@@ -157,3 +157,11 @@ class AssistantTests(APITestCase):
         stranger = make_user("stranger")
         self.client.force_authenticate(stranger)
         self.assertEqual(self.client.get(url).status_code, 403)
+
+    def test_a_saved_secret_can_be_removed(self):
+        url = f"/v1/assistant-settings/?condominium={self.condo.pk}"
+        self.client.force_authenticate(self.admin)
+        self.client.patch(url, {"openai_api_key": "sk-site"}, format="json")
+        self.assertTrue(self.client.patch(url, {"openai_api_key": ""}, format="json").data["has_openai_api_key"])  # Blank keeps it.
+        self.assertFalse(self.client.patch(url, {"openai_api_key": None}, format="json").data["has_openai_api_key"])
+        self.assertEqual(m.AssistantSettings.objects.get(condominium=self.condo).openai_api_key, "")
