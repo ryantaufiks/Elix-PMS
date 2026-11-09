@@ -1,10 +1,8 @@
 """API for kiosk tablets (``Authorization: Kiosk <token>``)."""
-import base64
-
 from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Exists, OuterRef, Q
-from django.http import FileResponse
+from django.http import FileResponse, HttpResponse, StreamingHttpResponse
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
@@ -379,10 +377,6 @@ class AssistantSessionMixin:
         return found
 
 
-def _audio(data):
-    return base64.b64encode(data).decode() if data else ""
-
-
 class KioskAssistantStartView(KioskView):
     throttle_classes = [KioskAssistantThrottle]
 
@@ -394,11 +388,11 @@ class KioskAssistantStartView(KioskView):
         try:
             session = assistant.start_session(self.kiosk)
             body = {"session": session.pk, "mode": session.mode, "greeting": assistant.site_settings(condo).greeting,
-                    "greeting_audio": "", "client_secret": ""}
+                    "greeting_speech": "", "client_secret": ""}
             if session.mode == m.AssistantSession.Mode.REALTIME:
                 body["client_secret"] = assistant.realtime_secret(condo)
-            elif body["greeting"]:
-                body["greeting_audio"] = _audio(assistant.speak(condo, body["greeting"]))
+            else:
+                body["greeting_speech"] = assistant.speech_url(condo, body["greeting"])
         except assistant.AssistantError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         return Response(s.KioskAssistantStartSerializer(body).data, status=status.HTTP_201_CREATED)
@@ -411,7 +405,8 @@ class KioskAssistantTurnView(AssistantSessionMixin, KioskView):
     @extend_schema(request=s.KioskAssistantTurnSerializer, responses=s.KioskAssistantReplySerializer)
     def post(self, request, pk):
         """One exchange in speech-to-text mode: what the visitor said (``audio`` or ``text``) and the recent
-        ``history`` in; what was heard, the answer, its speech and any screen actions out. Nothing is kept."""
+        ``history`` in; what was heard, the answer, screen actions and a link to the spoken answer out
+        (the text comes back first; the speech streams from the link). Nothing is kept."""
         session = self.session(pk)
         body = s.KioskAssistantTurnSerializer(data=request.data)
         body.is_valid(raise_exception=True)
@@ -420,14 +415,29 @@ class KioskAssistantTurnView(AssistantSessionMixin, KioskView):
         try:
             heard = data.get("text", "").strip() or (assistant.transcribe(condo, data["audio"]) if data.get("audio") else "")
             if not heard:
-                return Response(s.KioskAssistantReplySerializer({"heard": "", "reply": "", "audio": "", "actions": []}).data)
+                return Response(s.KioskAssistantReplySerializer({"heard": "", "reply": "", "speech": "", "actions": []}).data)
             history = assistant.clean_history(data.get("history") or [])
             text, actions = assistant.reply(condo, [*history, {"role": "user", "content": heard[:assistant.MAX_TEXT]}])
-            audio = assistant.speak(condo, text) if text else b""
         except assistant.AssistantError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         m.AssistantSession.objects.filter(pk=session.pk).update(turns=session.turns + 1)
-        return Response(s.KioskAssistantReplySerializer({"heard": heard, "reply": text, "audio": _audio(audio), "actions": actions}).data)
+        return Response(s.KioskAssistantReplySerializer(
+            {"heard": heard, "reply": text, "speech": assistant.speech_url(condo, text), "actions": actions}).data)
+
+
+def assistant_speech(request, key):
+    """The spoken answer behind a link from a turn, streamed as OpenAI makes it. The link is the
+    authorisation (random, two minutes), since an <audio> element cannot send the kiosk token."""
+    try:
+        stream = assistant.speech_stream(key)
+    except assistant.AssistantError:
+        return HttpResponse(status=503)
+    if stream is None:
+        return HttpResponse(status=404)
+    response = StreamingHttpResponse(stream, content_type="audio/mpeg")
+    response["Cache-Control"] = "no-store"
+    response["X-Accel-Buffering"] = "no"  # nginx passes each piece straight on.
+    return response
 
 
 class KioskAssistantEndView(KioskView):

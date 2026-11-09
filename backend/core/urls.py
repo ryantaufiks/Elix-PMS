@@ -54,6 +54,7 @@ urlpatterns = [
     path("kiosk/assistant/sessions/", kiosk_views.KioskAssistantStartView.as_view(), name="kiosk-assistant-start"),
     path("kiosk/assistant/sessions/<int:pk>/turns/", kiosk_views.KioskAssistantTurnView.as_view(), name="kiosk-assistant-turn"),
     path("kiosk/assistant/sessions/<int:pk>/end/", kiosk_views.KioskAssistantEndView.as_view(), name="kiosk-assistant-end"),
+    path("kiosk/assistant/speech/<str:key>/", kiosk_views.assistant_speech, name="kiosk-assistant-speech"),
     path("kiosk/assistant/maps/<int:pk>/", kiosk_views.KioskAssistantMapView.as_view(), name="kiosk-assistant-map"),
     path("kiosk/weather/", kiosk_views.KioskWeatherView.as_view(), name="kiosk-weather"),
     path("kiosk/directory/", kiosk_views.DirectoryView.as_view(), name="kiosk-directory"),

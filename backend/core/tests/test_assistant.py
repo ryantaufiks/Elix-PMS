@@ -1,4 +1,3 @@
-import base64
 import io
 import json
 import shutil
@@ -31,9 +30,10 @@ class FakeOpenAI:
         self.tool_calls = tool_calls or []
         self.content = content
 
-    def __call__(self, url, headers=None, json=None, data=None, files=None, timeout=None):
+    def __call__(self, url, headers=None, json=None, data=None, files=None, timeout=None, stream=False):
         self.calls.append({"url": url, "key": headers["Authorization"], "json": json, "data": data})
         response = mock.Mock(status_code=200, content=b"MP3DATA", text="")
+        response.iter_content = lambda size: iter([b"MP3", b"DATA"])
         if url.endswith("audio/transcriptions"):
             response.json.return_value = {"text": "Where is the pool?"}
         elif url.endswith("chat/completions"):
@@ -92,7 +92,9 @@ class AssistantTests(APITestCase):
         with self.openai(fake):
             session = self.start()
             self.assertEqual(session["mode"], "pipeline")
-            self.assertEqual(base64.b64decode(session["greeting_audio"]), b"MP3DATA")
+            speech = self.client.get(session["greeting_speech"])  # No token: the link is the key.
+            self.assertEqual((speech.status_code, speech["Content-Type"]), (200, "audio/mpeg"))
+            self.assertEqual(b"".join(speech), b"MP3DATA")
             audio = SimpleUploadedFile("speech.webm", b"webm-bytes", content_type="audio/webm")
             reply = self.kiosk_client.post(f"/v1/kiosk/assistant/sessions/{session['session']}/turns/",
                                            {"audio": audio, "history": json.dumps([{"role": "assistant", "content": "Hello!"}])},
@@ -100,6 +102,8 @@ class AssistantTests(APITestCase):
         self.assertEqual(reply["heard"], "Where is the pool?")
         self.assertEqual(reply["reply"], "The pool is on level 3 of Tower A.")
         self.assertEqual(reply["actions"], [{"type": "show_map", "map_id": self.map.pk}])
+        self.assertNotIn("pool", reply["speech"].lower())  # The link carries nothing of what was said.
+        self.assertEqual(self.client.get("/v1/kiosk/assistant/speech/not-a-real-link/").status_code, 404)
         system = fake.sent("chat/completions")[0]["json"]["messages"][0]["content"]
         self.assertIn("Pool: level 3, Tower A", system)
         self.assertIn("Never reveal or confirm anything about residents", system)
@@ -112,6 +116,7 @@ class AssistantTests(APITestCase):
             {"id": "a", "type": "function", "function": {"name": "start_walk_in", "arguments": json.dumps(
                 {"unit": "05-12", "visitor_name": "Tan", "purpose": "hack", "company": "X" * 300})}},
             {"id": "b", "type": "function", "function": {"name": "open_gate", "arguments": "{}"}},
+            {"id": "d", "type": "function", "function": {"name": "call_resident", "arguments": json.dumps({"unit": "05-12"})}},
             {"id": "c", "type": "function", "function": {"name": "show_map", "arguments": "not json"}},
         ]
         with self.openai(FakeOpenAI(tool_calls=tool)):

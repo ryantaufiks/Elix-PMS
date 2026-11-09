@@ -39,16 +39,15 @@ export function parseAction(name: string, raw: string, mapIds: number[]): Assist
   return null;
 }
 
-function playMp3(base64: string, audio: HTMLAudioElement): Promise<void> {
-  if (!base64) return Promise.resolve();
-  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-  const url = URL.createObjectURL(new Blob([bytes], { type: "audio/mpeg" }));
+/** Plays a spoken answer from its link. It streams, so playback starts while the rest is still being made. */
+function playSpeech(url: string, audio: HTMLAudioElement): Promise<void> {
+  if (!url) return Promise.resolve();
+  audio.srcObject = null;
   audio.src = url;
   return new Promise((resolve) => {
-    const done = () => { URL.revokeObjectURL(url); resolve(); };
-    audio.onended = done;
-    audio.onerror = done;
-    audio.play().catch(done);
+    audio.onended = () => resolve();
+    audio.onerror = () => resolve();
+    audio.play().catch(() => resolve());
   });
 }
 
@@ -158,7 +157,7 @@ export function AssistantPanel({ info, onAction, onClose }: {
   const act = useCallback((actions: AssistantAction[]) => {
     for (const a of actions) {
       if (a.type === "show_map") showMap(a.map_id);
-      else pending.current = a;
+      else if (!pending.current) pending.current = a;  // One screen at a time: the first one wins.
     }
   }, [showMap]);
 
@@ -183,7 +182,7 @@ export function AssistantPanel({ info, onAction, onClose }: {
     if (input.text) form.set("text", input.text);
     form.set("history", JSON.stringify(linesRef.current.slice(-12)));
     try {
-      const r = await kioskApi<{ heard: string; reply: string; audio: string; actions: AssistantAction[] }>(
+      const r = await kioskApi<{ heard: string; reply: string; speech: string; actions: AssistantAction[] }>(
         `/v1/kiosk/assistant/sessions/${session.current}/turns/`, { method: "POST", body: form });
       busy.current = false;
       if (cancel.current) return;
@@ -192,7 +191,7 @@ export function AssistantPanel({ info, onAction, onClose }: {
       if (r.reply) say({ role: "assistant", content: r.reply });
       act(r.actions);
       setPhase("speaking");
-      await playMp3(r.audio, audio.current!);
+      await playSpeech(r.speech, audio.current!);
       if (cancel.current || settle()) return;
       listen();
     } catch (err) {
@@ -255,7 +254,7 @@ export function AssistantPanel({ info, onAction, onClose }: {
     (async () => {
       try {
         stream.current = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-        const r = await kioskApi<{ session: number; mode: string; greeting: string; greeting_audio: string; client_secret: string }>(
+        const r = await kioskApi<{ session: number; mode: string; greeting: string; greeting_speech: string; client_secret: string }>(
           "/v1/kiosk/assistant/sessions/", { method: "POST" });
         if (cancel.current) return finish();
         session.current = r.session;
@@ -265,7 +264,7 @@ export function AssistantPanel({ info, onAction, onClose }: {
         }
         if (r.greeting) say({ role: "assistant", content: r.greeting });
         setPhase("speaking");
-        await playMp3(r.greeting_audio, audio.current!);
+        await playSpeech(r.greeting_speech, audio.current!);
         listen();
       } catch (err) {
         setProblem(err instanceof DOMException ? "The microphone is not available." : (err as Error).message);

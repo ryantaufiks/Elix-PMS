@@ -10,8 +10,11 @@ turns with each request; the server only counts sessions and turns for the usage
 """
 import json
 import logging
+import secrets
 
 import requests
+from asgiref.sync import sync_to_async
+from django.core.cache import cache
 from django.utils import timezone
 
 from . import config
@@ -64,6 +67,7 @@ def instructions(condo):
         "- To register a walk-in, ask for the unit they are visiting, their name and the purpose (and the company for "
         "deliveries or contractors), then call start_walk_in. The kiosk then asks for the rest on screen.",
         "- When a map would help, call show_map with the best match, then describe the way in words.",
+        "- Open at most one screen per answer: start_walk_in, call_resident or open_screen, never two.",
     ]
     if site.instructions.strip():
         parts += ["Guidance from the management:", site.instructions.strip()]
@@ -127,6 +131,20 @@ def action(name, arguments):
     return None
 
 
+def screen_actions(found):
+    """Maps as they come, but only the first screen to open: the kiosk can show one screen at a time."""
+    kept, screen = [], False
+    for a in found:
+        if a is None:
+            continue
+        if a["type"] != "show_map":
+            if screen:
+                continue
+            screen = True
+        kept.append(a)
+    return kept
+
+
 # --- OpenAI calls ------------------------------------------------------------------------------------
 
 def _post(key, path, **kwargs):
@@ -157,10 +175,10 @@ def reply(condo, history):
     functions = tools(condo)
     messages = [{"role": "system", "content": instructions(condo)}, *history]
     body = {"model": s.assistant_chat_model, "messages": messages, "max_completion_tokens": 300,
-            "tools": [{"type": "function", "function": f} for f in functions]}
+            "tools": [{"type": "function", "function": f} for f in functions], "parallel_tool_calls": False}
     choice = _post(key, "chat/completions", json=body).json()["choices"][0]["message"]
     calls = choice.get("tool_calls") or []
-    actions = [a for a in (action(c["function"]["name"], c["function"].get("arguments")) for c in calls) if a]
+    actions = screen_actions(action(c["function"]["name"], c["function"].get("arguments")) for c in calls)
     text = (choice.get("content") or "").strip()
     if calls and not text:
         # The model only acted: ask once more for what to say about it.
@@ -171,14 +189,52 @@ def reply(condo, history):
     return text, actions
 
 
-def speak(condo, text):
-    """MP3 of ``text`` in the platform's voice."""
+SPEECH_TTL = 120
+
+
+def _speech_request(condo, text, **kwargs):
     s = m.SystemSettings.load()
-    response = _post(api_key(condo), "audio/speech", json={
+    return _post(api_key(condo), "audio/speech", json={
         "model": s.assistant_tts_model, "voice": s.assistant_voice, "input": text[:1500], "response_format": "mp3",
         "instructions": "Speak like a warm, attentive concierge: clear, friendly and unhurried.",
-    })
-    return response.content
+    }, **kwargs)
+
+
+def speak(condo, text):
+    """MP3 of ``text`` in the platform's voice."""
+    return _speech_request(condo, text).content
+
+
+def speech_url(condo, text):
+    """A short-lived link the kiosk plays while the speech is still being made (streamed).
+
+    The words wait in the cache for two minutes under a random id, so the link itself carries
+    nothing of the conversation (nor ends up in a log)."""
+    if not text:
+        return ""
+    key = secrets.token_urlsafe(18)
+    cache.set(f"assistant:speech:{key}", {"condominium": condo.pk, "text": text}, SPEECH_TTL)
+    return f"/v1/kiosk/assistant/speech/{key}/"
+
+
+def speech_stream(key):
+    """(async MP3 chunks) for a speech link, or None when it expired or never existed."""
+    found = cache.get(f"assistant:speech:{key}")
+    if not found:
+        return None
+    condo = m.Condominium.objects.get(pk=found["condominium"])
+    response = _speech_request(condo, found["text"], stream=True)
+    chunks = response.iter_content(4096)
+
+    async def stream():
+        # Async, so the ASGI server sends each piece as it arrives instead of collecting them all.
+        try:
+            while chunk := await sync_to_async(next, thread_sensitive=False)(chunks, b""):
+                yield chunk
+        finally:
+            response.close()
+
+    return stream()
 
 
 def realtime_secret(condo):
@@ -194,6 +250,7 @@ def realtime_secret(condo):
             "output": {"voice": s.assistant_voice},
         },
         "tools": [{"type": "function", **f} for f in tools(condo)],
+        "parallel_tool_calls": False,
     }
     data = _post(api_key(condo), "realtime/client_secrets",
                  json={"expires_after": {"anchor": "created_at", "seconds": 60}, "session": session}).json()

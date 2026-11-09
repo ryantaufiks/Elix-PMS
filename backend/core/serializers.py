@@ -1069,7 +1069,7 @@ class KioskAssistantStartSerializer(serializers.Serializer):
     session = serializers.IntegerField()
     mode = serializers.CharField()
     greeting = serializers.CharField(allow_blank=True)
-    greeting_audio = serializers.CharField(allow_blank=True, help_text="Base64 MP3 (speech-to-text mode).")
+    greeting_speech = serializers.CharField(allow_blank=True, help_text="Link to the spoken greeting (speech-to-text mode).")
     client_secret = serializers.CharField(allow_blank=True, help_text="One-minute OpenAI client secret (realtime mode).")
 
 
@@ -1092,7 +1092,7 @@ class KioskAssistantTurnSerializer(serializers.Serializer):
 class KioskAssistantReplySerializer(serializers.Serializer):
     heard = serializers.CharField(allow_blank=True)
     reply = serializers.CharField(allow_blank=True)
-    audio = serializers.CharField(allow_blank=True, help_text="Base64 MP3 of the reply.")
+    speech = serializers.CharField(allow_blank=True, help_text="Link to the spoken reply (MP3, streamed, valid 2 minutes).")
     actions = serializers.ListField(child=serializers.DictField())
 
 

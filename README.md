@@ -218,7 +218,7 @@ It only talks about the site and never reveals or confirms anything about reside
   conversations per kiosk per day (100).
 - **Mode**: *Speech to text* (default) records what the visitor says, transcribes it
   (`gpt-4o-mini-transcribe`), answers with a chat model (`gpt-4.1-mini`) and speaks the answer
-  (`gpt-4o-mini-tts`): lower cost, a short pause per answer. *Realtime* talks to OpenAI over WebRTC
+  (`gpt-4o-mini-tts`): lower cost, a short pause per answer. The answer's text shows as soon as it is ready and its speech streams, so playback starts before it is fully made. *Realtime* talks to OpenAI over WebRTC
   (`gpt-realtime-mini`): live two-way voice that can be interrupted, at a higher cost. The server mints a
   one-minute client secret per conversation; the API key never reaches the kiosk.
 - **Site admin** (Site setup → AI Assistant): on/off, name, greeting, languages (it answers in the
@@ -232,8 +232,9 @@ It only talks about the site and never reveals or confirms anything about reside
 | Who | Endpoint | Purpose |
 |---|---|---|
 | Kiosk | `GET /v1/kiosk/assistant/` | Whether it is on, name, greeting, mode, maps |
-| Kiosk | `POST /v1/kiosk/assistant/sessions/` | Start: spoken greeting (speech to text) or a client secret (realtime) |
-| Kiosk | `POST /v1/kiosk/assistant/sessions/{id}/turns/` (`audio` or `text`, `history`) | One exchange: what was heard, the answer, its MP3 and screen actions |
+| Kiosk | `POST /v1/kiosk/assistant/sessions/` | Start: link to the spoken greeting (speech to text) or a client secret (realtime) |
+| Kiosk | `POST /v1/kiosk/assistant/sessions/{id}/turns/` (`audio` or `text`, `history`) | One exchange: what was heard, the answer and screen actions, at once, plus a `speech` link |
+| Kiosk | `GET /v1/kiosk/assistant/speech/{key}/` | The spoken answer, streamed as it is made (the random link, valid 2 minutes, is the key; the words wait in the cache, not in the link) |
 | Kiosk | `POST …/sessions/{id}/end/`, `GET /v1/kiosk/assistant/maps/{id}/` | End; a map image |
 | Site admin | `GET/PATCH /v1/assistant-settings/?condominium=`, `POST /v1/assistant-settings/test/` | Settings; typed test |
 | Site admin | `/v1/assistant-modules/`, `/v1/assistant-maps/` (`…/{id}/image/`) | Knowledge and maps |
