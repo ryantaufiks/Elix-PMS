@@ -239,16 +239,6 @@ function Home({ kiosk, assistant, onAssistant, onCall, onWalkIn, onScan, onCheck
     <Frame kiosk={kiosk}>
       <h1 className="text-center text-4xl font-semibold tracking-tight sm:text-5xl">Welcome</h1>
       <p className="mt-3 text-center text-lg text-slate-300">How would you like to enter{kiosk.gate_name ? ` through ${kiosk.gate_name}` : ""}?</p>
-      {assistant?.enabled && (
-        <button onClick={onAssistant}
-          className="mt-8 flex items-center gap-4 rounded-full border border-primary-300/40 bg-gradient-to-r from-primary-500/30 to-cyan-400/20 py-3 pl-3 pr-8 text-left shadow-[0_0_40px_rgba(47,140,255,0.35)] transition hover:from-primary-500/40">
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-primary-400 to-cyan-400"><Icon name="mic" className="h-7 w-7 text-white" /></span>
-          <span>
-            <span className="block text-xl font-semibold">Ask {assistant.name}</span>
-            <span className="block text-slate-300">Directions, facilities, or help registering. Just speak.</span>
-          </span>
-        </button>
-      )}
       <div className={`mt-12 grid w-full gap-6 ${grid}`}>
         <button onClick={onCall} className="group rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
           <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
@@ -283,9 +273,19 @@ function Home({ kiosk, assistant, onAssistant, onCall, onWalkIn, onScan, onCheck
           </button>
         )}
       </div>
+      {assistant?.enabled && (
+        <button onClick={onAssistant}
+          className="mt-10 flex items-center gap-4 rounded-full border border-primary-300/40 bg-gradient-to-r from-primary-500/30 to-cyan-400/20 py-3 pl-3 pr-8 text-left shadow-[0_0_40px_rgba(47,140,255,0.35)] transition hover:from-primary-500/40">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-primary-400 to-cyan-400"><Icon name="mic" className="h-7 w-7 text-white" /></span>
+          <span>
+            <span className="block text-xl font-semibold">Ask {assistant.name}</span>
+            <span className="block text-slate-300">Directions, facilities, or help registering. Just speak.</span>
+          </span>
+        </button>
+      )}
       <button
         aria-label="Kiosk settings"
-        className="mt-16 h-10 w-24 opacity-0"
+        className="mt-10 h-10 w-24 opacity-0"
         onClick={() => {
           const now = Date.now();
           taps.current = [...taps.current.filter((t) => now - t < 3000), now];
