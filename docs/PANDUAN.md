@@ -1,4 +1,4 @@
-# Visitor Management & Access Control System (VMS)
+# Elix-PMS · Panduan (Bahasa Indonesia)
 
 Sistem Manajemen Pengunjung Multi-Kondominium terintegrasi dengan LiveKit Video Interkom dan Kamera LPR Dahua berbasis Headless Architecture.
 
