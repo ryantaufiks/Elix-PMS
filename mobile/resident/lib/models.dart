@@ -9,12 +9,20 @@ class Residency {
   String get unitDisplay => json['unit_display'] as String? ?? '';
   bool get active => json['is_active'] as bool? ?? true;
   bool get receivesCalls => json['receives_intercom_calls'] as bool? ?? true;
+  /// The site uses the resident app (the platform administrator can turn it off per site).
+  bool get appEnabled => json['resident_app_enabled'] as bool? ?? true;
 }
 
 class Me {
-  Me(this.json) : residencies = ((json['residencies'] as List?) ?? []).cast<Map<String, dynamic>>().map(Residency.new).where((r) => r.active).toList();
+  Me(this.json) {
+    final active = ((json['residencies'] as List?) ?? []).cast<Map<String, dynamic>>().map(Residency.new).where((r) => r.active);
+    residencies = active.where((r) => r.appEnabled).toList();
+    appOffAtSite = residencies.isEmpty && active.isNotEmpty;
+  }
   final Map<String, dynamic> json;
-  final List<Residency> residencies;
+  late final List<Residency> residencies;
+  /// Linked to a unit, but at a site that does not use the resident app.
+  late final bool appOffAtSite;
   int get id => json['id'] as int;
   String get username => json['username'] as String;
   String get firstName => json['first_name'] as String? ?? '';

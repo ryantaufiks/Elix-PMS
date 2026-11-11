@@ -10,6 +10,8 @@ export const condoFields = (opts: { superuser: boolean; creating: boolean }): Fi
   { name: "postal_code", label: "Postal code", hint: "6 digits", placeholder: "018987" },
   { name: "contact_phone", label: "Management office phone", type: "tel", placeholder: "+65 6123 4567" },
   ...(opts.superuser && !opts.creating ? [{ name: "is_active", label: "Site is active", type: "checkbox" } as FieldDef] : []),
+  ...(opts.superuser ? [{ name: "resident_app_enabled", label: "Residents use the Elix app", type: "checkbox", wide: true, section: "Resident app",
+    hint: "When off, the site runs on the kiosk and this dashboard only: residents cannot sign in to the app, and the kiosk offers no calls (Call a resident and the assistant's calls are hidden)." } as FieldDef] : []),
   { name: "lpr_enabled", label: "Licence-plate recognition enabled", type: "checkbox", section: "Access policy", wide: true,
     hint: "When off, camera events are only recorded (useful while setting up cameras)." },
   { name: "intercom_ring_timeout_seconds", label: "Intercom ring timeout (seconds)", type: "number", hint: "After this the call is marked missed." },
@@ -34,6 +36,6 @@ export const condoFields = (opts: { superuser: boolean; creating: boolean }): Fi
 ];
 
 export const condoDefaults = {
-  intercom_ring_timeout_seconds: 45, invitation_max_days: 30, visitor_data_retention_days: 90, lpr_enabled: false,
+  intercom_ring_timeout_seconds: 45, invitation_max_days: 30, visitor_data_retention_days: 90, resident_app_enabled: true, lpr_enabled: false,
   kiosk_visitor_form: true, kiosk_photo_required: true, kiosk_walk_in: true, kiosk_walk_in_photo: true, kiosk_checkout: true,
 };

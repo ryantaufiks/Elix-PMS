@@ -90,6 +90,8 @@ export type KioskSelf = {
   walk_in: boolean;
   walk_in_photo: boolean;
   checkout: boolean;
+  /** Residents use the app, so the kiosk can call units. */
+  call_resident: boolean;
   /** Visitors whose photo the kiosk takes can check out by face. */
   face_checkout: boolean;
   prints_slips: boolean;

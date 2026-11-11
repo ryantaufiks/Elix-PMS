@@ -56,9 +56,9 @@ export default function ResidentsPage() {
     <>
       <PageHeader
         title="Residents"
-        description="Who lives in each unit, and who answers intercom calls on the Elix app."
+        description={condo.resident_app_enabled ? "Who lives in each unit, and who answers intercom calls on the Elix app." : "Who lives in each unit. This site does not use the resident app."}
         action={<>
-          <a href={apk}><Button><Icon name="smartphone" className="h-4 w-4" /> Resident app (Android)</Button></a>
+          {condo.resident_app_enabled && <a href={apk}><Button><Icon name="smartphone" className="h-4 w-4" /> Resident app (Android)</Button></a>}
           {isManager && <Button variant="primary" onClick={() => setAdding(true)}><Icon name="plus" className="h-4 w-4" /> Add resident</Button>}
         </>}
       />

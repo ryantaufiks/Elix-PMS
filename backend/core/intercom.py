@@ -51,6 +51,8 @@ def _notify(call):
 def start(kiosk, unit, visitor_name="", snapshot=None, visitor=None, purpose="", company="", face_descriptor=None):
     from .tasks import end_call_room, expire_call, finish_call, push_incoming_call
 
+    if not kiosk.condominium.resident_app_enabled:
+        raise CallError("This site does not take calls from the kiosk.")
     if not recipients(unit).exists():
         raise CallError("Nobody at this unit accepts intercom calls.")
     # A kiosk handles one visitor at a time: starting a new call cancels any still open.

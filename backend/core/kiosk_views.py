@@ -127,6 +127,8 @@ class DirectoryView(KioskView, generics.ListAPIView):
         takes_calls = m.Residency.objects.filter(unit=OuterRef("pk"), is_active=True, receives_intercom_calls=True)
         qs = m.Unit.objects.filter(condominium=self.kiosk.condominium_id, is_active=True).select_related("block")
         if self.request.query_params.get("walk_in") != "1":
+            if not self.kiosk.condominium.resident_app_enabled:
+                return m.Unit.objects.none()  # no calls without the resident app
             qs = qs.filter(Exists(takes_calls))
         if q := self.request.query_params.get("q", "").strip().lstrip("#"):
             floor, _, number = q.partition("-")

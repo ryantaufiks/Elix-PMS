@@ -70,6 +70,7 @@ export type Condominium = {
   postal_code: string;
   contact_phone: string;
   is_active: boolean;
+  resident_app_enabled: boolean;
   lpr_enabled: boolean;
   invitation_max_days: number;
   intercom_ring_timeout_seconds: number;

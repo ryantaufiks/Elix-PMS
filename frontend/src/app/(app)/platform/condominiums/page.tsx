@@ -27,13 +27,14 @@ export default function CondominiumsPage() {
       <Card>
         {!data ? <Loading /> : data.results.length === 0 ? <Empty>No condominiums.</Empty> : (
           <Table>
-            <thead><tr><Th>Name</Th><Th>Code</Th><Th>Postal code</Th><Th>LPR</Th><Th>Status</Th><Th /></tr></thead>
+            <thead><tr><Th>Name</Th><Th>Code</Th><Th>Postal code</Th><Th>Resident app</Th><Th>LPR</Th><Th>Status</Th><Th /></tr></thead>
             <tbody className="divide-y divide-line">
               {data.results.map((c) => (
                 <tr key={c.id}>
                   <Td className="font-medium text-ink">{c.name}{c.id === current.id && <span className="ml-2"><Badge tone="blue">Selected</Badge></span>}</Td>
                   <Td className="font-mono text-xs">{c.code}</Td>
                   <Td>{c.postal_code || "—"}</Td>
+                  <Td>{c.resident_app_enabled ? <Badge tone="green">On</Badge> : <Badge>Off</Badge>}</Td>
                   <Td>{c.lpr_enabled ? <Badge tone="green">On</Badge> : <Badge>Off</Badge>}</Td>
                   <Td>{c.is_active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}</Td>
                   <Td className="whitespace-nowrap text-right">

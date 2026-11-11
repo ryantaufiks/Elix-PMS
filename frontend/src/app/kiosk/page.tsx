@@ -233,20 +233,22 @@ function Home({ kiosk, assistant, onAssistant, onCall, onWalkIn, onScan, onCheck
   onCall: () => void; onWalkIn: () => void; onScan: () => void; onCheckOut: () => void; onAdmin: () => void;
 }) {
   const taps = useRef<number[]>([]);
-  const buttons = 2 + Number(kiosk.walk_in) + Number(kiosk.checkout);
+  const buttons = 1 + Number(kiosk.call_resident) + Number(kiosk.walk_in) + Number(kiosk.checkout);
   const grid = buttons === 4 ? "max-w-6xl sm:grid-cols-2 xl:grid-cols-4" : buttons === 3 ? "max-w-5xl sm:grid-cols-3" : "max-w-3xl sm:grid-cols-2";
   return (
     <Frame kiosk={kiosk}>
       <h1 className="text-center text-4xl font-semibold tracking-tight sm:text-5xl">Welcome</h1>
       <p className="mt-3 text-center text-lg text-slate-300">How would you like to enter{kiosk.gate_name ? ` through ${kiosk.gate_name}` : ""}?</p>
       <div className={`mt-12 grid w-full gap-6 ${grid}`}>
-        <button onClick={onCall} className="group rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
-          <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
-            <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" /></svg>
-          </div>
-          <div className="text-2xl font-semibold">Call a resident</div>
-          <div className="mt-2 text-slate-400">Video call the unit you are visiting.</div>
-        </button>
+        {kiosk.call_resident && (
+          <button onClick={onCall} className="group rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
+              <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" /></svg>
+            </div>
+            <div className="text-2xl font-semibold">Call a resident</div>
+            <div className="mt-2 text-slate-400">Video call the unit you are visiting.</div>
+          </button>
+        )}
         {kiosk.walk_in && (
           <button onClick={onWalkIn} className="group rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
             <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
@@ -1048,9 +1050,12 @@ export default function KioskPage() {
   const assistantAction = useCallback((action: AssistantAction) => {
     if (!kiosk) return;
     if (action.type === "start_walk_in") {
+      if (!kiosk.walk_in && !kiosk.call_resident) return;
       const prefill: Prefill = { name: action.visitor_name, purpose: action.purpose, company: action.company };
       setScreen({ name: "directory", mode: kiosk.walk_in ? "walkin" : "call", query: action.unit, prefill });
-    } else if (action.type === "call_resident") setScreen({ name: "directory", mode: "call", query: action.unit });
+    } else if (action.type === "call_resident") {
+      if (kiosk.call_resident) setScreen({ name: "directory", mode: "call", query: action.unit });
+    }
     else if (action.type === "open_screen") setScreen(action.screen === "checkout" && kiosk.checkout ? { name: "checkout" } : { name: "scan" });
     else home();
   }, [kiosk, home]);

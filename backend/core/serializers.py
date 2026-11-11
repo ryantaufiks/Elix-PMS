@@ -66,8 +66,8 @@ class CondominiumSerializer(ModelCleanSerializer):
     class Meta:
         model = m.Condominium
         fields = [
-            "id", "name", "code", "address", "postal_code", "timezone", "contact_phone", "is_active", "lpr_enabled",
-            "invitation_max_days", "intercom_ring_timeout_seconds", "face_verification_enabled",
+            "id", "name", "code", "address", "postal_code", "timezone", "contact_phone", "is_active", "resident_app_enabled",
+            "lpr_enabled", "invitation_max_days", "intercom_ring_timeout_seconds", "face_verification_enabled",
             "visitor_data_retention_days", "kiosk_visitor_form", "kiosk_photo_required", "kiosk_walk_in", "kiosk_walk_in_photo", "kiosk_checkout", "kiosk_face_checkout",
             "visitor_privacy_notice",
             "created_at", "updated_at",
@@ -109,12 +109,13 @@ class ResidencySerializer(ModelCleanSerializer):
     user_detail = UserSummarySerializer(source="user", read_only=True)
     condominium = serializers.IntegerField(source="unit.condominium_id", read_only=True)
     condominium_name = serializers.CharField(source="unit.condominium.name", read_only=True)
+    resident_app_enabled = serializers.BooleanField(source="unit.condominium.resident_app_enabled", read_only=True)
     unit_display = serializers.CharField(source="unit.__str__", read_only=True)
 
     class Meta:
         model = m.Residency
         fields = [
-            "id", "user", "user_detail", "unit", "unit_display", "condominium", "condominium_name", "resident_type",
+            "id", "user", "user_detail", "unit", "unit_display", "condominium", "condominium_name", "resident_app_enabled", "resident_type",
             "is_primary_contact", "receives_intercom_calls", "start_date", "end_date", "is_active",
         ]
 
@@ -540,12 +541,13 @@ class KioskSelfSerializer(serializers.ModelSerializer):
     walk_in = serializers.BooleanField(source="condominium.kiosk_walk_in")
     walk_in_photo = serializers.BooleanField(source="condominium.kiosk_walk_in_photo")
     checkout = serializers.BooleanField(source="condominium.kiosk_checkout")
+    call_resident = serializers.BooleanField(source="condominium.resident_app_enabled")
     face_checkout = serializers.SerializerMethodField()
 
     class Meta:
         model = m.Kiosk
         fields = ["id", "name", "condominium", "condominium_name", "gate", "gate_name", "ring_timeout_seconds",
-                  "visitor_form", "photo_required", "privacy_notice", "walk_in", "walk_in_photo", "checkout", "face_checkout", "prints_slips"]
+                  "visitor_form", "photo_required", "privacy_notice", "walk_in", "walk_in_photo", "checkout", "call_resident", "face_checkout", "prints_slips"]
 
     def get_face_checkout(self, obj) -> bool:
         return obj.condominium.kiosk_checkout and obj.condominium.kiosk_face_checkout

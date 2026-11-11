@@ -65,7 +65,7 @@ On first sign-in with no condominium, the platform admin is guided through creat
 | Site setup | Site settings | admin | Name, address, LPR on/off, ring timeout, invitation limit, face check, PDPA retention |
 | | Blocks & units | admin | Blocks, units, and *Generate units* (e.g. floors 2–15 × units 01–08) |
 | | Gates & devices | admin | Gates; relays (cloud / LAN / LAN→cloud, *Test* and *Status*); LPR cameras (webhook URL, last payload); kiosks (device token shown once); Shelly / eWeLink cloud accounts |
-| Platform | Condominiums | platform admin | Add, edit, activate sites |
+| Platform | Condominiums | platform admin | Add, edit, activate sites; turn the resident app on or off per site |
 | | System settings | platform admin | LiveKit, Firebase (with connection tests), relay / LPR tuning |
 
 Secrets (relay passwords, cloud keys, camera passwords, LiveKit secret, Firebase key) are write-only:
@@ -277,6 +277,13 @@ breakdown appear).
 gate calls (native full-screen ringing when the app is closed, in-app screen with the visitor's photo
 when open), video with the kiosk, **swipe to open**, invite visitors and share the QR pass, register
 vehicles, and see the unit's recent entries. Staff use the web dashboard instead.
+
+**Sites without the app:** the platform admin can turn off *Residents use the Elix app* per site
+(Platform → Condominiums → Edit; `resident_app_enabled`, only superusers may change it). The site then
+runs on the kiosk and the dashboard only: residents there get no API access (the app shows *Your
+condominium does not use the Elix app*), the kiosk hides *Call a resident* and refuses calls (409),
+the kiosk assistant loses its `call_resident` tool, and the Residents page hides the APK button.
+Walk-ins, invitation QRs and check-out keep working.
 
 The sign-in screen has a slowly drifting blue glow behind it (still when the phone's *Remove
 animations* setting is on). The home header shows the **weather** at the condo next to the resident's

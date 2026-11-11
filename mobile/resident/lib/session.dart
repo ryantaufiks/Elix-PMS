@@ -51,7 +51,9 @@ class Session extends ChangeNotifier {
     final user = Me(data);
     if (user.residencies.isEmpty) {
       await Api.instance.clear();
-      throw ApiException(403, 'This account is not linked to any unit. Ask your condo management to add you.');
+      throw ApiException(403, user.appOffAtSite
+          ? 'Your condominium does not use the Elix app. Ask the management office how to register visitors.'
+          : 'This account is not linked to any unit. Ask your condo management to add you.');
     }
     me = user;
     Realtime.instance.start();

@@ -52,6 +52,7 @@ def instructions(condo):
     site = site_settings(condo)
     maps = m.AssistantMap.objects.filter(condominium=condo, is_active=True)
     modules = m.AssistantModule.objects.filter(condominium=condo, is_active=True)
+    calls = condo.resident_app_enabled
     parts = [
         f"You are {site.name}, the voice concierge on the visitor kiosk at the entrance of {condo.name}"
         f"{f', {condo.address}' if condo.address else ''}, a residential condominium in Singapore. You help visitors, "
@@ -59,15 +60,16 @@ def instructions(condo):
         "Rules:",
         "- Only talk about this condominium, visiting it and its immediate surroundings. Politely decline anything else.",
         "- Never reveal or confirm anything about residents: names, who lives in which unit, phone numbers, whether "
-        "someone is home. If asked, say the visitor can call the unit from this kiosk.",
-        "- You cannot open gates or let anyone in. Entry is by calling the unit, an invitation QR, or a walk-in pass.",
+        f"someone is home. If asked, {calls and 'say the visitor can call the unit from this kiosk' or 'suggest the guardhouse'}.",
+        "- You cannot open gates or let anyone in. Entry is by "
+        f"{calls and 'calling the unit, an invitation QR, or a walk-in pass' or 'an invitation QR or a walk-in pass; this kiosk cannot call units'}.",
         "- Use only the knowledge below. If you do not know, say so and suggest the guardhouse or management office.",
         "- This is spoken: answer in one to three short sentences, warm and clear, without lists, symbols or markdown.",
         f"- Reply in the language the visitor speaks{f' (you speak {site.languages})' if site.languages else ''}.",
         "- To register a walk-in, ask for the unit they are visiting, their name and the purpose (and the company for "
         "deliveries or contractors), then call start_walk_in. The kiosk then asks for the rest on screen.",
         "- When a map would help, call show_map with the best match, then describe the way in words.",
-        "- Open at most one screen per answer: start_walk_in, call_resident or open_screen, never two.",
+        f"- Open at most one screen per answer: {calls and 'start_walk_in, call_resident or open_screen' or 'start_walk_in or open_screen'}, never two.",
     ]
     if site.instructions.strip():
         parts += ["Guidance from the management:", site.instructions.strip()]
@@ -100,6 +102,8 @@ def tools(condo):
         {"name": "end_conversation", "description": "Close the assistant when the visitor is done or says goodbye.",
          "parameters": {"type": "object", "properties": {}}},
     ]
+    if not condo.resident_app_enabled:
+        found = [t for t in found if t["name"] != "call_resident"]
     if map_ids:
         found.insert(0, {"name": "show_map", "description": "Show a map or floor plan on the kiosk screen.",
                          "parameters": {"type": "object", "properties": {"map_id": {"type": "integer", "enum": map_ids}},

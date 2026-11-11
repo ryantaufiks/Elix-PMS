@@ -163,6 +163,9 @@ class CondominiumViewSet(ScopedModelViewSet):
         if "is_active" in serializer.validated_data and not self.request.user.is_superuser \
                 and serializer.validated_data["is_active"] != serializer.instance.is_active:
             raise PermissionDenied("Only the platform administrator can activate or deactivate a condominium.")
+        if "resident_app_enabled" in serializer.validated_data and not self.request.user.is_superuser \
+                and serializer.validated_data["resident_app_enabled"] != serializer.instance.resident_app_enabled:
+            raise PermissionDenied("Only the platform administrator can turn the resident app on or off.")
         super().perform_update(serializer)
 
     def perform_destroy(self, instance):

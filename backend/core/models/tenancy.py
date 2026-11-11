@@ -18,6 +18,11 @@ class Condominium(TimeStampedModel):
     contact_phone = PhoneNumberField(blank=True)
     is_active = models.BooleanField(default=True)
 
+    resident_app_enabled = models.BooleanField(
+        "Resident app", default=True,
+        help_text="Residents use the Elix app (calls from the kiosk, invitations, bookings). When off, the site runs "
+                  "on the kiosk and the management dashboard only. Set by the platform administrator.",
+    )
     lpr_enabled = models.BooleanField(
         "LPR enabled", default=False,
         help_text="Act on licence-plate events. When off, camera posts are only recorded for inspection.",

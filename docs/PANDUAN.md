@@ -119,6 +119,8 @@ Pastikan perangkat lokal Anda telah terinstal:
 * **Feedback:** resident memberi rating 1–5 bintang per kategori + komentar; Site admin atau Staff membalas di menu **Feedback** (rata-rata dan distribusi rating), balasan tampil di aplikasi.
 * Setup HitPay: isi API key dan salt (terenkripsi) di *Online payments*; biarkan *Sandbox* tercentang untuk uji coba, hilangkan centang untuk live.
 
+* **Site tanpa aplikasi penghuni:** super admin bisa mematikan *Residents use the Elix app* per site (*Platform → Condominiums → Edit*; hanya super admin yang bisa mengubahnya). Site itu lalu hanya memakai **Kiosk + dashboard Management**: resident di site itu tidak bisa masuk ke APK (muncul pesan *Your condominium does not use the Elix app*), tombol *Call a resident* di kiosk hilang dan AI assistant tidak menawarkan panggilan, tombol unduh APK di halaman Residents disembunyikan. Walk in, *I have an invitation* dan *Check out* tetap berjalan.
+
 ### 6. Sidebar & notifikasi dashboard
 * Grup menu sidebar (Operations, Community, Site setup, Platform) bisa dibuka-tutup seperti dropdown dengan klik judul grupnya; pilihan diingat per browser, dan grup halaman yang sedang dibuka selalu terbuka.
 * **Bell notifikasi** di top bar menampilkan aktivitas baru secara realtime untuk site yang dipilih: tamu masuk/keluar, panggilan intercom dan hasilnya, gerbang terbuka/ditolak, booking dan feedback baru. Badge merah menunjukkan jumlah yang belum dibaca; 50 notifikasi terakhir disimpan di browser.
