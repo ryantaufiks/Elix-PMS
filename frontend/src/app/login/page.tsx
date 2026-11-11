@@ -95,7 +95,7 @@ export default function LoginPage() {
           <img src="/brand/elix-logo.png" alt="Elix" className="w-72 drop-shadow-[0_0_30px_rgba(47,111,255,0.55)]" />
           <h2 className="mt-10 max-w-md text-2xl font-semibold leading-snug">Engage Link Identified Experience</h2>
           <ul className="mt-6 space-y-2.5 text-sm text-slate-300">
-            {["Licence-plate entry with Dahua LPR", "Video intercom with swipe-to-open", "QR invitations for visitors", "Shelly & Sonoff gate relays"].map((t) => (
+            {["Licence-plate recognition entry", "Video intercom with swipe-to-open", "QR invitations for visitors", "Smart gate and barrier control"].map((t) => (
               <li key={t} className="flex items-center gap-2.5">
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary-500/25 text-primary-300">
                   <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={3}><path d="M5 12l5 5L20 7" /></svg>
