@@ -5,8 +5,8 @@ import useSWR from "swr";
 
 import { AuthImage } from "@/components/bits";
 import { ConfirmDialog, EntityModal, type FieldDef, FormFields, initialValues, remove } from "@/components/forms";
-import { Icon } from "@/components/icons";
-import { Badge, Button, Card, CardHeader, Checkbox, Empty, ErrorNote, Field, IconButton, Input, Loading, Modal, PageHeader, Textarea, useToast } from "@/components/ui";
+import { Icon, type IconName } from "@/components/icons";
+import { Badge, Button, Card, CardHeader, Checkbox, Empty, ErrorNote, Field, Input, Loading, Modal, PageHeader, Textarea, type Tone, useToast } from "@/components/ui";
 import { api, ApiError, errorMessage } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import type { AssistantAction, AssistantMap, AssistantModule, AssistantSettings, Page } from "@/lib/types";
@@ -28,6 +28,9 @@ const moduleFields: FieldDef[] = [
   { name: "order", label: "Order", type: "number" },
   { name: "is_active", label: "In use", type: "checkbox" },
 ];
+
+const VIEWS = ["knowledge", "maps", "try"] as const;
+type View = (typeof VIEWS)[number];
 
 const STARTERS = ["Directions & blocks", "Facilities & opening hours", "Visitor rules & parking", "Deliveries & parcels", "Contacts & guardhouse", "Getting here: MRT, bus, taxi"];
 
@@ -54,6 +57,17 @@ function AssistantSetupPage() {
   const [module, setModule] = useState<AssistantModule | { title: string } | null>(null);
   const [map, setMap] = useState<AssistantMap | "new" | null>(null);
   const [removing, setRemoving] = useState<{ kind: "module" | "map"; id: number; name: string } | null>(null);
+  const [editingSettings, setEditingSettings] = useState(false);
+  const [view, setViewState] = useState<View | null>(() => {
+    if (typeof window === "undefined") return null;
+    const v = new URLSearchParams(window.location.search).get("view");
+    return (VIEWS as readonly string[]).includes(v ?? "") ? (v as View) : null;
+  });
+  const setView = (v: View | null) => {
+    setViewState(v);
+    window.history.replaceState(null, "", v ? `?view=${v}` : window.location.pathname);
+    window.scrollTo({ top: 0 });
+  };
 
   useEffect(() => {
     if (settings) setValues(initialValues(settingsFields, settings as unknown as Record<string, unknown>));
@@ -74,6 +88,7 @@ function AssistantSetupPage() {
       if (body.openai_api_key === "") delete body.openai_api_key;
       await api(`/v1/assistant-settings/${base}`, { method: "PATCH", body });
       await reloadSettings();
+      setEditingSettings(false);
       toast("success", "Assistant saved. Kiosks pick it up on their next conversation.");
     } catch (err) {
       setError(err);
@@ -84,70 +99,119 @@ function AssistantSetupPage() {
 
   const mapList = maps?.results ?? [];
 
+  const moduleList = modules?.results ?? [];
+  const activeTopics = moduleList.filter((x) => x.is_active).length;
+  const CARDS: { key: View | "settings"; title: string; icon: IconName; what: string; badge: { tone: Tone; label: string }; primary?: boolean }[] = [
+    { key: "settings", title: "Assistant", icon: "sparkle", what: "Its name, greeting and languages, any extra guidance, and whether kiosks show it.",
+      badge: settings.enabled ? { tone: "green", label: "On at kiosks" } : { tone: "slate", label: "Off" } },
+    { key: "knowledge", title: "Knowledge", icon: "report", what: "What the assistant knows about this site: directions, facilities, rules, contacts.",
+      badge: activeTopics ? { tone: "green", label: `${activeTopics} topic${activeTopics === 1 ? "" : "s"}` } : { tone: "amber", label: "Start here" }, primary: !activeTopics },
+    { key: "maps", title: "Maps & floor plans", icon: "grid", what: "Pictures the assistant can put on the kiosk screen when it gives directions.",
+      badge: mapList.length ? { tone: "green", label: `${mapList.length} map${mapList.length === 1 ? "" : "s"}` } : { tone: "slate", label: "Optional" } },
+    { key: "try", title: "Try it", icon: "mic", what: "Type a question as a visitor would, and see what the assistant answers and does.",
+      badge: { tone: "blue", label: "Test" } },
+  ];
+  const current = CARDS.find((c) => c.key === view);
+
   return (
     <>
-      <PageHeader title="AI Assistant" description="A voice concierge on the kiosk: directions, facilities, rules, and help registering a visit. It only talks about this site and never reveals residents. Nothing visitors say is stored." />
-      <div className="max-w-5xl space-y-6">
-        <Card>
-          <CardHeader title="Assistant" action={settings.enabled ? <Badge tone="green">On</Badge> : <Badge>Off</Badge>} />
-          <div className="space-y-4 p-5 sm:p-6">
-            <ErrorNote error={Object.keys(errors).length ? null : error} />
-            <FormFields fields={settingsFields} values={values} errors={errors} record={settings as unknown as Record<string, unknown>} onChange={(n, v) => setValues((s) => ({ ...s, [n]: v }))} />
-            <div className="flex justify-end border-t border-line pt-4">
-              <Button variant="primary" busy={saving} onClick={save}>Save</Button>
-            </div>
+      {!current ? (
+        <>
+          <PageHeader title="AI Assistant" description="A voice concierge on the kiosk: directions, facilities, rules, and help registering a visit. It only talks about this site, never reveals residents, and stores nothing visitors say." />
+          <div className={`mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm ${settings.enabled ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200" : "border-line bg-surface text-body"}`}>
+            <Icon name={settings.enabled ? "check" : "bell"} className="h-5 w-5 shrink-0" />
+            <span>
+              {settings.enabled ? <><strong>{settings.name || "The assistant"}</strong> is on at this site&apos;s kiosks</> : <><strong>The assistant is off.</strong> Turn it on under Assistant when it knows enough</>}
+              {" · "}{activeTopics} knowledge topic{activeTopics === 1 ? "" : "s"} · {mapList.length} map{mapList.length === 1 ? "" : "s"}
+            </span>
           </div>
-        </Card>
-
-        <Card>
-          <CardHeader title="Knowledge" action={<Button onClick={() => setModule({ title: "" })}><Icon name="plus" className="h-4 w-4" /> Add</Button>} />
-          {!modules ? <Loading /> : modules.results.length === 0 ? (
-            <div className="space-y-3 p-5 text-sm text-muted">
-              <p>Add what the assistant should know. Start with one of these:</p>
-              <div className="flex flex-wrap gap-2">
-                {STARTERS.map((t) => <Button key={t} size="sm" onClick={() => setModule({ title: t })}>{t}</Button>)}
-              </div>
-            </div>
-          ) : (
-            <ul className="divide-y divide-line">
-              {modules.results.map((x) => (
-                <li key={x.id} className="flex items-start gap-3 px-5 py-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 font-medium text-ink">{x.title}{!x.is_active && <Badge>Not in use</Badge>}</div>
-                    <p className="mt-0.5 line-clamp-2 text-sm text-muted">{x.content}</p>
+          <div className="grid gap-5 md:grid-cols-2">
+            {CARDS.map((c) => (
+              <Card key={c.key} className="flex flex-col">
+                <div className="flex flex-1 flex-col p-5 sm:p-6">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-500/10 text-primary-600 dark:text-primary-300"><Icon name={c.icon} className="h-6 w-6" /></span>
+                    <Badge tone={c.badge.tone}>{c.badge.label}</Badge>
                   </div>
-                  <IconButton label="Edit" onClick={() => setModule(x)}><Icon name="pencil" className="h-4 w-4" /></IconButton>
-                  <IconButton label="Delete" onClick={() => setRemoving({ kind: "module", id: x.id, name: x.title })}><Icon name="trash" className="h-4 w-4" /></IconButton>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-
-        <Card>
-          <CardHeader title="Maps & floor plans" action={<Button onClick={() => setMap("new")}><Icon name="plus" className="h-4 w-4" /> Add map</Button>} />
-          {!maps ? <Loading /> : mapList.length === 0 ? <Empty>The assistant can put a map on the kiosk screen when it gives directions. Upload a site map or floor plans.</Empty> : (
-            <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
-              {mapList.map((x) => (
-                <div key={x.id} className="overflow-hidden rounded-lg border border-line">
-                  <AuthImage path={`/v1/assistant-maps/${x.id}/image/`} alt={x.name} className="h-40 w-full bg-surface-2 object-contain" />
-                  <div className="flex items-start gap-2 p-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 text-sm font-medium text-ink">{x.name}{!x.is_active && <Badge>Not in use</Badge>}</div>
-                      {x.description && <p className="mt-0.5 line-clamp-2 text-xs text-muted">{x.description}</p>}
-                    </div>
-                    <IconButton label="Edit" onClick={() => setMap(x)}><Icon name="pencil" className="h-4 w-4" /></IconButton>
-                    <IconButton label="Delete" onClick={() => setRemoving({ kind: "map", id: x.id, name: x.name })}><Icon name="trash" className="h-4 w-4" /></IconButton>
+                  <h2 className="mt-4 text-lg font-semibold text-ink">{c.title}</h2>
+                  <p className="mt-1 flex-1 text-sm text-body">{c.what}</p>
+                  <div className="mt-5">
+                    <Button variant={c.primary ? "primary" : "secondary"} onClick={() => (c.key === "settings" ? setEditingSettings(true) : setView(c.key))}>
+                      {c.key === "settings" ? "Change" : c.key === "try" ? "Try it" : "Open"}
+                    </Button>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </Card>
+              </Card>
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          <button onClick={() => setView(null)} className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:underline dark:text-primary-400">
+            <Icon name="chevron" className="h-4 w-4 rotate-180" /> All assistant settings
+          </button>
+          <PageHeader title={current.title} description={current.what}
+            action={view === "knowledge" ? <Button variant="primary" onClick={() => setModule({ title: "" })}><Icon name="plus" className="h-4 w-4" /> Add topic</Button>
+              : view === "maps" ? <Button variant="primary" onClick={() => setMap("new")}><Icon name="plus" className="h-4 w-4" /> Add map</Button> : undefined} />
+          <div>
+            {view === "knowledge" && (
+              <Card>
+                {!modules ? <Loading /> : moduleList.length === 0 ? (
+                  <div className="space-y-3 p-5 text-sm text-muted sm:p-6">
+                    <p>Add what the assistant should know. Start with one of these:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {STARTERS.map((t) => <Button key={t} size="sm" onClick={() => setModule({ title: t })}>{t}</Button>)}
+                    </div>
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-line">
+                    {moduleList.map((x) => (
+                      <li key={x.id} className="px-5 py-4 sm:px-6">
+                        <div className="flex flex-wrap items-center gap-2 font-medium text-ink">{x.title}{x.is_active ? <Badge tone="green">In use</Badge> : <Badge>Not in use</Badge>}</div>
+                        <p className="mt-1 line-clamp-2 text-sm text-muted">{x.content}</p>
+                        <div className="-ml-2 mt-2 flex gap-1">
+                          <Button size="sm" onClick={() => setModule(x)}>Edit</Button>
+                          <Button size="sm" variant="ghost" onClick={() => setRemoving({ kind: "module", id: x.id, name: x.title })}>Delete</Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Card>
+            )}
+            {view === "maps" && (
+              <Card>
+                {!maps ? <Loading /> : mapList.length === 0 ? <Empty>The assistant can put a map on the kiosk screen when it gives directions. Upload a site map or floor plans.</Empty> : (
+                  <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
+                    {mapList.map((x) => (
+                      <div key={x.id} className="overflow-hidden rounded-lg border border-line">
+                        <AuthImage path={`/v1/assistant-maps/${x.id}/image/`} alt={x.name} className="h-40 w-full bg-surface-2 object-contain" />
+                        <div className="p-3">
+                          <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-ink">{x.name}{!x.is_active && <Badge>Not in use</Badge>}</div>
+                          {x.description && <p className="mt-0.5 line-clamp-2 text-xs text-muted">{x.description}</p>}
+                          <div className="-ml-2 mt-2 flex gap-1">
+                            <Button size="sm" onClick={() => setMap(x)}>Edit</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setRemoving({ kind: "map", id: x.id, name: x.name })}>Delete</Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            )}
+            {view === "try" && <TryIt condoId={condo.id} maps={mapList} />}
+          </div>
+        </>
+      )}
 
-        <TryIt condoId={condo.id} maps={mapList} />
-      </div>
-
+      <Modal wide open={editingSettings} onClose={() => setEditingSettings(false)} title="Assistant"
+        footer={<><Button onClick={() => setEditingSettings(false)}>Cancel</Button><Button variant="primary" busy={saving} onClick={save}>Save</Button></>}>
+        <div className="space-y-4">
+          <ErrorNote error={Object.keys(errors).length ? null : error} />
+          <FormFields fields={settingsFields} values={values} errors={errors} record={settings as unknown as Record<string, unknown>} onChange={(n, v) => setValues((st) => ({ ...st, [n]: v }))} />
+        </div>
+      </Modal>
       {module && (
         <EntityModal wide title={"id" in module ? `Edit ${module.title}` : "Add knowledge"} fields={moduleFields}
           record={"id" in module ? (module as unknown as Record<string, unknown>) : null}

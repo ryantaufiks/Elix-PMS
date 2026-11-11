@@ -221,7 +221,8 @@ It only talks about the site and never reveals or confirms anything about reside
   (`gpt-4o-mini-tts`): lower cost, a short pause per answer. The answer's text shows as soon as it is ready and its speech streams, so playback starts before it is fully made. *Realtime* talks to OpenAI over WebRTC
   (`gpt-realtime-mini`): live two-way voice that can be interrupted, at a higher cost. The server mints a
   one-minute client secret per conversation; the API key never reaches the kiosk.
-- **Site admin** (Site setup → AI Assistant): on/off, name, greeting, languages (it answers in the
+- **Site admin** (Site setup → AI Assistant: a status line and four cards, *Assistant* opening its
+  settings, *Knowledge*, *Maps & floor plans* and *Try it* opening their views): on/off, name, greeting, languages (it answers in the
   visitor's language), extra guidance, an optional own OpenAI key for the site, **knowledge** modules
   (plain text: directions, facilities, rules, contacts, getting here) and **maps** (images with what they
   show). *Try it* asks typed questions with the saved knowledge.
