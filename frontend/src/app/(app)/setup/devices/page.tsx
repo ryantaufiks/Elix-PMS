@@ -4,101 +4,54 @@ import { useState } from "react";
 import useSWR, { type KeyedMutator } from "swr";
 
 import { useGates } from "@/components/bits";
-import { ConfirmDialog, CopyField, EntityModal, type FieldDef, type Option, remove, Tabs } from "@/components/forms";
-import { Icon } from "@/components/icons";
-import { Badge, Button, Card, Empty, Loading, Modal, PageHeader, Table, Td, Th, useToast } from "@/components/ui";
+import { ConfirmDialog, CopyField, EntityModal, type FieldDef, type Option, remove } from "@/components/forms";
+import { Icon, type IconName } from "@/components/icons";
+import { ComingSoon, upsellText, useModuleCatalogue } from "@/components/ModuleGate";
+import { Badge, Button, Card, Empty, Loading, Modal, PageHeader, type Tone, useToast } from "@/components/ui";
 import { api, ApiError, query } from "@/lib/api";
 import { timeAgo } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import type { Camera, Gate, IntegrationAccount, Kiosk, Page, Relay } from "@/lib/types";
-import { ComingSoon, LockedFeature } from "@/components/ModuleGate";
-
-type Tab = "gates" | "relays" | "cameras" | "kiosks" | "accounts" | "faces" | "onsite";
 
 const isOnline = (iso: string | null, minutes: number) => !!iso && Date.now() - new Date(iso).getTime() < minutes * 60_000;
 const DIRECTIONS: Option[] = [{ value: "entry", label: "Entry" }, { value: "exit", label: "Exit" }, { value: "both", label: "Entry & exit" }];
+const GATE_TYPE: Record<Gate["gate_type"], string> = { vehicle: "Car barrier", pedestrian: "Pedestrian gate", door: "Door" };
+const DIRECTION: Record<Gate["direction"], string> = { entry: "entry only", exit: "exit only", both: "entry and exit" };
 
-export default function DevicesSetupPage() {
-  const { condo, isAdmin } = useSession();
-  const [tab, setTab] = useState<Tab>(() => {
-    if (typeof window === "undefined") return "gates";
-    const t = new URLSearchParams(window.location.search).get("tab");
-    return (["gates", "relays", "cameras", "kiosks", "accounts", "faces", "onsite"].includes(t ?? "") ? t : "gates") as Tab;
-  });
-  const gates = useGates(condo.id);
-  const relays = useSWR<Page<Relay>>(isAdmin ? `/v1/relays/${query({ gate__condominium: condo.id, page_size: 200 })}` : null);
-  const hasLpr = condo.modules?.includes("lpr") ?? false;
-  const cameras = useSWR<Page<Camera>>(isAdmin && hasLpr ? `/v1/cameras/${query({ gate__condominium: condo.id, page_size: 200 })}` : null);
-  const kiosks = useSWR<Page<Kiosk>>(isAdmin ? `/v1/kiosks/${query({ condominium: condo.id, page_size: 200 })}` : null);
-  const accounts = useSWR<Page<IntegrationAccount>>(isAdmin ? `/v1/integration-accounts/${query({ condominium: condo.id, page_size: 200 })}` : null);
+type State = { tone: Tone; label: string; note?: string };
+const relayState = (r: Relay): State => !r.is_active ? { tone: "slate", label: "Switched off" }
+  : r.last_error ? { tone: "red", label: "Problem", note: r.last_error } : { tone: "green", label: "Working" };
+const cameraState = (c: Camera): State => !c.is_active ? { tone: "slate", label: "Switched off" }
+  : isOnline(c.last_seen_at, 24 * 60) ? { tone: "green", label: "Reading plates" } : { tone: "amber", label: "No plates in 24 h" };
+const kioskState = (k: Kiosk): State => !k.is_active ? { tone: "slate", label: "Switched off" }
+  : isOnline(k.last_seen_at, 5) ? { tone: "green", label: "Online" } : { tone: "red", label: "Offline" };
 
-  if (!isAdmin) return <Card><Empty>Gates and devices are managed by the site admin.</Empty></Card>;
+type Dialog =
+  | { kind: "gate"; record: Gate | null }
+  | { kind: "relay"; record: Relay | null; gate?: number }
+  | { kind: "camera"; record: Camera | null; gate?: number }
+  | { kind: "kiosk"; record: Kiosk | null; gate?: number }
+  | { kind: "account"; record: IntegrationAccount | null }
+  | { kind: "test"; relay: Relay }
+  | { kind: "setup"; camera: Camera }
+  | { kind: "token"; kiosk: Kiosk }
+  | { kind: "delete"; what: string; name: string; endpoint: string; message: string }
+  | { kind: "soon"; module: string; points: string[] };
 
-  const gateOptions: Option[] = (gates.data?.results ?? []).map((g) => ({ value: g.id, label: g.name }));
-  const gateName = (id: number | null) => gates.data?.results.find((g) => g.id === id)?.name ?? "—";
-  const select = (t: Tab) => {
-    setTab(t);
-    window.history.replaceState(null, "", `?tab=${t}`);
-  };
+const SOON = {
+  face_terminal: [
+    "Residents enter by face at Hikvision access terminals, no card needed.",
+    "Faces are added from the resident app or the dashboard, with the resident's consent.",
+    "Removed from the terminals automatically when a resident moves out.",
+  ],
+  local_devices: [
+    "A secure link from Elix to the devices at your site, without opening your router.",
+    "Relays answer faster and keep working when the relay maker's cloud is down.",
+    "Plates and faces stay on the cameras and terminals, so gates keep working if the internet drops.",
+  ],
+};
 
-  return (
-    <>
-      <PageHeader title="Gates & devices" description="Gates, the relays that open them, LPR cameras, visitor kiosks and the cloud accounts behind the relays." />
-      <Card>
-        <Tabs
-          active={tab}
-          onChange={select}
-          tabs={[
-            { key: "gates", label: "Gates", count: gates.data?.count },
-            { key: "relays", label: "Relays", count: relays.data?.count },
-            { key: "cameras", label: hasLpr ? "LPR cameras" : "LPR cameras · locked", count: cameras.data?.count },
-            { key: "kiosks", label: "Kiosks", count: kiosks.data?.count },
-            { key: "accounts", label: "Cloud accounts", count: accounts.data?.count },
-            { key: "faces", label: "Face terminals · soon" },
-            { key: "onsite", label: "On-site link · soon" },
-          ]}
-        />
-        {tab === "gates" && <GatesTab condoId={condo.id} data={gates.data} mutate={gates.mutate} />}
-        {tab === "relays" && <RelaysTab data={relays.data} mutate={relays.mutate} gateOptions={gateOptions} gateName={gateName} accounts={accounts.data?.results ?? []} />}
-        {tab === "cameras" && !hasLpr && <div className="p-4"><LockedFeature module="lpr" /></div>}
-        {tab === "cameras" && hasLpr && <CamerasTab data={cameras.data} mutate={cameras.mutate} gateOptions={gateOptions} gateName={gateName} />}
-        {tab === "kiosks" && <KiosksTab condoId={condo.id} data={kiosks.data} mutate={kiosks.mutate} gateOptions={gateOptions} gateName={gateName} />}
-        {tab === "accounts" && <AccountsTab condoId={condo.id} data={accounts.data} mutate={accounts.mutate} />}
-        {tab === "faces" && <div className="p-4"><ComingSoon module="face_terminal" points={[
-          "Residents enter by face at Hikvision access terminals, no card needed.",
-          "Faces are added from the resident app or the dashboard, with the resident's consent.",
-          "Removed from the terminals automatically when a resident moves out.",
-        ]} /></div>}
-        {tab === "onsite" && <div className="p-4"><ComingSoon module="local_devices" points={[
-          "A secure link from Elix to the devices at your site, without opening your router.",
-          "Relays answer faster and keep working when the relay maker's cloud is down.",
-          "Plates and faces stay on the cameras and terminals, so gates keep working if the internet drops.",
-        ]} /></div>}
-      </Card>
-    </>
-  );
-}
-
-function Toolbar({ text, onAdd, addLabel, disabled }: { text: string; onAdd: () => void; addLabel: string; disabled?: string }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-      <p className="max-w-2xl text-sm text-muted">{disabled ?? text}</p>
-      <Button variant="primary" onClick={onAdd} disabled={!!disabled}><Icon name="plus" className="h-4 w-4" /> {addLabel}</Button>
-    </div>
-  );
-}
-
-function RowActions({ onEdit, onDelete, children }: { onEdit: () => void; onDelete: () => void; children?: React.ReactNode }) {
-  return (
-    <Td className="whitespace-nowrap text-right">
-      {children}
-      <Button size="sm" variant="ghost" onClick={onEdit}>Edit</Button>
-      <Button size="sm" variant="ghost" onClick={onDelete}>Delete</Button>
-    </Td>
-  );
-}
-
-// --- Gates -------------------------------------------------------------------
+// --- Forms ------------------------------------------------------------------------------------------------
 
 const gateFields: FieldDef[] = [
   { name: "name", label: "Name", required: true, placeholder: "Main gate", wide: true },
@@ -111,46 +64,6 @@ const gateFields: FieldDef[] = [
     hint: "Shows the gate under Access in the resident app. Every opening is logged with the resident and unit." },
   { name: "is_active", label: "Active", type: "checkbox" },
 ];
-
-function GatesTab({ condoId, data, mutate }: { condoId: number; data?: Page<Gate>; mutate: KeyedMutator<Page<Gate>> }) {
-  const [editing, setEditing] = useState<Gate | "new" | null>(null);
-  const [deleting, setDeleting] = useState<Gate | null>(null);
-  return (
-    <>
-      <Toolbar text="Every entrance or door that can be opened. Relays, cameras and kiosks are attached to a gate." onAdd={() => setEditing("new")} addLabel="Add gate" />
-      {!data ? <Loading /> : data.results.length === 0 ? <Empty>No gates yet. Start here.</Empty> : (
-        <Table>
-          <thead><tr><Th>Name</Th><Th>Type</Th><Th>Direction</Th><Th>Plate auto-open</Th><Th>Resident app</Th><Th>Status</Th><Th /></tr></thead>
-          <tbody className="divide-y divide-line">
-            {data.results.map((g) => (
-              <tr key={g.id}>
-                <Td className="font-medium text-ink">{g.name}</Td>
-                <Td className="capitalize">{g.gate_type}</Td>
-                <Td className="capitalize">{g.direction}</Td>
-                <Td>{[g.lpr_auto_open_residents && "Residents", g.lpr_auto_open_invited && "Invited"].filter(Boolean).join(", ") || "Off"}</Td>
-                <Td>{g.resident_remote_open ? <Badge tone="blue">Can open</Badge> : "—"}</Td>
-                <Td>{g.is_active ? <Badge tone="green">Active</Badge> : <Badge>Disabled</Badge>}</Td>
-                <RowActions onEdit={() => setEditing(g)} onDelete={() => setDeleting(g)} />
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      )}
-      {editing && (
-        <EntityModal title={editing === "new" ? "Add gate" : `Edit ${editing.name}`} fields={gateFields} record={editing === "new" ? null : editing}
-          defaults={{ gate_type: "vehicle", direction: "both", is_active: true, lpr_auto_open_residents: true, lpr_auto_open_invited: true, resident_remote_open: false }}
-          endpoint={editing === "new" ? "/v1/gates/" : `/v1/gates/${editing.id}/`} extra={{ condominium: condoId }}
-          onClose={() => setEditing(null)} onSaved={() => { setEditing(null); mutate(); }} />
-      )}
-      <ConfirmDialog open={!!deleting} title="Delete gate?" confirmLabel="Delete gate" onClose={() => setDeleting(null)}
-        message={<>Delete <strong>{deleting?.name}</strong> together with its relays and cameras? Past access-log entries are kept.</>}
-        onConfirm={async () => { await remove(`/v1/gates/${deleting!.id}/`); mutate(); }} />
-    </>
-  );
-}
-
-// --- Relays ------------------------------------------------------------------
-
 function relayFields(gateOptions: Option[], accounts: IntegrationAccount[]): FieldDef[] {
   const cloud = (v: Record<string, unknown>) => v.control_mode !== "local";
   const local = (v: Record<string, unknown>) => v.control_mode !== "cloud";
@@ -174,77 +87,6 @@ function relayFields(gateOptions: Option[], accounts: IntegrationAccount[]): Fie
     { name: "local_device_key", label: "eWeLink device key", type: "secret", show: (v) => local(v) && v.provider === "ewelink", hint: "Only for eWeLink LAN mode with encryption." },
   ];
 }
-
-function RelaysTab({ data, mutate, gateOptions, gateName, accounts }: {
-  data?: Page<Relay>; mutate: KeyedMutator<Page<Relay>>; gateOptions: Option[]; gateName: (id: number) => string; accounts: IntegrationAccount[];
-}) {
-  const toast = useToast();
-  const [editing, setEditing] = useState<Relay | "new" | null>(null);
-  const [deleting, setDeleting] = useState<Relay | null>(null);
-  const [testing, setTesting] = useState<Relay | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-
-  async function command(relay: Relay, action: "test" | "check") {
-    setBusy(`${relay.id}-${action}`);
-    try {
-      const result = await api<{ ok: boolean; via: string; detail: string }>(`/v1/relays/${relay.id}/${action}/`, { method: "POST" });
-      toast("success", `${relay.name}: OK via ${result.via}${result.detail ? ` (${result.detail})` : ""}`);
-    } catch (error) {
-      const detail = error instanceof ApiError && error.data && typeof error.data === "object" ? (error.data as { detail?: string }).detail : undefined;
-      toast("error", `${relay.name}: ${detail ?? (error as Error).message}`);
-    } finally {
-      setBusy(null);
-      mutate();
-    }
-  }
-
-  return (
-    <>
-      <Toolbar text="Shelly or Sonoff switches wired to the gate motor. Use Test to pulse one now." onAdd={() => setEditing("new")} addLabel="Add relay" disabled={gateOptions.length ? undefined : "Add a gate first."} />
-      {!data ? <Loading /> : data.results.length === 0 ? <Empty>No relays yet.</Empty> : (
-        <Table>
-          <thead><tr><Th>Name</Th><Th>Gate</Th><Th>Device</Th><Th>Via</Th><Th>Last triggered</Th><Th>Status</Th><Th /></tr></thead>
-          <tbody className="divide-y divide-line">
-            {data.results.map((r) => (
-              <tr key={r.id}>
-                <Td className="font-medium text-ink">{r.name}</Td>
-                <Td>{gateName(r.gate)}</Td>
-                <Td>{r.provider === "shelly" ? "Shelly" : "eWeLink"}</Td>
-                <Td>{{ cloud: "Cloud", local: "LAN", local_then_cloud: "LAN → cloud" }[r.control_mode]}{r.local_ip && r.control_mode !== "cloud" ? ` · ${r.local_ip}` : ""}</Td>
-                <Td>{timeAgo(r.last_triggered_at)}</Td>
-                <Td>
-                  {!r.is_active ? <Badge>Disabled</Badge> : r.last_error ? (
-                    <div title={r.last_error}><Badge tone="red">Error</Badge><div className="mt-1 max-w-xs text-xs text-rose-600 dark:text-rose-400">{r.last_error}</div></div>
-                  ) : <Badge tone="green">OK</Badge>}
-                </Td>
-                <RowActions onEdit={() => setEditing(r)} onDelete={() => setDeleting(r)}>
-                  <Button size="sm" variant="ghost" busy={busy === `${r.id}-check`} onClick={() => command(r, "check")}>Status</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setTesting(r)}>Test</Button>
-                </RowActions>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      )}
-      {editing && (
-        <EntityModal wide title={editing === "new" ? "Add relay" : `Edit ${editing.name}`} fields={relayFields(gateOptions, accounts)} record={editing === "new" ? null : editing}
-          defaults={{ provider: "shelly", control_mode: "cloud", pulse_seconds: 3, channel: 0, is_active: true, local_username: "admin" }}
-          endpoint={editing === "new" ? "/v1/relays/" : `/v1/relays/${editing.id}/`}
-          onClose={() => setEditing(null)} onSaved={() => { setEditing(null); mutate(); }} />
-      )}
-      <Modal open={!!testing} onClose={() => setTesting(null)} title={`Test ${testing?.name ?? ""}`}
-        footer={<><Button onClick={() => setTesting(null)}>Cancel</Button><Button variant="primary" busy={busy === `${testing?.id}-test`} onClick={async () => { await command(testing!, "test"); setTesting(null); }}>Pulse now</Button></>}>
-        <p className="text-sm text-body">This really opens <strong>{testing && gateName(testing.gate)}</strong>. Test pulses are not written to the access log.</p>
-      </Modal>
-      <ConfirmDialog open={!!deleting} title="Delete relay?" confirmLabel="Delete relay" onClose={() => setDeleting(null)}
-        message={<>Delete <strong>{deleting?.name}</strong>? The gate cannot be opened remotely without a relay.</>}
-        onConfirm={async () => { await remove(`/v1/relays/${deleting!.id}/`); mutate(); }} />
-    </>
-  );
-}
-
-// --- Cameras -----------------------------------------------------------------
-
 function cameraFields(gateOptions: Option[], creating: boolean): FieldDef[] {
   return [
     { name: "gate", label: "Gate", type: "select", required: true, options: gateOptions },
@@ -260,135 +102,6 @@ function cameraFields(gateOptions: Option[], creating: boolean): FieldDef[] {
     { name: "api_password", label: "Camera API password", type: "secret" },
   ];
 }
-
-function CamerasTab({ data, mutate, gateOptions, gateName }: { data?: Page<Camera>; mutate: KeyedMutator<Page<Camera>>; gateOptions: Option[]; gateName: (id: number) => string }) {
-  const [editing, setEditing] = useState<Camera | "new" | null>(null);
-  const [deleting, setDeleting] = useState<Camera | null>(null);
-  const [inspecting, setInspecting] = useState<Camera | null>(null);
-  return (
-    <>
-      <Toolbar text="Dahua cameras post plate reads to the webhook. Whether reads open gates is set by 'Licence-plate recognition' in Site settings." onAdd={() => setEditing("new")} addLabel="Add camera" disabled={gateOptions.length ? undefined : "Add a gate first."} />
-      <p className="mx-5 mb-3 flex items-center gap-2 rounded-lg bg-primary-500/5 px-3 py-2 text-xs text-body">
-        <Icon name="sparkle" className="h-4 w-4 shrink-0 text-primary-500" />
-        <span><strong>Coming soon:</strong> plates stored on the camera itself, so residents&apos; cars still get in when the internet is down.</span>
-      </p>
-      {!data ? <Loading /> : data.results.length === 0 ? <Empty>No cameras yet.</Empty> : (
-        <Table>
-          <thead><tr><Th>Name</Th><Th>Gate</Th><Th>Device ID</Th><Th>Direction</Th><Th>Last event</Th><Th>Status</Th><Th /></tr></thead>
-          <tbody className="divide-y divide-line">
-            {data.results.map((c) => (
-              <tr key={c.id}>
-                <Td className="font-medium text-ink">{c.name}</Td>
-                <Td>{gateName(c.gate)}</Td>
-                <Td className="font-mono text-xs">{c.device_id}</Td>
-                <Td className="capitalize">{c.direction}</Td>
-                <Td>{timeAgo(c.last_seen_at)}</Td>
-                <Td>{!c.is_active ? <Badge>Disabled</Badge> : isOnline(c.last_seen_at, 24 * 60) ? <Badge tone="green">Seen today</Badge> : <Badge tone="amber">No events 24 h</Badge>}</Td>
-                <RowActions onEdit={() => setEditing(c)} onDelete={() => setDeleting(c)}>
-                  <Button size="sm" variant="ghost" onClick={() => setInspecting(c)}>Setup info</Button>
-                </RowActions>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      )}
-      {editing && (
-        <EntityModal wide title={editing === "new" ? "Add LPR camera" : `Edit ${editing.name}`} fields={cameraFields(gateOptions, editing === "new")} record={editing === "new" ? null : editing}
-          defaults={{ direction: "entry", is_active: true }}
-          endpoint={editing === "new" ? "/v1/cameras/" : `/v1/cameras/${editing.id}/`}
-          onClose={() => setEditing(null)} onSaved={() => { setEditing(null); mutate(); }} />
-      )}
-      <Modal wide open={!!inspecting} onClose={() => setInspecting(null)} title={`${inspecting?.name ?? ""}: camera setup`}>
-        {inspecting && (
-          <div className="space-y-4 text-sm">
-            <p className="text-body">In the camera web page, open <em>Event &gt; ITC / HTTP upload</em> and enter:</p>
-            <div><div className="mb-1 font-medium text-ink">Upload URL</div><CopyField value={inspecting.webhook_url} /></div>
-            <div><div className="mb-1 font-medium text-ink">Username</div><CopyField value={inspecting.webhook_username} /></div>
-            <p className="text-muted">Password: the webhook password set for this camera. Method: POST, body JSON.</p>
-            <div>
-              <div className="mb-1 font-medium text-ink">Last payload received {inspecting.last_seen_at && <span className="font-normal text-muted">({timeAgo(inspecting.last_seen_at)})</span>}</div>
-              {inspecting.last_payload ? (
-                <pre className="max-h-80 overflow-auto rounded-md bg-slate-900 p-3 text-xs text-slate-100">{JSON.stringify(inspecting.last_payload, null, 2)}</pre>
-              ) : <p className="text-muted">Nothing received yet.</p>}
-            </div>
-          </div>
-        )}
-      </Modal>
-      <ConfirmDialog open={!!deleting} title="Delete camera?" confirmLabel="Delete camera" onClose={() => setDeleting(null)}
-        message={<>Delete <strong>{deleting?.name}</strong>? Its webhook login stops working immediately.</>}
-        onConfirm={async () => { await remove(`/v1/cameras/${deleting!.id}/`); mutate(); }} />
-    </>
-  );
-}
-
-// --- Kiosks ------------------------------------------------------------------
-
-function KiosksTab({ condoId, data, mutate, gateOptions, gateName }: { condoId: number; data?: Page<Kiosk>; mutate: KeyedMutator<Page<Kiosk>>; gateOptions: Option[]; gateName: (id: number | null) => string }) {
-  const [editing, setEditing] = useState<Kiosk | "new" | null>(null);
-  const [deleting, setDeleting] = useState<Kiosk | null>(null);
-  const [regenerating, setRegenerating] = useState<Kiosk | null>(null);
-  const [token, setToken] = useState<{ kiosk: string; token: string } | null>(null);
-  const fields: FieldDef[] = [
-    { name: "name", label: "Name", required: true, placeholder: "Lobby kiosk" },
-    { name: "gate", label: "Opens gate", type: "select", options: gateOptions, hint: "The gate that opens when a resident approves a call from this kiosk." },
-    { name: "prints_slips", label: "Receipt printer connected (58 mm)", type: "checkbox", wide: true,
-      hint: "Walk-in slips are printed. Without a printer the pass is shown on screen for the visitor to photograph. For printing without a dialog, start Chrome with --kiosk-printing." },
-    { name: "is_active", label: "Active", type: "checkbox" },
-  ];
-  return (
-    <>
-      <Toolbar text="Tablets at the gate: visitors call residents, register as walk-ins or scan their invitation QR. On the tablet, open /kiosk/ on this site and enter the device token." onAdd={() => setEditing("new")} addLabel="Add kiosk" />
-      {!data ? <Loading /> : data.results.length === 0 ? <Empty>No kiosks yet.</Empty> : (
-        <Table>
-          <thead><tr><Th>Name</Th><Th>Gate</Th><Th>Token</Th><Th>App</Th><Th>Last seen</Th><Th>Status</Th><Th /></tr></thead>
-          <tbody className="divide-y divide-line">
-            {data.results.map((k) => (
-              <tr key={k.id}>
-                <Td className="font-medium text-ink">{k.name}</Td>
-                <Td>{gateName(k.gate)}</Td>
-                <Td className="font-mono text-xs">{k.token_hint ? `…${k.token_hint}` : "—"}</Td>
-                <Td>{k.app_version || "—"}</Td>
-                <Td>{timeAgo(k.last_seen_at)}</Td>
-                <Td>{!k.is_active ? <Badge>Disabled</Badge> : isOnline(k.last_seen_at, 5) ? <Badge tone="green">Online</Badge> : <Badge tone="red">Offline</Badge>}</Td>
-                <RowActions onEdit={() => setEditing(k)} onDelete={() => setDeleting(k)}>
-                  <Button size="sm" variant="ghost" onClick={() => setRegenerating(k)}>New token</Button>
-                </RowActions>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      )}
-      {editing && (
-        <EntityModal<Kiosk & { token?: string }> title={editing === "new" ? "Add kiosk" : `Edit ${editing.name}`} fields={fields} record={editing === "new" ? null : editing}
-          defaults={{ is_active: true, prints_slips: true }} endpoint={editing === "new" ? "/v1/kiosks/" : `/v1/kiosks/${editing.id}/`} extra={{ condominium: condoId }}
-          onClose={() => setEditing(null)}
-          onSaved={(saved) => { setEditing(null); mutate(); if (saved.token) setToken({ kiosk: saved.name, token: saved.token }); }} />
-      )}
-      <ConfirmDialog open={!!regenerating} title="Issue a new device token?" confirmLabel="Issue new token" onClose={() => setRegenerating(null)}
-        message={<>The tablet <strong>{regenerating?.name}</strong> is signed out until you enter the new token on it.</>}
-        onConfirm={async () => {
-          const result = await api<{ token: string }>(`/v1/kiosks/${regenerating!.id}/regenerate_token/`, { method: "POST" });
-          setToken({ kiosk: regenerating!.name, token: result.token });
-          mutate();
-        }} />
-      <Modal open={!!token} onClose={() => setToken(null)} title={`Device token for ${token?.kiosk ?? ""}`} footer={<Button variant="primary" onClick={() => setToken(null)}>I have copied it</Button>}>
-        {token && (
-          <div className="space-y-3 text-sm">
-            <p className="text-body">On the tablet, open this address and enter the token. It is shown <strong>only once</strong>.</p>
-            <CopyField value={`${typeof window !== "undefined" ? window.location.origin : ""}/kiosk/`} mono={false} />
-            <CopyField value={token.token} />
-          </div>
-        )}
-      </Modal>
-      <ConfirmDialog open={!!deleting} title="Delete kiosk?" confirmLabel="Delete kiosk" onClose={() => setDeleting(null)}
-        message={<>Delete <strong>{deleting?.name}</strong>? The tablet is signed out immediately.</>}
-        onConfirm={async () => { await remove(`/v1/kiosks/${deleting!.id}/`); mutate(); }} />
-    </>
-  );
-}
-
-// --- Cloud accounts ----------------------------------------------------------
-
 const accountFields: FieldDef[] = [
   { name: "provider", label: "Provider", type: "select", required: true, options: [{ value: "shelly", label: "Shelly Cloud" }, { value: "ewelink", label: "eWeLink (Sonoff)" }] },
   { name: "label", label: "Label", required: true, placeholder: "Main Shelly account" },
@@ -407,38 +120,320 @@ const accountFields: FieldDef[] = [
   { name: "notes", label: "Notes", type: "textarea" },
 ];
 
-function AccountsTab({ condoId, data, mutate }: { condoId: number; data?: Page<IntegrationAccount>; mutate: KeyedMutator<Page<IntegrationAccount>> }) {
-  const [editing, setEditing] = useState<IntegrationAccount | "new" | null>(null);
-  const [deleting, setDeleting] = useState<IntegrationAccount | null>(null);
+// --- Building blocks -----------------------------------------------------------------------------------
+
+function DeviceRow({ icon, title, detail, state, children }: { icon: IconName; title: string; detail: string; state: State; children?: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-3 py-3">
+      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-3 text-body"><Icon name={icon} className="h-5 w-5" /></span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium text-ink">{title}</span>
+          <Badge tone={state.tone}>{state.label}</Badge>
+        </div>
+        <div className="text-sm text-muted">{detail}</div>
+        {state.note && <div className="mt-1 text-sm text-rose-600 dark:text-rose-400">{state.note}</div>}
+        <div className="-ml-2 mt-2 flex flex-wrap gap-1">{children}</div>
+      </div>
+    </li>
+  );
+}
+
+function Section({ title, empty, children }: { title: string; empty: string; children: React.ReactNode[] }) {
+  return (
+    <div className="border-t border-line px-5 pt-3 sm:px-6">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">{title}</h3>
+      {children.length ? <ul className="divide-y divide-line">{children}</ul> : <p className="py-3 text-sm text-muted">{empty}</p>}
+    </div>
+  );
+}
+
+// --- Page ------------------------------------------------------------------------------------------------
+
+export default function DevicesSetupPage() {
+  const { condo, isAdmin } = useSession();
+  const toast = useToast();
+  const catalogue = useModuleCatalogue();
+  const hasLpr = condo.modules?.includes("lpr") ?? false;
+  const gates = useGates(condo.id);
+  const relays = useSWR<Page<Relay>>(isAdmin ? `/v1/relays/${query({ gate__condominium: condo.id, page_size: 200 })}` : null);
+  const cameras = useSWR<Page<Camera>>(isAdmin && hasLpr ? `/v1/cameras/${query({ gate__condominium: condo.id, page_size: 200 })}` : null);
+  const kiosks = useSWR<Page<Kiosk>>(isAdmin ? `/v1/kiosks/${query({ condominium: condo.id, page_size: 200 })}` : null);
+  const accounts = useSWR<Page<IntegrationAccount>>(isAdmin ? `/v1/integration-accounts/${query({ condominium: condo.id, page_size: 200 })}` : null);
+  const [dialog, setDialog] = useState<Dialog | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [token, setToken] = useState<{ kiosk: string; token: string } | null>(null);
+
+  if (!isAdmin) return <Card><Empty>Gates and devices are managed by the site admin.</Empty></Card>;
+  if (!gates.data || !relays.data || !kiosks.data || !accounts.data || (hasLpr && !cameras.data)) return <Loading />;
+
+  const gateList = gates.data.results;
+  const gateOptions: Option[] = gateList.map((g) => ({ value: g.id, label: g.name }));
+  const gateName = (id: number | null) => gateList.find((g) => g.id === id)?.name ?? "—";
+  const relayList = relays.data.results;
+  const cameraList = cameras.data?.results ?? [];
+  const kioskList = kiosks.data.results;
+  const accountList = accounts.data.results;
+  const refresh = () => { gates.mutate(); relays.mutate(); cameras.mutate(); kiosks.mutate(); accounts.mutate(); };
+  const close = () => setDialog(null);
+  const saved = () => { close(); refresh(); };
+
+  const states = [...relayList.map(relayState), ...cameraList.map(cameraState), ...kioskList.map(kioskState)];
+  const attention = states.filter((x) => x.tone === "red" || x.tone === "amber").length;
+  const lprInfo = catalogue?.modules.find((m) => m.key === "lpr");
+
+  async function command(relay: Relay, action: "test" | "check") {
+    setBusy(`${relay.id}-${action}`);
+    try {
+      const result = await api<{ ok: boolean; via: string; detail: string }>(`/v1/relays/${relay.id}/${action}/`, { method: "POST" });
+      toast("success", `${relay.name}: ${action === "test" ? "opened" : "working"} (via ${result.via})${result.detail ? `, ${result.detail}` : ""}`);
+    } catch (error) {
+      const detail = error instanceof ApiError && error.data && typeof error.data === "object" ? (error.data as { detail?: string }).detail : undefined;
+      toast("error", `${relay.name}: ${detail ?? (error as Error).message}`);
+    } finally {
+      setBusy(null);
+      relays.mutate();
+    }
+  }
+
+  const askDelete = (what: string, name: string, endpoint: string, message: string) => setDialog({ kind: "delete", what, name, endpoint, message });
+
   return (
     <>
-      <Toolbar text="Shelly Cloud and eWeLink logins used by cloud-controlled relays. Keys are stored encrypted and never shown again." onAdd={() => setEditing("new")} addLabel="Add account" />
-      {!data ? <Loading /> : data.results.length === 0 ? <Empty>No cloud accounts yet.</Empty> : (
-        <Table>
-          <thead><tr><Th>Label</Th><Th>Provider</Th><Th>Details</Th><Th>Credentials</Th><Th>Status</Th><Th /></tr></thead>
-          <tbody className="divide-y divide-line">
-            {data.results.map((a) => (
-              <tr key={a.id}>
-                <Td className="font-medium text-ink">{a.label}</Td>
-                <Td>{a.provider === "shelly" ? "Shelly Cloud" : "eWeLink"}</Td>
-                <Td className="text-xs">{a.provider === "shelly" ? a.shelly_server_uri || "—" : `Region ${a.ewelink_region} · ${a.ewelink_account || "no login"}`}</Td>
-                <Td>{(a.provider === "shelly" ? a.has_shelly_auth_key : a.has_ewelink_app_secret) ? <Badge tone="green">Saved</Badge> : <Badge tone="amber">Missing</Badge>}</Td>
-                <Td>{a.is_active ? <Badge tone="green">Active</Badge> : <Badge>Disabled</Badge>}</Td>
-                <RowActions onEdit={() => setEditing(a)} onDelete={() => setDeleting(a)} />
-              </tr>
+      <PageHeader title="Gates & devices" description="Each card is one gate or door, with the devices that open it and see who comes."
+        action={<Button variant="primary" onClick={() => setDialog({ kind: "gate", record: null })}><Icon name="plus" className="h-4 w-4" /> Add gate</Button>} />
+
+      <div className={`mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm ${attention ? "border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200"}`}>
+        <Icon name={attention ? "bell" : "check"} className="h-5 w-5 shrink-0" />
+        <span>
+          {gateList.length} gate{gateList.length === 1 ? "" : "s"} · {states.length} device{states.length === 1 ? "" : "s"} ·{" "}
+          {attention ? <strong>{attention} need{attention === 1 ? "s" : ""} attention</strong> : <strong>everything is working</strong>}
+        </span>
+      </div>
+
+      {gateList.length === 0 ? (
+        <Card><Empty>No gates yet. Start with <strong>Add gate</strong> for each entrance or door that can be opened.</Empty></Card>
+      ) : (
+        <div className="grid gap-6 xl:grid-cols-2">
+          {gateList.map((g) => {
+            const gateRelays = relayList.filter((r) => r.gate === g.id);
+            const gateCameras = cameraList.filter((c) => c.gate === g.id);
+            const gateKiosks = kioskList.filter((k) => k.gate === g.id);
+            const rules = [g.lpr_auto_open_residents && "Opens for residents' plates", g.lpr_auto_open_invited && "Opens for invited plates",
+              g.resident_remote_open && "Residents can open it from the app"].filter(Boolean) as string[];
+            return (
+              <Card key={g.id} className="flex flex-col">
+                <div className="flex items-start justify-between gap-3 px-5 pb-3 pt-5 sm:px-6">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-lg font-semibold text-ink">{g.name}</h2>
+                      {g.is_active ? <Badge tone="green">In use</Badge> : <Badge>Switched off</Badge>}
+                    </div>
+                    <p className="text-sm text-muted">{GATE_TYPE[g.gate_type] ?? g.gate_type} · {DIRECTION[g.direction] ?? g.direction}</p>
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <Button size="sm" onClick={() => setDialog({ kind: "gate", record: g })}>Edit gate</Button>
+                    <Button size="sm" variant="ghost" onClick={() => askDelete("gate", g.name, `/v1/gates/${g.id}/`, "together with its relays and cameras? Past access-log entries are kept.")}>Delete</Button>
+                  </div>
+                </div>
+                {rules.length > 0 && (
+                  <div className="flex flex-wrap gap-2 px-5 pb-3 sm:px-6">
+                    {rules.map((r) => <span key={r} className="rounded-full bg-primary-500/10 px-2.5 py-1 text-xs font-medium text-primary-700 dark:text-primary-300">{r}</span>)}
+                  </div>
+                )}
+
+                <Section title="Relays: open the gate" empty="No relay yet: this gate cannot be opened remotely.">
+                  {gateRelays.map((r) => (
+                    <DeviceRow key={r.id} icon="zap" title={r.name} state={relayState(r)}
+                      detail={`${r.provider === "shelly" ? "Shelly" : "Sonoff (eWeLink)"} · ${{ cloud: "over the internet", local: "local network", local_then_cloud: "local network, then internet" }[r.control_mode]} · last opened ${timeAgo(r.last_triggered_at)}`}>
+                      <Button size="sm" onClick={() => setDialog({ kind: "test", relay: r })}>Test open</Button>
+                      <Button size="sm" variant="ghost" busy={busy === `${r.id}-check`} onClick={() => command(r, "check")}>Check</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setDialog({ kind: "relay", record: r })}>Edit</Button>
+                      <Button size="sm" variant="ghost" onClick={() => askDelete("relay", r.name, `/v1/relays/${r.id}/`, "? The gate cannot be opened remotely without a relay.")}>Delete</Button>
+                    </DeviceRow>
+                  ))}
+                </Section>
+
+                {hasLpr ? (
+                  <Section title="Plate cameras: let cars in" empty="No plate camera at this gate.">
+                    {gateCameras.map((c) => (
+                      <DeviceRow key={c.id} icon="camera" title={c.name} state={cameraState(c)}
+                        detail={`${{ entry: "Entry", exit: "Exit", both: "Entry & exit" }[c.direction]} camera · last plate ${timeAgo(c.last_seen_at)}`}>
+                        <Button size="sm" onClick={() => setDialog({ kind: "setup", camera: c })}>Setup info</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setDialog({ kind: "camera", record: c })}>Edit</Button>
+                        <Button size="sm" variant="ghost" onClick={() => askDelete("camera", c.name, `/v1/cameras/${c.id}/`, "? Its upload login stops working immediately.")}>Delete</Button>
+                      </DeviceRow>
+                    ))}
+                  </Section>
+                ) : (
+                  <div className="flex items-center gap-2 border-t border-line px-5 py-3 text-sm text-muted sm:px-6">
+                    <Icon name="lock" className="h-4 w-4" /> Plate cameras are not in your plan · {upsellText(lprInfo)}
+                  </div>
+                )}
+
+                <Section title="Kiosks: visitors at this gate" empty="No kiosk at this gate.">
+                  {gateKiosks.map((k) => (
+                    <DeviceRow key={k.id} icon="tablet" title={k.name} state={kioskState(k)}
+                      detail={`${k.prints_slips ? "With slip printer" : "No printer"} · last seen ${timeAgo(k.last_seen_at)}${k.app_version ? ` · ${k.app_version}` : ""}`}>
+                      <Button size="sm" onClick={() => setDialog({ kind: "token", kiosk: k })}>New sign-in code</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setDialog({ kind: "kiosk", record: k })}>Edit</Button>
+                      <Button size="sm" variant="ghost" onClick={() => askDelete("kiosk", k.name, `/v1/kiosks/${k.id}/`, "? The tablet is signed out immediately.")}>Delete</Button>
+                    </DeviceRow>
+                  ))}
+                </Section>
+
+                <div className="mt-auto flex flex-wrap gap-2 border-t border-line px-5 py-4 sm:px-6">
+                  <Button size="sm" onClick={() => setDialog({ kind: "relay", record: null, gate: g.id })}><Icon name="plus" className="h-4 w-4" /> Relay</Button>
+                  {hasLpr && <Button size="sm" onClick={() => setDialog({ kind: "camera", record: null, gate: g.id })}><Icon name="plus" className="h-4 w-4" /> Plate camera</Button>}
+                  <Button size="sm" onClick={() => setDialog({ kind: "kiosk", record: null, gate: g.id })}><Icon name="plus" className="h-4 w-4" /> Kiosk</Button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {kioskList.some((k) => !k.gate) && (
+        <Card className="mt-6">
+          <div className="px-5 pt-5 sm:px-6"><h2 className="text-lg font-semibold text-ink">Kiosks not linked to a gate</h2>
+            <p className="text-sm text-muted">They can register visitors but cannot open a gate. Edit one to choose its gate.</p></div>
+          <Section title="Kiosks" empty="">
+            {kioskList.filter((k) => !k.gate).map((k) => (
+              <DeviceRow key={k.id} icon="tablet" title={k.name} state={kioskState(k)} detail={`Last seen ${timeAgo(k.last_seen_at)}`}>
+                <Button size="sm" onClick={() => setDialog({ kind: "kiosk", record: k })}>Choose gate</Button>
+                <Button size="sm" variant="ghost" onClick={() => askDelete("kiosk", k.name, `/v1/kiosks/${k.id}/`, "? The tablet is signed out immediately.")}>Delete</Button>
+              </DeviceRow>
             ))}
-          </tbody>
-        </Table>
+          </Section>
+          <div className="pb-2" />
+        </Card>
       )}
-      {editing && (
-        <EntityModal wide title={editing === "new" ? "Add cloud account" : `Edit ${editing.label}`} fields={accountFields} record={editing === "new" ? null : (editing as unknown as Record<string, unknown>)}
+
+      <Card className="mt-6">
+        <div className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5 sm:px-6">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">Cloud accounts</h2>
+            <p className="text-sm text-muted">Shelly and eWeLink logins that relays use over the internet. Keys are stored encrypted.</p>
+          </div>
+          <Button size="sm" onClick={() => setDialog({ kind: "account", record: null })}><Icon name="plus" className="h-4 w-4" /> Account</Button>
+        </div>
+        <Section title="Accounts" empty="No cloud account yet. Add one before a relay that works over the internet.">
+          {accountList.map((a) => {
+            const hasKey = a.provider === "shelly" ? a.has_shelly_auth_key : a.has_ewelink_app_secret;
+            const state: State = !a.is_active ? { tone: "slate", label: "Switched off" } : hasKey ? { tone: "green", label: "Ready" } : { tone: "amber", label: "Key missing" };
+            return (
+              <DeviceRow key={a.id} icon="cloud" title={a.label} state={state}
+                detail={a.provider === "shelly" ? `Shelly Cloud · ${a.shelly_server_uri || "no server set"}` : `eWeLink · region ${a.ewelink_region.toUpperCase()}`}>
+                <Button size="sm" variant="ghost" onClick={() => setDialog({ kind: "account", record: a })}>Edit</Button>
+                <Button size="sm" variant="ghost" onClick={() => askDelete("account", a.label, `/v1/integration-accounts/${a.id}/`, "? Relays still using it must be moved first.")}>Delete</Button>
+              </DeviceRow>
+            );
+          })}
+        </Section>
+        <div className="pb-2" />
+      </Card>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        {([["face_terminal", "Face terminals", "Residents enter by face, no card needed."],
+          ["local_devices", "On-site link", "Gates keep working when the internet drops."]] as const).map(([key, title, text]) => (
+          <button key={key} onClick={() => setDialog({ kind: "soon", module: key, points: SOON[key] })}
+            className="flex items-start gap-3 rounded-2xl border border-dashed border-line bg-surface p-5 text-left transition hover:border-primary-400/60">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-500/10 text-primary-500"><Icon name="sparkle" className="h-5 w-5" /></span>
+            <span>
+              <span className="flex items-center gap-2 font-semibold text-ink">{title} <Badge tone="blue">Coming soon</Badge></span>
+              <span className="mt-1 block text-sm text-muted">{text} {hasLpr && key === "local_devices" && "Plates will also be kept on the cameras."}</span>
+              <span className="mt-2 block text-sm font-medium text-primary-600 dark:text-primary-400">Learn more</span>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* --- Dialogs --- */}
+      {dialog?.kind === "gate" && (
+        <EntityModal title={dialog.record ? `Edit ${dialog.record.name}` : "Add gate"} fields={gateFields} record={dialog.record}
+          defaults={{ gate_type: "vehicle", direction: "both", is_active: true, lpr_auto_open_residents: true, lpr_auto_open_invited: true, resident_remote_open: false }}
+          endpoint={dialog.record ? `/v1/gates/${dialog.record.id}/` : "/v1/gates/"} extra={{ condominium: condo.id }} onClose={close} onSaved={saved} />
+      )}
+      {dialog?.kind === "relay" && (
+        <EntityModal wide title={dialog.record ? `Edit ${dialog.record.name}` : `Add relay${dialog.gate ? ` to ${gateName(dialog.gate)}` : ""}`}
+          fields={relayFields(gateOptions, accountList)} record={dialog.record}
+          defaults={{ gate: dialog.gate, provider: "shelly", control_mode: "cloud", pulse_seconds: 3, channel: 0, is_active: true, local_username: "admin" }}
+          endpoint={dialog.record ? `/v1/relays/${dialog.record.id}/` : "/v1/relays/"} onClose={close} onSaved={saved} />
+      )}
+      {dialog?.kind === "camera" && (
+        <EntityModal wide title={dialog.record ? `Edit ${dialog.record.name}` : `Add plate camera${dialog.gate ? ` to ${gateName(dialog.gate)}` : ""}`}
+          fields={cameraFields(gateOptions, !dialog.record)} record={dialog.record}
+          defaults={{ gate: dialog.gate, direction: "entry", is_active: true }}
+          endpoint={dialog.record ? `/v1/cameras/${dialog.record.id}/` : "/v1/cameras/"} onClose={close} onSaved={saved} />
+      )}
+      {dialog?.kind === "kiosk" && (
+        <EntityModal<Kiosk & { token?: string }> title={dialog.record ? `Edit ${dialog.record.name}` : `Add kiosk${dialog.gate ? ` at ${gateName(dialog.gate)}` : ""}`}
+          fields={kioskFields(gateOptions)} record={dialog.record}
+          defaults={{ gate: dialog.gate, is_active: true, prints_slips: true }}
+          endpoint={dialog.record ? `/v1/kiosks/${dialog.record.id}/` : "/v1/kiosks/"} extra={{ condominium: condo.id }} onClose={close}
+          onSaved={(k) => { saved(); if (k.token) setToken({ kiosk: k.name, token: k.token }); }} />
+      )}
+      {dialog?.kind === "account" && (
+        <EntityModal wide title={dialog.record ? `Edit ${dialog.record.label}` : "Add cloud account"} fields={accountFields}
+          record={dialog.record as unknown as Record<string, unknown> | null}
           defaults={{ provider: "shelly", ewelink_region: "as", is_active: true }}
-          endpoint={editing === "new" ? "/v1/integration-accounts/" : `/v1/integration-accounts/${editing.id}/`} extra={{ condominium: condoId }}
-          onClose={() => setEditing(null)} onSaved={() => { setEditing(null); mutate(); }} />
+          endpoint={dialog.record ? `/v1/integration-accounts/${dialog.record.id}/` : "/v1/integration-accounts/"} extra={{ condominium: condo.id }} onClose={close} onSaved={saved} />
       )}
-      <ConfirmDialog open={!!deleting} title="Delete cloud account?" confirmLabel="Delete account" onClose={() => setDeleting(null)}
-        message={<>Delete <strong>{deleting?.label}</strong>? Relays still using it must be moved first.</>}
-        onConfirm={async () => { await remove(`/v1/integration-accounts/${deleting!.id}/`); mutate(); }} />
+      <Modal open={dialog?.kind === "test"} onClose={close} title={dialog?.kind === "test" ? `Test ${dialog.relay.name}` : ""}
+        footer={dialog?.kind === "test" && <><Button onClick={close}>Cancel</Button>
+          <Button variant="primary" busy={busy === `${dialog.relay.id}-test`} onClick={async () => { await command(dialog.relay, "test"); close(); }}>Open now</Button></>}>
+        {dialog?.kind === "test" && <p className="text-sm text-body">This really opens <strong>{gateName(dialog.relay.gate)}</strong>. Tests are not written to the access log.</p>}
+      </Modal>
+      <Modal wide open={dialog?.kind === "setup"} onClose={close} title={dialog?.kind === "setup" ? `${dialog.camera.name}: camera setup` : ""}>
+        {dialog?.kind === "setup" && (
+          <div className="space-y-4 text-sm">
+            <p className="text-body">In the camera web page, open <em>Event &gt; ITC / HTTP upload</em> and enter:</p>
+            <div><div className="mb-1 font-medium text-ink">Upload URL</div><CopyField value={dialog.camera.webhook_url} /></div>
+            <div><div className="mb-1 font-medium text-ink">Username</div><CopyField value={dialog.camera.webhook_username} /></div>
+            <p className="text-muted">Password: the upload password set for this camera. Method: POST, body JSON.</p>
+            <div>
+              <div className="mb-1 font-medium text-ink">Last plate data received {dialog.camera.last_seen_at && <span className="font-normal text-muted">({timeAgo(dialog.camera.last_seen_at)})</span>}</div>
+              {dialog.camera.last_payload ? (
+                <pre className="max-h-80 overflow-auto rounded-md bg-slate-900 p-3 text-xs text-slate-100">{JSON.stringify(dialog.camera.last_payload, null, 2)}</pre>
+              ) : <p className="text-muted">Nothing received yet.</p>}
+            </div>
+          </div>
+        )}
+      </Modal>
+      <ConfirmDialog open={dialog?.kind === "token"} title="Give this kiosk a new sign-in code?" confirmLabel="New code" onClose={close}
+        message={dialog?.kind === "token" ? <>The tablet <strong>{dialog.kiosk.name}</strong> is signed out until you enter the new code on it.</> : null}
+        onConfirm={async () => {
+          if (dialog?.kind !== "token") return;
+          const result = await api<{ token: string }>(`/v1/kiosks/${dialog.kiosk.id}/regenerate_token/`, { method: "POST" });
+          setToken({ kiosk: dialog.kiosk.name, token: result.token });
+          kiosks.mutate();
+        }} />
+      <Modal open={!!token} onClose={() => setToken(null)} title={`Sign-in code for ${token?.kiosk ?? ""}`} footer={<Button variant="primary" onClick={() => setToken(null)}>I have copied it</Button>}>
+        {token && (
+          <div className="space-y-3 text-sm">
+            <p className="text-body">On the tablet, open this address and enter the code. It is shown <strong>only once</strong>.</p>
+            <CopyField value={`${typeof window !== "undefined" ? window.location.origin : ""}/kiosk/`} mono={false} />
+            <CopyField value={token.token} />
+          </div>
+        )}
+      </Modal>
+      <ConfirmDialog open={dialog?.kind === "delete"} title={dialog?.kind === "delete" ? `Delete ${dialog.what}?` : ""}
+        confirmLabel={dialog?.kind === "delete" ? `Delete ${dialog.what}` : "Delete"} onClose={close}
+        message={dialog?.kind === "delete" ? <>Delete <strong>{dialog.name}</strong>{dialog.message}</> : null}
+        onConfirm={async () => { if (dialog?.kind === "delete") { await remove(dialog.endpoint); refresh(); } }} />
+      <Modal wide open={dialog?.kind === "soon"} onClose={close} title="Coming soon">
+        {dialog?.kind === "soon" && <ComingSoon module={dialog.module} points={dialog.points} />}
+      </Modal>
     </>
   );
+}
+
+function kioskFields(gateOptions: Option[]): FieldDef[] {
+  return [
+    { name: "name", label: "Name", required: true, placeholder: "Lobby kiosk" },
+    { name: "gate", label: "Opens gate", type: "select", options: gateOptions, hint: "The gate that opens when a resident approves a call from this kiosk." },
+    { name: "prints_slips", label: "Receipt printer connected (58 mm)", type: "checkbox", wide: true,
+      hint: "Walk-in slips are printed. Without a printer the pass is shown on screen for the visitor to photograph. For printing without a dialog, start Chrome with --kiosk-printing." },
+    { name: "is_active", label: "Active", type: "checkbox" },
+  ];
 }
