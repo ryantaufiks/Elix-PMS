@@ -64,7 +64,7 @@ On first sign-in with no condominium, the platform admin is guided through creat
 | | Staff | admin | Create officer / staff / site-admin accounts, change role, reset password, remove |
 | Site setup | Site settings | admin | Name, address, LPR on/off, ring timeout, invitation limit, face check, PDPA retention |
 | | Blocks & units | admin | Blocks, units, and *Generate units* (e.g. floors 2–15 × units 01–08) |
-| | Gates & devices | admin | One card per gate with its relays (*Test open*, *Check*), plate cameras (*Setup info*: upload URL, last payload) and kiosks (*New sign-in code*, shown once), a health line (how many devices need attention), Shelly / eWeLink cloud accounts below, and the coming-soon features |
+| | Gates & devices | admin | A health line (how many devices need attention) and one card per kind of device with its status: Gates, Relays (*Test open*, *Check*), Plate cameras (*Setup info*: upload URL, last payload), Kiosks (*New sign-in code*, shown once), Cloud accounts, and the coming-soon Face terminals and On-site link; *Open* lists that kind (`?view=relays` etc.) |
 | Platform | Condominiums | platform admin | Add, edit, activate sites; turn the resident app on or off per site |
 | | System settings | platform admin | LiveKit, Firebase (with connection tests), relay / LPR tuning |
 
@@ -97,7 +97,7 @@ the site plus `tailscale set --accept-routes` here). Otherwise use cloud, or "lo
 1. Site settings: **Licence-plate recognition enabled** is off by default. While off, camera posts are
    only stored (Gates & devices → the camera → *Setup info* shows the last payload) so you can inspect
    the real payload first.
-2. Gates & devices → *+ Plate camera* on the gate: set Dahua device ID, webhook username/password, and optionally **Plate field**
+2. Gates & devices → Plate cameras → *Add plate camera*: set Dahua device ID, webhook username/password, and optionally **Plate field**
    (dotted path such as `Picture.Plate.PlateNumber`; blank = auto-detect).
 3. Camera Web GUI → HTTP Post: `https://<domain>/v1/lpr-webhook/` with those credentials.
 
@@ -136,7 +136,7 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
 ## Web kiosk & visitor pass
 
 - **Kiosk** (`/kiosk/` on the dashboard site, full-screen on any tablet browser): add a kiosk under
-  Gates & devices → *+ Kiosk* on its gate, open `/kiosk/` on the tablet and enter the one-time device token. Visitors
+  Gates & devices → Kiosks → *Add kiosk*, open `/kiosk/` on the tablet and enter the one-time device token. Visitors
   either **call a resident** (unit directory, then their details and photo, LiveKit video both ways; the
   gate opens when the resident or guard swipes) or **scan their invitation QR** with the tablet camera.
 - **Visitor details before a call** (per site, Site settings → Visitor kiosk; both on by default):
@@ -439,7 +439,7 @@ Elix is sold per site as **modules** (`core/entitlements.py` holds the catalogue
 `resident_app`, `intercom` and `facilities` (both need the resident app), `lpr`, `face_kiosk`,
 `ai_concierge`, `advanced_reports` (export and print / PDF), and, coming, `local_devices`,
 `lpr_camera_list`, `face_terminal`. Coming modules do nothing yet: the dashboard shows them as *Coming
-soon* (the *Face terminals* and *On-site link* cards at the bottom of Gates & devices,
+soon* (the *Face terminals* and *On-site link* cards on Gates & devices,
 *Your plan*), and Plans / Subscription do not let them be added until they are available. A **Plan** (*Platform → Plans*) bundles modules with **limits**
 (units, kiosks, gates, LPR cameras and staff accounts are enforced; video minutes, AI conversations,
 face terminals and storage are shown and enforced later); empty means unlimited. Migration 0018 made

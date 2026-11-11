@@ -26,6 +26,9 @@ const cameraState = (c: Camera): State => !c.is_active ? { tone: "slate", label:
 const kioskState = (k: Kiosk): State => !k.is_active ? { tone: "slate", label: "Switched off" }
   : isOnline(k.last_seen_at, 5) ? { tone: "green", label: "Online" } : { tone: "red", label: "Offline" };
 
+const VIEWS = ["gates", "relays", "cameras", "kiosks", "accounts"] as const;
+type View = (typeof VIEWS)[number];
+
 type Dialog =
   | { kind: "gate"; record: Gate | null }
   | { kind: "relay"; record: Relay | null; gate?: number }
@@ -139,15 +142,6 @@ function DeviceRow({ icon, title, detail, state, children }: { icon: IconName; t
   );
 }
 
-function Section({ title, empty, children }: { title: string; empty: string; children: React.ReactNode[] }) {
-  return (
-    <div className="border-t border-line px-5 pt-3 sm:px-6">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">{title}</h3>
-      {children.length ? <ul className="divide-y divide-line">{children}</ul> : <p className="py-3 text-sm text-muted">{empty}</p>}
-    </div>
-  );
-}
-
 // --- Page ------------------------------------------------------------------------------------------------
 
 export default function DevicesSetupPage() {
@@ -163,6 +157,16 @@ export default function DevicesSetupPage() {
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [token, setToken] = useState<{ kiosk: string; token: string } | null>(null);
+  const [view, setViewState] = useState<View | null>(() => {
+    if (typeof window === "undefined") return null;
+    const v = new URLSearchParams(window.location.search).get("view");
+    return (VIEWS as readonly string[]).includes(v ?? "") ? (v as View) : null;
+  });
+  const setView = (v: View | null) => {
+    setViewState(v);
+    window.history.replaceState(null, "", v ? `?view=${v}` : window.location.pathname);
+    window.scrollTo({ top: 0 });
+  };
 
   if (!isAdmin) return <Card><Empty>Gates and devices are managed by the site admin.</Empty></Card>;
   if (!gates.data || !relays.data || !kiosks.data || !accounts.data || (hasLpr && !cameras.data)) return <Loading />;
@@ -198,155 +202,146 @@ export default function DevicesSetupPage() {
 
   const askDelete = (what: string, name: string, endpoint: string, message: string) => setDialog({ kind: "delete", what, name, endpoint, message });
 
+  const problems = (list: State[]) => list.filter((x) => x.tone === "red" || x.tone === "amber").length;
+  const relayProblems = problems(relayList.map(relayState));
+  const cameraProblems = problems(cameraList.map(cameraState));
+  const kioskProblems = problems(kioskList.map(kioskState));
+  const missingKeys = accountList.filter((a) => a.is_active && !(a.provider === "shelly" ? a.has_shelly_auth_key : a.has_ewelink_app_secret)).length;
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const gateDevices = (id: number) => [
+    plural(relayList.filter((r) => r.gate === id).length, "relay"),
+    ...(hasLpr ? [plural(cameraList.filter((c) => c.gate === id).length, "plate camera")] : []),
+    plural(kioskList.filter((k) => k.gate === id).length, "kiosk"),
+  ].join(" · ");
+
+  const CATEGORIES: { key: View | "face_terminal" | "local_devices"; title: string; icon: IconName; what: string; badge: State; locked?: boolean; soon?: boolean }[] = [
+    { key: "gates", title: "Gates", icon: "unlock", what: "Every entrance or door that can be opened, and its rules for plates and the resident app.",
+      badge: gateList.length ? { tone: "green", label: plural(gateList.length, "gate") } : { tone: "amber", label: "Start here" } },
+    { key: "relays", title: "Relays", icon: "zap", what: "Shelly or Sonoff switches wired to the gate motor, so a gate opens from the kiosk, the app or this dashboard.",
+      badge: relayProblems ? { tone: "red", label: `${relayProblems} problem${relayProblems === 1 ? "" : "s"}` } : relayList.length ? { tone: "green", label: `${relayList.length} working` } : { tone: "amber", label: "None yet" } },
+    { key: "cameras", title: "Plate cameras", icon: "camera", what: "Dahua cameras that read number plates and let residents' and invited cars in.", locked: !hasLpr,
+      badge: !hasLpr ? { tone: "slate", label: "Not in plan" } : cameraProblems ? { tone: "amber", label: `${cameraProblems} quiet` } : cameraList.length ? { tone: "green", label: `${cameraList.length} reading` } : { tone: "slate", label: "None yet" } },
+    { key: "kiosks", title: "Kiosks", icon: "tablet", what: "Tablets in the lobby where visitors call residents, walk in or scan their invitation.",
+      badge: kioskProblems ? { tone: "red", label: `${kioskProblems} offline` } : kioskList.length ? { tone: "green", label: `${kioskList.length} online` } : { tone: "slate", label: "None yet" } },
+    { key: "accounts", title: "Cloud accounts", icon: "cloud", what: "Shelly and eWeLink logins that relays use over the internet. Keys are stored encrypted.",
+      badge: missingKeys ? { tone: "amber", label: `${missingKeys} key missing` } : accountList.length ? { tone: "green", label: plural(accountList.length, "account") } : { tone: "slate", label: "Optional" } },
+    { key: "face_terminal", title: "Face terminals", icon: "sparkle", what: "Residents enter by face at access terminals, no card needed.", soon: true, badge: { tone: "blue", label: "Coming soon" } },
+    { key: "local_devices", title: "On-site link", icon: "sparkle", what: "A secure link to the devices at your site, so gates keep working when the internet drops.", soon: true, badge: { tone: "blue", label: "Coming soon" } },
+  ];
+  const current = CATEGORIES.find((c) => c.key === view);
+
+  const openCategory = (key: (typeof CATEGORIES)[number]["key"]) => {
+    if (key === "face_terminal" || key === "local_devices") setDialog({ kind: "soon", module: key, points: SOON[key] });
+    else setView(key);
+  };
+  const addNew = () => {
+    if (view === "gates") setDialog({ kind: "gate", record: null });
+    else if (view === "relays") setDialog({ kind: "relay", record: null });
+    else if (view === "cameras") setDialog({ kind: "camera", record: null });
+    else if (view === "kiosks") setDialog({ kind: "kiosk", record: null });
+    else if (view === "accounts") setDialog({ kind: "account", record: null });
+  };
+  const ADD_LABEL: Record<View, string> = { gates: "Add gate", relays: "Add relay", cameras: "Add plate camera", kiosks: "Add kiosk", accounts: "Add account" };
+  const needsGate = (view === "relays" || view === "cameras") && !gateList.length;
+
+  const rows = (items: React.ReactNode[], empty: string) => items.length
+    ? <ul className="divide-y divide-line px-5 sm:px-6">{items}</ul>
+    : <Empty>{empty}</Empty>;
+
   return (
     <>
-      <PageHeader title="Gates & devices" description="Each card is one gate or door, with the devices that open it and see who comes."
-        action={<Button variant="primary" onClick={() => setDialog({ kind: "gate", record: null })}><Icon name="plus" className="h-4 w-4" /> Add gate</Button>} />
-
-      <div className={`mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm ${attention ? "border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200"}`}>
-        <Icon name={attention ? "bell" : "check"} className="h-5 w-5 shrink-0" />
-        <span>
-          {gateList.length} gate{gateList.length === 1 ? "" : "s"} · {states.length} device{states.length === 1 ? "" : "s"} ·{" "}
-          {attention ? <strong>{attention} need{attention === 1 ? "s" : ""} attention</strong> : <strong>everything is working</strong>}
-        </span>
-      </div>
-
-      {gateList.length === 0 ? (
-        <Card><Empty>No gates yet. Start with <strong>Add gate</strong> for each entrance or door that can be opened.</Empty></Card>
-      ) : (
-        <div className="grid gap-6 xl:grid-cols-2">
-          {gateList.map((g) => {
-            const gateRelays = relayList.filter((r) => r.gate === g.id);
-            const gateCameras = cameraList.filter((c) => c.gate === g.id);
-            const gateKiosks = kioskList.filter((k) => k.gate === g.id);
-            const rules = [g.lpr_auto_open_residents && "Opens for residents' plates", g.lpr_auto_open_invited && "Opens for invited plates",
-              g.resident_remote_open && "Residents can open it from the app"].filter(Boolean) as string[];
-            return (
-              <Card key={g.id} className="flex flex-col">
-                <div className="flex items-start justify-between gap-3 px-5 pb-3 pt-5 sm:px-6">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-lg font-semibold text-ink">{g.name}</h2>
-                      {g.is_active ? <Badge tone="green">In use</Badge> : <Badge>Switched off</Badge>}
-                    </div>
-                    <p className="text-sm text-muted">{GATE_TYPE[g.gate_type] ?? g.gate_type} · {DIRECTION[g.direction] ?? g.direction}</p>
+      {!current ? (
+        <>
+          <PageHeader title="Gates & devices" description="Everything that opens a gate or sees who comes. Open a card to manage it." />
+          <div className={`mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm ${attention ? "border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200"}`}>
+            <Icon name={attention ? "bell" : "check"} className="h-5 w-5 shrink-0" />
+            <span>
+              {plural(gateList.length, "gate")} · {plural(states.length, "device")} ·{" "}
+              {attention ? <strong>{attention} need{attention === 1 ? "s" : ""} attention</strong> : <strong>everything is working</strong>}
+            </span>
+          </div>
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {CATEGORIES.map((c) => (
+              <Card key={c.key} className={`flex flex-col ${c.soon ? "border-dashed" : ""}`}>
+                <div className="flex flex-1 flex-col p-5 sm:p-6">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-500/10 text-primary-600 dark:text-primary-300">
+                      <Icon name={c.locked ? "lock" : c.icon} className="h-6 w-6" />
+                    </span>
+                    <Badge tone={c.badge.tone}>{c.badge.label}</Badge>
                   </div>
-                  <div className="flex shrink-0 gap-1">
-                    <Button size="sm" onClick={() => setDialog({ kind: "gate", record: g })}>Edit gate</Button>
-                    <Button size="sm" variant="ghost" onClick={() => askDelete("gate", g.name, `/v1/gates/${g.id}/`, "together with its relays and cameras? Past access-log entries are kept.")}>Delete</Button>
+                  <h2 className="mt-4 text-lg font-semibold text-ink">{c.title}</h2>
+                  <p className="mt-1 flex-1 text-sm text-body">{c.what}</p>
+                  <div className="mt-5 flex flex-wrap items-center gap-2">
+                    {c.locked ? <span className="text-sm text-muted">{upsellText(lprInfo)}</span>
+                      : <Button variant={c.badge.label === "Start here" ? "primary" : "secondary"} onClick={() => openCategory(c.key)}>{c.soon ? "Learn more" : "Open"}</Button>}
                   </div>
-                </div>
-                {rules.length > 0 && (
-                  <div className="flex flex-wrap gap-2 px-5 pb-3 sm:px-6">
-                    {rules.map((r) => <span key={r} className="rounded-full bg-primary-500/10 px-2.5 py-1 text-xs font-medium text-primary-700 dark:text-primary-300">{r}</span>)}
-                  </div>
-                )}
-
-                <Section title="Relays: open the gate" empty="No relay yet: this gate cannot be opened remotely.">
-                  {gateRelays.map((r) => (
-                    <DeviceRow key={r.id} icon="zap" title={r.name} state={relayState(r)}
-                      detail={`${r.provider === "shelly" ? "Shelly" : "Sonoff (eWeLink)"} · ${{ cloud: "over the internet", local: "local network", local_then_cloud: "local network, then internet" }[r.control_mode]} · last opened ${timeAgo(r.last_triggered_at)}`}>
-                      <Button size="sm" onClick={() => setDialog({ kind: "test", relay: r })}>Test open</Button>
-                      <Button size="sm" variant="ghost" busy={busy === `${r.id}-check`} onClick={() => command(r, "check")}>Check</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setDialog({ kind: "relay", record: r })}>Edit</Button>
-                      <Button size="sm" variant="ghost" onClick={() => askDelete("relay", r.name, `/v1/relays/${r.id}/`, "? The gate cannot be opened remotely without a relay.")}>Delete</Button>
-                    </DeviceRow>
-                  ))}
-                </Section>
-
-                {hasLpr ? (
-                  <Section title="Plate cameras: let cars in" empty="No plate camera at this gate.">
-                    {gateCameras.map((c) => (
-                      <DeviceRow key={c.id} icon="camera" title={c.name} state={cameraState(c)}
-                        detail={`${{ entry: "Entry", exit: "Exit", both: "Entry & exit" }[c.direction]} camera · last plate ${timeAgo(c.last_seen_at)}`}>
-                        <Button size="sm" onClick={() => setDialog({ kind: "setup", camera: c })}>Setup info</Button>
-                        <Button size="sm" variant="ghost" onClick={() => setDialog({ kind: "camera", record: c })}>Edit</Button>
-                        <Button size="sm" variant="ghost" onClick={() => askDelete("camera", c.name, `/v1/cameras/${c.id}/`, "? Its upload login stops working immediately.")}>Delete</Button>
-                      </DeviceRow>
-                    ))}
-                  </Section>
-                ) : (
-                  <div className="flex items-center gap-2 border-t border-line px-5 py-3 text-sm text-muted sm:px-6">
-                    <Icon name="lock" className="h-4 w-4" /> Plate cameras are not in your plan · {upsellText(lprInfo)}
-                  </div>
-                )}
-
-                <Section title="Kiosks: visitors at this gate" empty="No kiosk at this gate.">
-                  {gateKiosks.map((k) => (
-                    <DeviceRow key={k.id} icon="tablet" title={k.name} state={kioskState(k)}
-                      detail={`${k.prints_slips ? "With slip printer" : "No printer"} · last seen ${timeAgo(k.last_seen_at)}${k.app_version ? ` · ${k.app_version}` : ""}`}>
-                      <Button size="sm" onClick={() => setDialog({ kind: "token", kiosk: k })}>New sign-in code</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setDialog({ kind: "kiosk", record: k })}>Edit</Button>
-                      <Button size="sm" variant="ghost" onClick={() => askDelete("kiosk", k.name, `/v1/kiosks/${k.id}/`, "? The tablet is signed out immediately.")}>Delete</Button>
-                    </DeviceRow>
-                  ))}
-                </Section>
-
-                <div className="mt-auto flex flex-wrap gap-2 border-t border-line px-5 py-4 sm:px-6">
-                  <Button size="sm" onClick={() => setDialog({ kind: "relay", record: null, gate: g.id })}><Icon name="plus" className="h-4 w-4" /> Relay</Button>
-                  {hasLpr && <Button size="sm" onClick={() => setDialog({ kind: "camera", record: null, gate: g.id })}><Icon name="plus" className="h-4 w-4" /> Plate camera</Button>}
-                  <Button size="sm" onClick={() => setDialog({ kind: "kiosk", record: null, gate: g.id })}><Icon name="plus" className="h-4 w-4" /> Kiosk</Button>
                 </div>
               </Card>
-            );
-          })}
-        </div>
-      )}
-
-      {kioskList.some((k) => !k.gate) && (
-        <Card className="mt-6">
-          <div className="px-5 pt-5 sm:px-6"><h2 className="text-lg font-semibold text-ink">Kiosks not linked to a gate</h2>
-            <p className="text-sm text-muted">They can register visitors but cannot open a gate. Edit one to choose its gate.</p></div>
-          <Section title="Kiosks" empty="">
-            {kioskList.filter((k) => !k.gate).map((k) => (
-              <DeviceRow key={k.id} icon="tablet" title={k.name} state={kioskState(k)} detail={`Last seen ${timeAgo(k.last_seen_at)}`}>
-                <Button size="sm" onClick={() => setDialog({ kind: "kiosk", record: k })}>Choose gate</Button>
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          <button onClick={() => setView(null)} className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:underline dark:text-primary-400">
+            <Icon name="chevron" className="h-4 w-4 rotate-180" /> All devices
+          </button>
+          <PageHeader title={current.title} description={current.what}
+            action={<Button variant="primary" onClick={addNew} disabled={needsGate}><Icon name="plus" className="h-4 w-4" /> {ADD_LABEL[view as View]}</Button>} />
+          {needsGate && <p className="mb-4 text-sm text-muted">Add a gate first: every relay and plate camera belongs to a gate.</p>}
+          <Card>
+            {view === "gates" && rows(gateList.map((g) => {
+              const rules = [g.lpr_auto_open_residents && "Opens for residents' plates", g.lpr_auto_open_invited && "Opens for invited plates",
+                g.resident_remote_open && "Residents can open it from the app"].filter(Boolean) as string[];
+              return (
+                <DeviceRow key={g.id} icon="unlock" title={g.name} state={g.is_active ? { tone: "green", label: "In use" } : { tone: "slate", label: "Switched off" }}
+                  detail={`${GATE_TYPE[g.gate_type] ?? g.gate_type} · ${DIRECTION[g.direction] ?? g.direction} · ${gateDevices(g.id)}`}>
+                  {rules.map((r) => <span key={r} className="mr-1 rounded-full bg-primary-500/10 px-2.5 py-1 text-xs font-medium text-primary-700 dark:text-primary-300">{r}</span>)}
+                  <span className="basis-full" />
+                  <Button size="sm" onClick={() => setDialog({ kind: "gate", record: g })}>Edit</Button>
+                  <Button size="sm" variant="ghost" onClick={() => askDelete("gate", g.name, `/v1/gates/${g.id}/`, " together with its relays and cameras? Past access-log entries are kept.")}>Delete</Button>
+                </DeviceRow>
+              );
+            }), "No gates yet. Add one for each entrance or door that can be opened.")}
+            {view === "relays" && rows(relayList.map((r) => (
+              <DeviceRow key={r.id} icon="zap" title={r.name} state={relayState(r)}
+                detail={`${gateName(r.gate)} · ${r.provider === "shelly" ? "Shelly" : "Sonoff (eWeLink)"} · ${{ cloud: "over the internet", local: "local network", local_then_cloud: "local network, then internet" }[r.control_mode]} · last opened ${timeAgo(r.last_triggered_at)}`}>
+                <Button size="sm" onClick={() => setDialog({ kind: "test", relay: r })}>Test open</Button>
+                <Button size="sm" variant="ghost" busy={busy === `${r.id}-check`} onClick={() => command(r, "check")}>Check</Button>
+                <Button size="sm" variant="ghost" onClick={() => setDialog({ kind: "relay", record: r })}>Edit</Button>
+                <Button size="sm" variant="ghost" onClick={() => askDelete("relay", r.name, `/v1/relays/${r.id}/`, "? The gate cannot be opened remotely without a relay.")}>Delete</Button>
+              </DeviceRow>
+            )), "No relays yet: gates cannot be opened remotely.")}
+            {view === "cameras" && rows(cameraList.map((c) => (
+              <DeviceRow key={c.id} icon="camera" title={c.name} state={cameraState(c)}
+                detail={`${gateName(c.gate)} · ${{ entry: "entry", exit: "exit", both: "entry & exit" }[c.direction]} camera · last plate ${timeAgo(c.last_seen_at)}`}>
+                <Button size="sm" onClick={() => setDialog({ kind: "setup", camera: c })}>Setup info</Button>
+                <Button size="sm" variant="ghost" onClick={() => setDialog({ kind: "camera", record: c })}>Edit</Button>
+                <Button size="sm" variant="ghost" onClick={() => askDelete("camera", c.name, `/v1/cameras/${c.id}/`, "? Its upload login stops working immediately.")}>Delete</Button>
+              </DeviceRow>
+            )), "No plate cameras yet.")}
+            {view === "kiosks" && rows(kioskList.map((k) => (
+              <DeviceRow key={k.id} icon="tablet" title={k.name} state={kioskState(k)}
+                detail={`${k.gate ? `Opens ${gateName(k.gate)}` : "Not linked to a gate"} · ${k.prints_slips ? "with slip printer" : "no printer"} · last seen ${timeAgo(k.last_seen_at)}${k.app_version ? ` · ${k.app_version}` : ""}`}>
+                <Button size="sm" onClick={() => setDialog({ kind: "token", kiosk: k })}>New sign-in code</Button>
+                <Button size="sm" variant="ghost" onClick={() => setDialog({ kind: "kiosk", record: k })}>Edit</Button>
                 <Button size="sm" variant="ghost" onClick={() => askDelete("kiosk", k.name, `/v1/kiosks/${k.id}/`, "? The tablet is signed out immediately.")}>Delete</Button>
               </DeviceRow>
-            ))}
-          </Section>
-          <div className="pb-2" />
-        </Card>
+            )), "No kiosks yet.")}
+            {view === "accounts" && rows(accountList.map((a) => {
+              const hasKey = a.provider === "shelly" ? a.has_shelly_auth_key : a.has_ewelink_app_secret;
+              const state: State = !a.is_active ? { tone: "slate", label: "Switched off" } : hasKey ? { tone: "green", label: "Ready" } : { tone: "amber", label: "Key missing" };
+              return (
+                <DeviceRow key={a.id} icon="cloud" title={a.label} state={state}
+                  detail={a.provider === "shelly" ? `Shelly Cloud · ${a.shelly_server_uri || "no server set"}` : `eWeLink · region ${a.ewelink_region.toUpperCase()}`}>
+                  <Button size="sm" onClick={() => setDialog({ kind: "account", record: a })}>Edit</Button>
+                  <Button size="sm" variant="ghost" onClick={() => askDelete("account", a.label, `/v1/integration-accounts/${a.id}/`, "? Relays still using it must be moved first.")}>Delete</Button>
+                </DeviceRow>
+              );
+            }), "No cloud accounts yet. Only needed for relays that work over the internet.")}
+          </Card>
+        </>
       )}
-
-      <Card className="mt-6">
-        <div className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5 sm:px-6">
-          <div>
-            <h2 className="text-lg font-semibold text-ink">Cloud accounts</h2>
-            <p className="text-sm text-muted">Shelly and eWeLink logins that relays use over the internet. Keys are stored encrypted.</p>
-          </div>
-          <Button size="sm" onClick={() => setDialog({ kind: "account", record: null })}><Icon name="plus" className="h-4 w-4" /> Account</Button>
-        </div>
-        <Section title="Accounts" empty="No cloud account yet. Add one before a relay that works over the internet.">
-          {accountList.map((a) => {
-            const hasKey = a.provider === "shelly" ? a.has_shelly_auth_key : a.has_ewelink_app_secret;
-            const state: State = !a.is_active ? { tone: "slate", label: "Switched off" } : hasKey ? { tone: "green", label: "Ready" } : { tone: "amber", label: "Key missing" };
-            return (
-              <DeviceRow key={a.id} icon="cloud" title={a.label} state={state}
-                detail={a.provider === "shelly" ? `Shelly Cloud · ${a.shelly_server_uri || "no server set"}` : `eWeLink · region ${a.ewelink_region.toUpperCase()}`}>
-                <Button size="sm" variant="ghost" onClick={() => setDialog({ kind: "account", record: a })}>Edit</Button>
-                <Button size="sm" variant="ghost" onClick={() => askDelete("account", a.label, `/v1/integration-accounts/${a.id}/`, "? Relays still using it must be moved first.")}>Delete</Button>
-              </DeviceRow>
-            );
-          })}
-        </Section>
-        <div className="pb-2" />
-      </Card>
-
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        {([["face_terminal", "Face terminals", "Residents enter by face, no card needed."],
-          ["local_devices", "On-site link", "Gates keep working when the internet drops."]] as const).map(([key, title, text]) => (
-          <button key={key} onClick={() => setDialog({ kind: "soon", module: key, points: SOON[key] })}
-            className="flex items-start gap-3 rounded-2xl border border-dashed border-line bg-surface p-5 text-left transition hover:border-primary-400/60">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-500/10 text-primary-500"><Icon name="sparkle" className="h-5 w-5" /></span>
-            <span>
-              <span className="flex items-center gap-2 font-semibold text-ink">{title} <Badge tone="blue">Coming soon</Badge></span>
-              <span className="mt-1 block text-sm text-muted">{text} {hasLpr && key === "local_devices" && "Plates will also be kept on the cameras."}</span>
-              <span className="mt-2 block text-sm font-medium text-primary-600 dark:text-primary-400">Learn more</span>
-            </span>
-          </button>
-        ))}
-      </div>
 
       {/* --- Dialogs --- */}
       {dialog?.kind === "gate" && (
