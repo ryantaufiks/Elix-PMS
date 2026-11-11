@@ -69,7 +69,7 @@ Pastikan perangkat lokal Anda telah terinstal:
 * **Endpoint API:** `https://api.domain-anda.com/v1/lpr-webhook/`
 * **Metode Otentikasi:** HTTP Basic Authentication dengan kredensial **khusus per kamera** (dashboard → Gates & devices → card gerbang → *+ Plate camera* → *Webhook username/password*), bukan akun user Django.
 * **Konfigurasi Kamera:** Masuk ke Web GUI Dahua -> **Setting > Network > Advanced Settings > HTTP Post** (atau **Alarm Server**). Aktifkan Auth, masukkan username dan password webhook kamera tersebut.
-* **Aktifkan per site:** dashboard → Site settings → *Licence-plate recognition enabled* (default mati). Selama mati, payload hanya disimpan dan bisa dilihat di Gates & devices → LPR cameras → *Setup info*.
+* **Aktifkan per site:** dashboard → Site settings → *Licence-plate recognition enabled* (default mati). Selama mati, payload hanya disimpan dan bisa dilihat di Gates & devices → kamera di card gerbangnya → *Setup info*.
 * **Payload JSON:** Plat dideteksi otomatis dari format Dahua umum (`PlateNumber`, `plateNumber`, dll.), atau atur *Plate field* (mis. `Picture.Plate.PlateNumber`) bila firmware memakai skema lain.
 
 ### 2. Akses Kontrol Sonoff & Shelly (Cloud-to-Cloud)
