@@ -70,7 +70,7 @@ export default function ResidentsPage() {
             {TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </Select>
         </div>
-        {!data ? <Loading /> : data.results.length === 0 ? <Empty>No residents yet.</Empty> : (
+        {!data ? <Loading /> : data.results.length === 0 ? <Empty icon="users" title="No residents yet" action={isManager && <Button variant="primary" size="sm" onClick={() => setAdding(true)}>Add resident</Button>}>Add the people of each unit so they can take intercom calls and use the app.</Empty> : (
           <Table>
             <thead><tr><Th>Unit</Th><Th>Resident</Th><Th>Type</Th><Th>Contact</Th><Th>Intercom</Th>{isManager && <Th />}</tr></thead>
             <tbody className="divide-y divide-line">

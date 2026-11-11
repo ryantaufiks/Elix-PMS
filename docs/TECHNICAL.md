@@ -46,6 +46,9 @@ Timestamps use one format everywhere (`formatDateTime` in `lib/format.ts`: "09 N
 only when it is not the current year; `formatRange` for bookings: "12 Nov, 18:00–20:00"). The traffic chart
 shows an empty state until the first gate decision of the day, and a gate's *Open* button is disabled while
 no relay is wired to it.
+The top bar carries a quiet breadcrumb ("Operations › Invitations"), the page heading is the only title.
+Empty lists use `Empty` with an icon, a title, a one-line hint and, where the viewer may add the first
+record, the matching button. Report types on Reports are a 3-column grid of equal cards.
 Sidebar groups (Operations, Community, Site setup, Platform) fold open and closed like dropdowns,
 remembered per browser; the group of the current page always opens. The **bell** in
 the top bar lists live activity for the selected condo as it happens: visitors in and out, intercom

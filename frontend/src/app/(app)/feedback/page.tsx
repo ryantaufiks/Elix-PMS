@@ -126,7 +126,7 @@ function FeedbackPage() {
           </Select>
           {rating && <Button size="sm" variant="ghost" onClick={() => setRating("")}>{rating} ★ only ✕</Button>}
         </div>
-        {!data ? <Loading /> : data.results.length === 0 ? <Empty>No feedback yet.</Empty> : (
+        {!data ? <Loading /> : data.results.length === 0 ? <Empty icon="star" title="No feedback yet">Residents rate the estate&apos;s services from the app; replies go back to them there.</Empty> : (
           <ul className="divide-y divide-line">
             {data.results.map((f) => (
               <li key={f.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start">

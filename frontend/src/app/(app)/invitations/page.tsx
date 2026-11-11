@@ -60,7 +60,7 @@ export default function InvitationsPage() {
         {!data ? (
           <Loading />
         ) : data.results.length === 0 ? (
-          <Empty>No invitations.</Empty>
+          <Empty icon="ticket" title="No invitations here" action={isManager && <Button variant="primary" size="sm" onClick={() => setCreating(true)}>New invitation</Button>}>Residents invite visitors from the app; staff can create one here. Try another status filter to see older ones.</Empty>
         ) : (
           <Table>
             <thead>

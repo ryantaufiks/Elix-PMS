@@ -38,7 +38,7 @@ export function ResidentDocuments({ residency, title, onClose }: { residency: nu
     <Modal open wide onClose={onClose} title={`Documents · ${title}`} footer={<Button onClick={onClose}>Close</Button>}>
       <div className="space-y-5">
         <Upload residency={residency} onDone={() => mutate()} />
-        {!data ? <Loading /> : data.results.length === 0 ? <Empty>No documents yet.</Empty> : (
+        {!data ? <Loading /> : data.results.length === 0 ? <Empty icon="file" title="No documents yet">Proof of ownership, tenancy agreements and the like, kept with the resident.</Empty> : (
           <ul className="divide-y divide-line rounded-lg border border-line">
             {data.results.map((doc) => (
               <li key={doc.id} className="flex items-center gap-3 px-3 py-2.5">

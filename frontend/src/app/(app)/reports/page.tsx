@@ -193,12 +193,12 @@ export default function ReportsPage() {
       />
 
       {/* Report types */}
-      <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {catalog.reports.map((r) => {
           const active = r.key === report.key;
           return (
             <button key={r.key} type="button" onClick={() => choose(r.key)} aria-pressed={active} title={r.description}
-              className={cx("flex items-start gap-3 rounded-xl border p-3.5 text-left transition-colors",
+              className={cx("flex h-full items-start gap-3 rounded-xl border p-4 text-left transition-colors",
                 active ? "border-primary-500 bg-primary-500/5 ring-1 ring-primary-500/40" : "border-line bg-surface hover:border-primary-400/50 hover:bg-surface-2")}>
               <span className={cx("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", active ? "bg-primary-500 text-white" : "bg-surface-3 text-body")}>
                 <Icon name={r.icon as IconName} className="h-[18px] w-[18px]" />

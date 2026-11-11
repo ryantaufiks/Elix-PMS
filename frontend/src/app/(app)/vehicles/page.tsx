@@ -30,7 +30,7 @@ export default function VehiclesPage() {
         {!data ? (
           <Loading />
         ) : data.results.length === 0 ? (
-          <Empty>No vehicles registered.</Empty>
+          <Empty icon="car" title="No vehicles registered" action={isManager && <Button variant="primary" size="sm" onClick={() => setEditing("new")}>Add vehicle</Button>}>Plates listed here open LPR gates automatically for residents.</Empty>
         ) : (
           <Table>
             <thead><tr><Th>Plate</Th><Th>Unit</Th><Th>Vehicle</Th><Th>Status</Th><Th /></tr></thead>

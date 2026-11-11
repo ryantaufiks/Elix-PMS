@@ -1,5 +1,6 @@
 "use client";
 
+import { Icon, type IconName } from "./icons";
 import { cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useState } from "react";
 
 const cx = (...classes: (string | false | null | undefined)[]) => classes.filter(Boolean).join(" ");
@@ -104,8 +105,16 @@ export function PageHeader({ title, description, action }: { title: string; desc
   );
 }
 
-export function Empty({ children }: { children: React.ReactNode }) {
-  return <div className="px-4 py-10 text-center text-sm text-muted">{children}</div>;
+/** An empty list that still points somewhere: optional icon, a short title, the hint as children, and a button. */
+export function Empty({ children, icon, title, action }: { children?: React.ReactNode; icon?: IconName; title?: string; action?: React.ReactNode }) {
+  return (
+    <div className="flex flex-col items-center px-4 py-10 text-center text-sm text-muted">
+      {icon && <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-surface-3 text-muted"><Icon name={icon} className="h-6 w-6" /></span>}
+      {title && <div className="text-base font-medium text-ink">{title}</div>}
+      {children && <div className={cx("max-w-md", title && "mt-1")}>{children}</div>}
+      {action && <div className="mt-4 flex flex-wrap justify-center gap-2">{action}</div>}
+    </div>
+  );
 }
 
 export function Loading() {

@@ -163,7 +163,7 @@ function IntercomPage() {
         {!history.data ? (
           <Loading />
         ) : history.data.results.length === 0 ? (
-          <Empty>No calls yet.</Empty>
+          <Empty icon="phone" title="No calls yet">Calls from the kiosk are listed here with who answered and what they decided.</Empty>
         ) : (
           <Table>
             <thead>

@@ -36,7 +36,7 @@ export default function StaffPage() {
         action={<Button variant="primary" onClick={() => setAdding(true)}><Icon name="plus" className="h-4 w-4" /> Add staff</Button>}
       />
       <Card>
-        {!data ? <Loading /> : data.results.length === 0 ? <Empty>No staff yet.</Empty> : (
+        {!data ? <Loading /> : data.results.length === 0 ? <Empty icon="shield" title="No staff yet" action={<Button variant="primary" size="sm" onClick={() => setAdding(true)}>Add staff</Button>}>Officers open gates and handle visitors; staff manage residents and bookings.</Empty> : (
           <Table>
             <thead><tr><Th>Name</Th><Th>Username</Th><Th>Role</Th><Th>Contact</Th><Th>Since</Th><Th /></tr></thead>
             <tbody className="divide-y divide-line">

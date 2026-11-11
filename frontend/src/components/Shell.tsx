@@ -191,9 +191,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <button className="rounded-md p-1.5 text-muted hover:bg-surface-3 lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu">
             <Icon name="menu" />
           </button>
-          <div className="min-w-0">
-            <div className="hidden text-xs text-muted sm:block">{current?.group ?? ""}</div>
-            <div className="truncate text-sm font-semibold text-ink sm:text-base">{current?.label ?? condo.name}</div>
+          {/* Where you are, as a breadcrumb: the page's own heading sits just below, so this stays quiet. */}
+          <div className="flex min-w-0 items-center gap-1.5 text-sm">
+            {current?.group && <><span className="hidden text-muted sm:inline">{current.group}</span><span className="hidden text-muted/60 sm:inline">›</span></>}
+            <span className="truncate font-medium text-body">{current?.label ?? condo.name}</span>
           </div>
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
             <span

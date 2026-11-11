@@ -69,7 +69,7 @@ function BookingsPage() {
             </>
           )}
         </div>
-        {!data ? <Loading /> : data.results.length === 0 ? <Empty>No bookings.</Empty> : (
+        {!data ? <Loading /> : data.results.length === 0 ? <Empty icon="calendar" title="No bookings" >Residents book facilities from the app; bookings and their payments show up here.</Empty> : (
           <Table>
             <thead><tr><Th>Facility</Th><Th>When</Th><Th>Unit</Th><Th>Booked by</Th><Th>Amount</Th><Th>Payment</Th><Th>Status</Th><Th /></tr></thead>
             <tbody className="divide-y divide-line">

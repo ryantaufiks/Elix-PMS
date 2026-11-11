@@ -126,7 +126,9 @@ export default function VisitsPage() {
           </div>
         )}
         {!data ? <Loading /> : rows.length === 0 ? (
-          <Empty>{tab === "on_site" ? "No visitors on site." : "No visits found."}</Empty>
+          <Empty icon="users" title={tab === "on_site" ? "No visitors on site" : "No visits found"} action={<Button variant="primary" size="sm" onClick={() => setRegistering(true)}>Register visitor</Button>}>
+            {tab === "on_site" ? "Walk-ins and kiosk visitors are listed here while they are in." : "Try another day, search term or entry filter."}
+          </Empty>
         ) : (
           <Table>
             <thead>

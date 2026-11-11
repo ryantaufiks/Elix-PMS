@@ -14,7 +14,7 @@ function subject(log: AccessLog) {
 
 export function AccessTable({ logs, highlight }: { logs: AccessLog[]; highlight?: Set<number> }) {
   const [snapshot, setSnapshot] = useState<AccessLog | null>(null);
-  if (logs.length === 0) return <Empty>No access events yet.</Empty>;
+  if (logs.length === 0) return <Empty icon="list" title="No access events yet">Gate decisions appear here as they happen.</Empty>;
   return (
     <>
       <Table>
