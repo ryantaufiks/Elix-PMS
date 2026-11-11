@@ -84,6 +84,7 @@ Pastikan perangkat lokal Anda telah terinstal:
 * **Alur utama:** tamu memilih unit di kiosk → HP penghuni berdering (push FCM + WebSocket) → penghuni menjawab video → **swipe to unlock** → gerbang kiosk terbuka dan tercatat di log akses.
 
 ### 4. Walk In & Printer Slip 58 mm
+* Di kiosk, unit dipilih dengan **keypad angka di layar** (kalau site punya beberapa blok, pilih bloknya dulu; unit yang cocok muncul saat angka diketik; unit berhuruf lewat *Use keyboard*), jadi keyboard tablet tidak pernah menutupi layar. Setiap layar setelah *Welcome* menampilkan label alur dan langkahnya (misal *Walk in · Step 2 of 3*) dengan warna berbeda per alur; di tablet portrait konten dimulai dari atas.
 * Tombol **Walk in** di kiosk (aktif/nonaktif per site di *Site settings → Offer walk-in registration*) untuk tamu umum: pilih unit tujuan (wajib), isi data seperti saat *Call a resident*, foto (bisa dinonaktifkan: *Take the walk-in visitor's photo*), setujui privacy notice.
 * Kiosk mencetak slip berisi **nomor pass**, **PIN 4 digit** dan QR check-out. Nomor di-reset setiap hari per site, satu seri per kategori: **V**001 Visitor, **D** Parcel, **F** Food, **C** Contractor, **P** Pick-up, **O** Other.
 * Gerbang **tidak** terbuka otomatis: tamu menunjukkan slip ke guard. Saat keluar, tamu memakai tombol **Check out** di kiosk, atau guard menekan *Check out* di halaman **Visitor list** dashboard.

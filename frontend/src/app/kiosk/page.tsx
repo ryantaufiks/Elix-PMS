@@ -2,7 +2,7 @@
 
 // Web kiosk for a tablet at the gate: call a resident (LiveKit video), register as a walk-in, check in with an
 // invitation QR, or check out with the pass QR or PIN.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import jsQR from "jsqr";
 import { Room, RoomEvent, Track, type RemoteTrack } from "livekit-client";
 
@@ -158,6 +158,39 @@ function useWeather(enabled: boolean) {
   return data;
 }
 
+/** Which journey the visitor is on, shown as a coloured pill under the header so every screen says
+    where they are ("Walk in · Step 2 of 3"). Set once by the app for the current screen. */
+type Flow = { kind: "call" | "walkin" | "scan" | "checkout"; step?: number; of?: number } | null;
+const FlowContext = createContext<Flow>(null);
+const FLOW_STYLE = {
+  call: { label: "Call a resident", className: "border-primary-400/50 bg-primary-500/20 text-primary-200" },
+  walkin: { label: "Walk in", className: "border-emerald-400/50 bg-emerald-500/20 text-emerald-200" },
+  scan: { label: "I have an invitation", className: "border-violet-400/50 bg-violet-500/20 text-violet-200" },
+  checkout: { label: "Check out", className: "border-slate-400/50 bg-slate-500/20 text-slate-200" },
+};
+
+function FlowPill() {
+  const flow = useContext(FlowContext);
+  if (!flow) return null;
+  const style = FLOW_STYLE[flow.kind];
+  return (
+    <div className="flex justify-center px-8">
+      <span className={`inline-flex items-center gap-3 rounded-full border px-5 py-2 text-lg font-medium ${style.className}`}>
+        {style.label}
+        {flow.step && flow.of && flow.of > 1 && (
+          <>
+            <span className="opacity-50">·</span>
+            <span>Step {flow.step} of {flow.of}</span>
+            <span className="flex gap-1" aria-hidden="true">
+              {Array.from({ length: flow.of }, (_, i) => <span key={i} className={`h-2 w-5 rounded-full ${i < flow.step! ? "bg-current" : "bg-current/25"}`} />)}
+            </span>
+          </>
+        )}
+      </span>
+    </div>
+  );
+}
+
 function Frame({ kiosk, children, onBack }: { kiosk: KioskSelf | null; children: React.ReactNode; onBack?: () => void }) {
   const [now, setNow] = useState(() => new Date());
   const weather = useWeather(!!kiosk);
@@ -184,7 +217,9 @@ function Frame({ kiosk, children, onBack }: { kiosk: KioskSelf | null; children:
           )}
         </div>
       </header>
-      <main className="flex flex-1 flex-col items-center justify-center px-8 pb-10">{children}</main>
+      <FlowPill />
+      {/* Portrait tablets hang at eye level: start the content high, not in the middle of a tall screen. */}
+      <main className="flex flex-1 flex-col items-center justify-center px-8 pb-10 portrait:justify-start portrait:pt-[6vh]">{children}</main>
       <div className="flex items-end justify-between gap-6 px-8 pb-6">
         <div className="min-w-0 flex-1">
           {onBack && <button onClick={onBack} className="rounded-xl border border-white/15 px-6 py-3 text-lg text-slate-300 hover:bg-white/5">← Back</button>}
@@ -246,7 +281,7 @@ function Home({ kiosk, assistant, onAssistant, onCall, onWalkIn, onScan, onCheck
               <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" /></svg>
             </div>
             <div className="text-2xl font-semibold">Call a resident</div>
-            <div className="mt-2 text-slate-400">Video call the unit you are visiting.</div>
+            <div className="mt-2 text-lg text-slate-300">Video call the unit you are visiting.</div>
           </button>
         )}
         {kiosk.walk_in && (
@@ -255,7 +290,7 @@ function Home({ kiosk, assistant, onAssistant, onCall, onWalkIn, onScan, onCheck
               <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M9 3h6v3H9zM7 4.5H5v16.5h14V4.5h-2M8.5 11h7M8.5 15h4.5" /></svg>
             </div>
             <div className="text-2xl font-semibold">Walk in</div>
-            <div className="mt-2 text-slate-400">Register your visit and get a pass slip for security.</div>
+            <div className="mt-2 text-lg text-slate-300">Register your visit and get a pass slip for security.</div>
           </button>
         )}
         <button onClick={onScan} className="group rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
@@ -263,7 +298,7 @@ function Home({ kiosk, assistant, onAssistant, onCall, onWalkIn, onScan, onCheck
             <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" /></svg>
           </div>
           <div className="text-2xl font-semibold">I have an invitation</div>
-          <div className="mt-2 text-slate-400">{kiosk.walk_in && !kiosk.checkout ? "Show your invitation QR, or scan your walk-in slip when you leave." : "Show the QR code from your invitation."}</div>
+          <div className="mt-2 text-lg text-slate-300">{kiosk.walk_in && !kiosk.checkout ? "Show your invitation QR, or scan your walk-in slip when you leave." : "Show the QR code from your invitation."}</div>
         </button>
         {kiosk.checkout && (
           <button onClick={onCheckOut} className="group rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
@@ -271,7 +306,7 @@ function Home({ kiosk, assistant, onAssistant, onCall, onWalkIn, onScan, onCheck
               <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 8l-4 4 4 4M6 12h10" /></svg>
             </div>
             <div className="text-2xl font-semibold">Check out</div>
-            <div className="mt-2 text-slate-400">Leaving? Scan your pass QR or enter its PIN.</div>
+            <div className="mt-2 text-lg text-slate-300">Leaving? Scan your pass QR or enter its PIN.</div>
           </button>
         )}
       </div>
@@ -298,32 +333,94 @@ function Home({ kiosk, assistant, onAssistant, onCall, onWalkIn, onScan, onCheck
   );
 }
 
+const UNIT_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"];
+const digitsOf = (text: string) => text.replace(/\D/g, "");
+
+/** Choose the unit with big keys, not the tablet keyboard: pick the block (when there are several), type
+    the digits, tap the unit. Units whose numbers have letters are still reachable through "Use keyboard". */
 function Directory({ kiosk, walkIn, query = "", onPick, onBack }: { kiosk: KioskSelf; walkIn: boolean; query?: string; onPick: (unit: DirectoryUnit) => void; onBack: () => void }) {
-  const [q, setQ] = useState(query);
-  const [units, setUnits] = useState<DirectoryUnit[] | null>(null);
+  const [all, setAll] = useState<DirectoryUnit[] | null>(null);
+  const [digits, setDigits] = useState(() => digitsOf(query).slice(0, 6));
+  const [block, setBlock] = useState<string | null>(null);
+  const [typing, setTyping] = useState(false);
+  const [text, setText] = useState(query);
   useEffect(() => {
-    const id = setTimeout(() => {
-      kioskApi<DirectoryUnit[]>(`/v1/kiosk/directory/?q=${encodeURIComponent(q)}${walkIn ? "&walk_in=1" : ""}`).then(setUnits).catch(() => setUnits([]));
-    }, 250);
-    return () => clearTimeout(id);
-  }, [q, walkIn]);
+    kioskApi<DirectoryUnit[]>(`/v1/kiosk/directory/?${walkIn ? "walk_in=1" : ""}`).then(setAll).catch(() => setAll([]));
+  }, [walkIn]);
+
+  const blocks = useMemo(() => Array.from(new Set((all ?? []).map((u) => u.block).filter(Boolean))).sort(), [all]);
+  const matches = useMemo(() => {
+    if (!all) return null;
+    const inBlock = block ? all.filter((u) => u.block === block) : all;
+    if (typing) {
+      const q = text.trim().replace(/^#/, "").toLowerCase();
+      return q ? inBlock.filter((u) => u.label.toLowerCase().includes(q) || u.block.toLowerCase().includes(q)) : [];
+    }
+    if (!digits) return [];
+    return inBlock.filter((u) => digitsOf(`${u.floor}${u.unit_number}`).startsWith(digits) || digitsOf(u.unit_number).startsWith(digits));
+  }, [all, block, digits, typing, text]);
+
+  function press(key: string) {
+    if (key === "clear") return setDigits("");
+    if (key === "back") return setDigits((d) => d.slice(0, -1));
+    setDigits((d) => (d + key).slice(0, 6));
+  }
+  const shown = digits.length > 2 ? `${digits.slice(0, 2)}-${digits.slice(2)}` : digits;
+
   return (
     <Frame kiosk={kiosk} onBack={onBack}>
-      <div className="w-full max-w-4xl">
-        <h1 className="text-3xl font-semibold">Which unit are you visiting?</h1>
-        <div className="mt-6">
-          <input value={q} onChange={(e) => setQ(e.target.value)} autoFocus inputMode="text" placeholder="Unit number, e.g. 05-12"
-            className={INPUT} />
-        </div>
-        <div className="mt-6 grid max-h-[50vh] grid-cols-2 gap-3 overflow-y-auto sm:grid-cols-4">
-          {units === null ? <p className="col-span-full text-slate-400">Loading…</p>
-            : units.length === 0 ? <p className="col-span-full text-slate-400">No unit found. Check the number, or call the guardhouse.</p>
-            : units.map((u) => (
-              <button key={u.id} onClick={() => onPick(u)} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-5 text-left hover:border-primary-400/60 hover:bg-white/10">
-                <div className="text-sm text-slate-400">{u.block || "Unit"}</div>
-                <div className="text-2xl font-semibold">{u.label}</div>
+      <div className="w-full max-w-5xl">
+        <h1 className="text-center text-3xl font-semibold sm:text-4xl">Which unit are you visiting?</h1>
+        {blocks.length > 1 && (
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            {[null, ...blocks].map((b) => (
+              <button key={b ?? "all"} type="button" onClick={() => setBlock(b)}
+                className={`rounded-2xl border px-6 py-3 text-xl font-medium transition ${block === b ? "border-primary-400 bg-primary-500/30 text-white" : "border-white/15 bg-white/5 text-slate-200 hover:bg-white/10"}`}>
+                {b ?? "All blocks"}
               </button>
             ))}
+          </div>
+        )}
+        <div className="mt-6 grid items-start gap-8 landscape:grid-cols-[22rem_1fr]">
+          <div className="landscape:order-2">
+            {typing ? (
+              <input value={text} onChange={(e) => setText(e.target.value)} autoFocus placeholder="Unit number, e.g. 05-12 or 12A" className={INPUT} />
+            ) : (
+              <div className="flex h-20 items-center justify-center rounded-2xl border border-white/20 bg-navy-950/60 font-mono text-5xl font-bold tracking-widest">
+                {shown ? <span>#{shown}</span> : <span className="text-2xl font-normal tracking-normal text-slate-500">Type the unit number</span>}
+              </div>
+            )}
+            <div className="mt-4 grid min-h-28 grid-cols-2 gap-3 sm:grid-cols-3">
+              {matches === null ? <p className="col-span-full text-slate-400">Loading…</p>
+                : matches.length === 0 ? (
+                  <p className="col-span-full py-3 text-center text-lg text-slate-400">
+                    {digits || (typing && text) ? "No unit matches. Check the number, or ask the guardhouse." : "Matching units appear here as you type."}
+                  </p>
+                ) : matches.slice(0, 12).map((u) => (
+                  <button key={u.id} onClick={() => onPick(u)} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-left transition hover:border-primary-400/60 hover:bg-white/10 active:bg-primary-500/30">
+                    {blocks.length > 1 && <div className="text-sm text-slate-400">{u.block || "Unit"}</div>}
+                    <div className="text-2xl font-semibold">{u.label}</div>
+                  </button>
+                ))}
+              {matches && matches.length > 12 && <p className="col-span-full text-center text-slate-400">Keep typing to narrow it down.</p>}
+            </div>
+          </div>
+          <div className="landscape:order-1">
+            {!typing && (
+              <div className="mx-auto grid max-w-sm grid-cols-3 gap-3">
+                {UNIT_KEYS.map((key) => (
+                  <button key={key} type="button" onClick={() => press(key)}
+                    className="h-20 rounded-2xl border border-white/10 bg-white/10 text-3xl font-semibold transition hover:bg-white/20 active:bg-primary-500/40">
+                    {key === "clear" ? <span className="text-lg">Clear</span> : key === "back" ? <span aria-label="Delete">⌫</span> : key}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button type="button" onClick={() => { setTyping((t) => !t); setText(""); setDigits(""); }}
+              className="mx-auto mt-4 block text-lg text-slate-400 underline-offset-4 hover:text-white hover:underline">
+              {typing ? "Use the number pad" : "Unit has letters? Use keyboard"}
+            </button>
+          </div>
         </div>
       </div>
     </Frame>
@@ -998,6 +1095,26 @@ async function checkOut(body: CheckOutBody): Promise<Outcome & { retry?: boolean
 
 // --- App ---------------------------------------------------------------------
 
+/** The journey pill for a screen: which flow, and how far along (unit → details → photo). */
+function flowOf(screen: Screen, kiosk: KioskSelf): Flow {
+  const steps = (mode: Mode) => {
+    const details = mode === "walkin" || kiosk.visitor_form;
+    const photo = mode === "walkin" ? kiosk.walk_in_photo : kiosk.photo_required;
+    return { of: 1 + Number(details) + Number(photo), photoStep: 1 + Number(details) + 1 };
+  };
+  const kind = (mode: Mode): "call" | "walkin" => (mode === "walkin" ? "walkin" : "call");
+  switch (screen.name) {
+    case "directory": return { kind: kind(screen.mode), step: 1, of: steps(screen.mode).of };
+    case "identify": case "details": return { kind: kind(screen.mode), step: 2, of: steps(screen.mode).of };
+    case "photo": return { kind: kind(screen.mode), step: steps(screen.mode).photoStep, of: steps(screen.mode).of };
+    case "calling": case "pass": return { kind: "call" };
+    case "walkin": return { kind: "walkin" };
+    case "scan": case "face": return { kind: "scan" };
+    case "checkout": return { kind: "checkout" };
+    default: return null;
+  }
+}
+
 /** Fill what the visitor told the assistant into empty fields only (a returning visitor's record wins). */
 function withPrefill(details: VisitorDetails, prefill?: Prefill): VisitorDetails {
   if (!prefill) return details;
@@ -1109,6 +1226,9 @@ export default function KioskPage() {
   if (screen.name === "setup" || !kiosk) {
     return <Setup onReady={(k, token) => { kioskToken.set(token); setKiosk(k); setScreen({ name: "home" }); }} />;
   }
+  return <FlowContext.Provider value={flowOf(screen, kiosk)}>{render(kiosk)}</FlowContext.Provider>;
+
+  function render(kiosk: KioskSelf) {
   switch (screen.name) {
     case "home":
       return (
@@ -1166,5 +1286,6 @@ export default function KioskPage() {
       return <Face kiosk={kiosk} pass={screen.pass} onBack={home} onCapture={(photo) => checkIn(screen.code, photo)} />;
     case "result":
       return <Result kiosk={kiosk} outcome={screen.outcome} onDone={home} />;
+  }
   }
 }

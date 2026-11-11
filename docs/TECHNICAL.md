@@ -142,6 +142,10 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
   Gates & devices → Kiosks → *Add kiosk*, open `/kiosk/` on the tablet and enter the one-time device token. Visitors
   either **call a resident** (unit directory, then their details and photo, LiveKit video both ways; the
   gate opens when the resident or guard swipes) or **scan their invitation QR** with the tablet camera.
+  The unit is chosen with an on-screen number pad (block chips first when the site has several blocks;
+  matching units appear as the digits are typed; "Use keyboard" for units with letters), so the tablet
+  keyboard never covers the screen. Every screen after the welcome carries a coloured pill naming the
+  journey and the step ("Walk in · Step 2 of 3"); on portrait tablets content starts near the top.
 - **Visitor details before a call** (per site, Site settings → Visitor kiosk; both on by default):
   *Ask visitors for their details* (name, purpose such as parcel/food delivery with the company, and
   optionally mobile and last 4 of NRIC/FIN) and *Take the visitor's photo* (explicit photo with preview
