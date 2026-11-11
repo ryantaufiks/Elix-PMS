@@ -133,6 +133,7 @@ Pastikan perangkat lokal Anda telah terinstal:
 
 ### 6. Sidebar & notifikasi dashboard
 * Di tabel (Residents, Staff, Blocks & units, Condominiums) setiap baris punya satu tombol utama dan menu **⋯** untuk aksi lainnya; aksi hapus/remove ada paling bawah, berwarna merah, supaya tidak terklik tanpa sengaja. Di layar HP tabel berubah menjadi daftar kartu.
+* *Site settings* dibagi per kartu (Condominium, Access policy, Visitor kiosk, PDPA). Tombol **Save changes** ada di bar yang selalu terlihat di bawah layar; saat ada perubahan yang belum disimpan, bar-nya menyala kuning dengan tombol *Discard*, dan browser mengingatkan kalau halaman ditutup sebelum disimpan. Ringkasan paket ada di baris *Your plan* paling atas (klik *Plan details* untuk modul dan limit).
 * Grup menu sidebar (Operations, Community, Site setup, Platform) bisa dibuka-tutup seperti dropdown dengan klik judul grupnya; pilihan diingat per browser, dan grup halaman yang sedang dibuka selalu terbuka.
 * **Bell notifikasi** di top bar menampilkan aktivitas baru secara realtime untuk site yang dipilih: tamu masuk/keluar, panggilan intercom dan hasilnya, gerbang terbuka/ditolak, booking dan feedback baru. Badge merah menunjukkan jumlah yang belum dibaca; 50 notifikasi terakhir disimpan di browser.
 

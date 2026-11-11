@@ -65,7 +65,7 @@ On first sign-in with no condominium, the platform admin is guided through creat
 | | Vehicles | all staff (edit: admin, staff) | Resident plates used by LPR auto-open |
 | | Feedback | all staff (reply: admin, staff) | Residents' 1–5 star ratings by category, average and distribution, reply and status shown in the app |
 | | Staff | admin | Create officer / staff / site-admin accounts, change role, reset password, remove |
-| Site setup | Site settings | admin | Name, address, LPR on/off, ring timeout, invitation limit, face check, PDPA retention |
+| Site setup | Site settings | admin | One card per section (Condominium, Access policy, Visitor kiosk, PDPA) with a save bar that stays in view and shows unsaved changes; the plan is a one-line strip that opens the full summary |
 | | Blocks & units | admin | Blocks, units, and *Generate units* (e.g. floors 2–15 × units 01–08) |
 | | Gates & devices | admin | A health line (how many devices need attention) and one card per kind of device with its status: Gates, Relays (*Test open*, *Check*), Plate cameras (*Setup info*: upload URL, last payload), Kiosks (*New sign-in code*, shown once), Cloud accounts, and the coming-soon Face terminals and On-site link; *Open* lists that kind (`?view=relays` etc.) |
 | Platform | Condominiums | platform admin | Add, edit, activate sites; each site's plan, subscription status and site admins, with *Add site admin* (creates the account at that site without switching to it) and *Subscription* |
