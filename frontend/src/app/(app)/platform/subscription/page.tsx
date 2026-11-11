@@ -105,11 +105,11 @@ export default function SubscriptionPage() {
                     <Td><span className="font-medium text-ink">{m.name}</span>{!m.available && <span className="ml-2"><Badge>Coming soon</Badge></span>}
                       {m.requires.length > 0 && <div className="text-xs text-muted">Needs {m.requires.map((r) => catalogue.modules.find((x) => x.key === r)?.name).join(", ")}</div>}</Td>
                     <Td>{inPlan ? "✓" : ""}</Td>
-                    <Td><input type="checkbox" aria-label={`Add ${m.name}`} className="h-4 w-4" disabled={inPlan}
+                    <Td><input type="checkbox" aria-label={`Add ${m.name}`} className="h-4 w-4" disabled={inPlan || (!m.available && !draft.addons.includes(m.key))}
                       checked={draft.addons.includes(m.key)} onChange={(e) => toggle("addons", m.key, e.target.checked)} /></Td>
                     <Td><input type="checkbox" aria-label={`Switch off ${m.name}`} className="h-4 w-4" disabled={m.key === "core"}
                       checked={draft.disabled_modules.includes(m.key)} onChange={(e) => toggle("disabled_modules", m.key, e.target.checked)} /></Td>
-                    <Td>{on ? <Badge tone="green">On</Badge> : <Badge>Off</Badge>}</Td>
+                    <Td>{!m.available ? <Badge tone="blue">Soon</Badge> : on ? <Badge tone="green">On</Badge> : <Badge>Off</Badge>}</Td>
                   </tr>
                 );
               })}

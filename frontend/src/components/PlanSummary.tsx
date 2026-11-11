@@ -47,13 +47,13 @@ export function PlanSummary({ condoId }: { condoId: number }) {
         <div>
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">Modules</h3>
           <ul className="mt-3 space-y-2">
-            {catalogue.modules.filter((m) => m.available || data.modules.includes(m.key)).map((m) => {
-              const on = data.modules.includes(m.key);
+            {catalogue.modules.map((m) => {
+              const on = m.available && data.modules.includes(m.key);
               return (
                 <li key={m.key} className="flex items-center gap-2 text-sm">
-                  <Icon name={on ? "check" : "lock"} className={`h-4 w-4 shrink-0 ${on ? "text-emerald-500" : "text-muted"}`} />
+                  <Icon name={on ? "check" : m.available ? "lock" : "sparkle"} className={`h-4 w-4 shrink-0 ${on ? "text-emerald-500" : m.available ? "text-muted" : "text-primary-500"}`} />
                   <span className={on ? "text-ink" : "text-muted"}>{m.name}</span>
-                  {!on && <span className="ml-auto text-xs text-muted">{m.upsell_plan ? `in ${m.upsell_plan}` : "add-on"}</span>}
+                  {!on && <span className="ml-auto text-xs text-muted">{!m.available ? "coming soon" : m.upsell_plan ? `in ${m.upsell_plan}` : "add-on"}</span>}
                 </li>
               );
             })}

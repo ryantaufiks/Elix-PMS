@@ -70,7 +70,8 @@ function PlanEditor({ plan, catalogue, onClose, onSaved }: { plan: Plan | null; 
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
             {catalogue.modules.map((m) => (
               <label key={m.key} className="flex items-start gap-2 rounded-lg border border-line p-3 text-sm">
-                <input type="checkbox" className="mt-0.5 h-4 w-4" checked={draft.modules.includes(m.key)} disabled={m.key === "core"}
+                <input type="checkbox" className="mt-0.5 h-4 w-4" checked={draft.modules.includes(m.key)}
+                  disabled={m.key === "core" || (!m.available && !draft.modules.includes(m.key))}
                   onChange={(e) => set("modules", toggleModule(catalogue, draft.modules, m.key, e.target.checked))} />
                 <span>
                   <span className="font-medium text-ink">{m.name}</span>{!m.available && <span className="ml-2"><Badge>Coming soon</Badge></span>}

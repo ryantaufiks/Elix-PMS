@@ -11,9 +11,9 @@ import { api, ApiError, query } from "@/lib/api";
 import { timeAgo } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import type { Camera, Gate, IntegrationAccount, Kiosk, Page, Relay } from "@/lib/types";
-import { LockedFeature } from "@/components/ModuleGate";
+import { ComingSoon, LockedFeature } from "@/components/ModuleGate";
 
-type Tab = "gates" | "relays" | "cameras" | "kiosks" | "accounts";
+type Tab = "gates" | "relays" | "cameras" | "kiosks" | "accounts" | "faces" | "onsite";
 
 const isOnline = (iso: string | null, minutes: number) => !!iso && Date.now() - new Date(iso).getTime() < minutes * 60_000;
 const DIRECTIONS: Option[] = [{ value: "entry", label: "Entry" }, { value: "exit", label: "Exit" }, { value: "both", label: "Entry & exit" }];
@@ -23,7 +23,7 @@ export default function DevicesSetupPage() {
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window === "undefined") return "gates";
     const t = new URLSearchParams(window.location.search).get("tab");
-    return (["gates", "relays", "cameras", "kiosks", "accounts"].includes(t ?? "") ? t : "gates") as Tab;
+    return (["gates", "relays", "cameras", "kiosks", "accounts", "faces", "onsite"].includes(t ?? "") ? t : "gates") as Tab;
   });
   const gates = useGates(condo.id);
   const relays = useSWR<Page<Relay>>(isAdmin ? `/v1/relays/${query({ gate__condominium: condo.id, page_size: 200 })}` : null);
@@ -51,9 +51,11 @@ export default function DevicesSetupPage() {
           tabs={[
             { key: "gates", label: "Gates", count: gates.data?.count },
             { key: "relays", label: "Relays", count: relays.data?.count },
-            { key: "cameras", label: hasLpr ? "LPR cameras" : "LPR cameras 🔒", count: cameras.data?.count },
+            { key: "cameras", label: hasLpr ? "LPR cameras" : "LPR cameras · locked", count: cameras.data?.count },
             { key: "kiosks", label: "Kiosks", count: kiosks.data?.count },
             { key: "accounts", label: "Cloud accounts", count: accounts.data?.count },
+            { key: "faces", label: "Face terminals · soon" },
+            { key: "onsite", label: "On-site link · soon" },
           ]}
         />
         {tab === "gates" && <GatesTab condoId={condo.id} data={gates.data} mutate={gates.mutate} />}
@@ -62,6 +64,16 @@ export default function DevicesSetupPage() {
         {tab === "cameras" && hasLpr && <CamerasTab data={cameras.data} mutate={cameras.mutate} gateOptions={gateOptions} gateName={gateName} />}
         {tab === "kiosks" && <KiosksTab condoId={condo.id} data={kiosks.data} mutate={kiosks.mutate} gateOptions={gateOptions} gateName={gateName} />}
         {tab === "accounts" && <AccountsTab condoId={condo.id} data={accounts.data} mutate={accounts.mutate} />}
+        {tab === "faces" && <div className="p-4"><ComingSoon module="face_terminal" points={[
+          "Residents enter by face at Hikvision access terminals, no card needed.",
+          "Faces are added from the resident app or the dashboard, with the resident's consent.",
+          "Removed from the terminals automatically when a resident moves out.",
+        ]} /></div>}
+        {tab === "onsite" && <div className="p-4"><ComingSoon module="local_devices" points={[
+          "A secure link from Elix to the devices at your site, without opening your router.",
+          "Relays answer faster and keep working when the relay maker's cloud is down.",
+          "Plates and faces stay on the cameras and terminals, so gates keep working if the internet drops.",
+        ]} /></div>}
       </Card>
     </>
   );
@@ -256,6 +268,10 @@ function CamerasTab({ data, mutate, gateOptions, gateName }: { data?: Page<Camer
   return (
     <>
       <Toolbar text="Dahua cameras post plate reads to the webhook. Whether reads open gates is set by 'Licence-plate recognition' in Site settings." onAdd={() => setEditing("new")} addLabel="Add camera" disabled={gateOptions.length ? undefined : "Add a gate first."} />
+      <p className="mx-5 mb-3 flex items-center gap-2 rounded-lg bg-primary-500/5 px-3 py-2 text-xs text-body">
+        <Icon name="sparkle" className="h-4 w-4 shrink-0 text-primary-500" />
+        <span><strong>Coming soon:</strong> plates stored on the camera itself, so residents&apos; cars still get in when the internet is down.</span>
+      </p>
       {!data ? <Loading /> : data.results.length === 0 ? <Empty>No cameras yet.</Empty> : (
         <Table>
           <thead><tr><Th>Name</Th><Th>Gate</Th><Th>Device ID</Th><Th>Direction</Th><Th>Last event</Th><Th>Status</Th><Th /></tr></thead>

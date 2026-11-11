@@ -438,7 +438,9 @@ same page (`GET /v1/email-logs/`, platform admin) lists the last 30 days; older 
 Elix is sold per site as **modules** (`core/entitlements.py` holds the catalogue): `core` (always),
 `resident_app`, `intercom` and `facilities` (both need the resident app), `lpr`, `face_kiosk`,
 `ai_concierge`, `advanced_reports` (export and print / PDF), and, coming, `local_devices`,
-`lpr_camera_list`, `face_terminal`. A **Plan** (*Platform → Plans*) bundles modules with **limits**
+`lpr_camera_list`, `face_terminal`. Coming modules do nothing yet: the dashboard shows them as *Coming
+soon* (tabs *Face terminals* and *On-site link* and a note on *LPR cameras* under Gates & devices,
+*Your plan*), and Plans / Subscription do not let them be added until they are available. A **Plan** (*Platform → Plans*) bundles modules with **limits**
 (units, kiosks, gates, LPR cameras and staff accounts are enforced; video minutes, AI conversations,
 face terminals and storage are shown and enforced later); empty means unlimited. Migration 0018 made
 Basic, Standard and Premium plus an internal **Full** plan, and put every existing site on Full.
