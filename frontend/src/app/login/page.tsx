@@ -54,11 +54,17 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-screen bg-surface lg:grid-cols-[1fr_1.1fr]">
-      <div className="flex items-center justify-center px-6 py-12">
-        <div className="w-full max-w-sm">
-          <h1 className="text-3xl font-semibold tracking-tight text-ink">Welcome back</h1>
-          <p className="mt-2 text-sm text-muted">Sign in to the Elix guardhouse and management console.</p>
+    <main className="flex min-h-dvh flex-col bg-canvas lg:grid lg:grid-cols-[1fr_1.1fr] lg:bg-surface">
+      {/* Phones and tablets: the brand on top, the form in a card over it. */}
+      <div className="brand-panel px-6 pb-24 pt-12 text-center text-white sm:pt-16 lg:hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/elix-logo.png" alt="Elix" className="mx-auto h-12 w-auto drop-shadow-[0_0_24px_rgba(47,111,255,0.55)] sm:h-16" />
+        <p className="mx-auto mt-4 max-w-xs text-sm text-slate-300 sm:max-w-md sm:text-base">Visitor management and access control for Singapore condominiums.</p>
+      </div>
+      <div className="-mt-16 flex flex-1 flex-col items-center px-4 pb-8 sm:px-6 lg:mt-0 lg:justify-center lg:py-12">
+        <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-card sm:p-8 lg:max-w-sm lg:border-0 lg:p-0 lg:shadow-none">
+          <h1 className="text-center text-2xl font-semibold tracking-tight text-ink sm:text-3xl lg:text-left">Welcome back</h1>
+          <p className="mt-2 text-center text-sm text-muted lg:text-left">Sign in to the Elix guardhouse and management console.</p>
           <form onSubmit={submit} className="mt-8 space-y-5">
             <ErrorNote error={error} />
             <LoginField id="username" label="Username" icon="user" autoComplete="username" value={username}
@@ -73,13 +79,13 @@ export default function LoginPage() {
               } />
             <Button type="submit" variant="primary" size="lg" className="w-full !rounded-xl" busy={busy}>Sign in</Button>
           </form>
-          <p className="mt-8 text-xs text-muted">Residents: please use the Elix mobile app.</p>
-          <p className="mt-3 flex gap-4 text-xs text-muted">
+          <p className="mt-8 text-center text-xs text-muted lg:text-left">Residents: please use the Elix mobile app.</p>
+          <p className="mt-3 flex justify-center gap-4 text-xs text-muted lg:justify-start">
             <a href="/privacy/" className="hover:text-primary-500 hover:underline">Privacy policy</a>
             <a href="/security/" className="hover:text-primary-500 hover:underline">Cybersecurity policy</a>
           </p>
-          <Credit className="mt-10 lg:hidden" />
         </div>
+        <Credit className="mt-8 lg:hidden" />
       </div>
       <div className="brand-panel relative hidden flex-col justify-between overflow-hidden p-14 text-white lg:flex">
         <div className="pointer-events-none absolute inset-0 opacity-[0.07] [background-image:linear-gradient(rgb(255_255_255/0.6)_1px,transparent_1px),linear-gradient(90deg,rgb(255_255_255/0.6)_1px,transparent_1px)] [background-size:48px_48px]" />
