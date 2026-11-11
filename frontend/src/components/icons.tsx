@@ -19,6 +19,7 @@ const paths = {
   external: "M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5",
   mic: "M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3ZM19 11a7 7 0 0 1-14 0M12 18v3",
   video: "M15 10l5-3v10l-5-3M4 6h11v12H4z",
+  mail: "M3 6h18v12H3zM3 7l9 6 9-6",
   unlock: "M7 11V7a5 5 0 0 1 9.6-2M5 11h14v10H5zM12 15v2",
   lock: "M7 11V7a5 5 0 0 1 10 0v4M5 11h14v10H5zM12 15v2",
   zap: "M13 3 4 14h7l-1 7 9-11h-7z",

@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import useSWR from "swr";
 
 import { type FieldDef, FormFields, initialValues } from "@/components/forms";
-import { Badge, Button, Card, CardHeader, Empty, ErrorNote, Input, Loading, PageHeader, Pagination, Select, Table, Td, Th, useToast } from "@/components/ui";
+import { Icon, type IconName } from "@/components/icons";
+import { Badge, Button, Card, Empty, ErrorNote, Input, Loading, Modal, PageHeader, Pagination, Select, Table, Td, Th, useToast } from "@/components/ui";
 import { api, ApiError, errorMessage, query } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { useSession } from "@/lib/session";
@@ -57,20 +58,51 @@ const emailFields: FieldDef[] = [
   { name: "email_from_name", label: "From name", placeholder: "Elix", hint: "Default Elix." },
   { name: "email_reply_to", label: "Reply-to address", type: "email", hint: "Where replies go, e.g. your support mailbox." },
 ];
-const ALL = [...livekitFields, ...fcmFields, ...assistantFields, ...emailFields, ...tuningFields];
+
+type Section = {
+  key: "livekit" | "fcm" | "email" | "assistant" | "tuning";
+  title: string;
+  icon: IconName;
+  what: string;
+  fields: FieldDef[];
+  ready: (s: SystemSettings) => boolean | null;  // null: optional, shown as defaults/custom
+  test?: string;
+  envNames?: string[];
+};
+
+const SECTIONS: Section[] = [
+  { key: "livekit", title: "Video intercom", icon: "video", what: "Video calls between the lobby kiosk and residents' phones (LiveKit Cloud).",
+    fields: livekitFields, ready: (s) => s.livekit_configured, test: "Save & test connection", envNames: ["livekit_url", "livekit_api_key", "livekit_api_secret"] },
+  { key: "fcm", title: "Push notifications", icon: "bell", what: "Lets residents' phones ring for visitors even when the app is closed (Firebase).",
+    fields: fcmFields, ready: (s) => s.fcm_configured, test: "Save & test Firebase" },
+  { key: "email", title: "Email", icon: "mail", what: "Sends subscription reminders, usage warnings and alerts from your mail server (SMTP).",
+    fields: emailFields, ready: (s) => s.email_configured, test: "Save & send test email", envNames: ["smtp_host", "smtp_password", "email_from_address"] },
+  { key: "assistant", title: "Kiosk AI assistant", icon: "sparkle", what: "The voice assistant visitors talk to on the kiosk (OpenAI). Each site turns it on under Site setup.",
+    fields: assistantFields, ready: (s) => s.openai_configured, envNames: ["openai_api_key"] },
+  { key: "tuning", title: "Gates & plate cameras", icon: "cpu", what: "How long to wait for a relay, and how long to ignore the same plate read twice.",
+    fields: tuningFields, ready: () => null },
+];
+
+function SourceNote({ sources, names }: { sources: SystemSettings["sources"]; names: string[] }) {
+  const fromEnv = names.filter((n) => sources[n] === ".env");
+  if (!fromEnv.length) return null;
+  return <p className="text-xs text-muted">Blank fields fall back to the server&apos;s .env file. Currently from .env: {fromEnv.join(", ")}.</p>;
+}
+
 const EMAIL_STATUS = { queued: "amber", sent: "green", failed: "red" } as const;
 
-function EmailLogCard() {
+function EmailLogList() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("");
   const { data } = useSWR<Page<EmailLog>>(`/v1/email-logs/${query({ page, status })}`, { keepPreviousData: true, refreshInterval: 15000 });
   return (
-    <Card>
-      <CardHeader title="Email log" action={
-        <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="w-36">
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-muted">Every email of the last 30 days.</p>
+        <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="w-36" aria-label="Status">
           <option value="">All</option><option value="sent">Sent</option><option value="failed">Failed</option><option value="queued">Queued</option>
         </Select>
-      } />
+      </div>
       {!data ? <Loading /> : data.results.length === 0 ? <Empty>No emails in the last 30 days.</Empty> : (
         <>
           <Table>
@@ -89,27 +121,23 @@ function EmailLogCard() {
           <Pagination page={page} count={data.count} onPage={setPage} />
         </>
       )}
-    </Card>
+    </div>
   );
-}
-
-function SourceNote({ sources, names }: { sources: SystemSettings["sources"]; names: string[] }) {
-  const fromEnv = names.filter((n) => sources[n] === ".env");
-  if (!fromEnv.length) return null;
-  return <p className="text-xs text-muted">Blank fields fall back to the server&apos;s .env file. Currently from .env: {fromEnv.join(", ")}.</p>;
 }
 
 export default function SystemSettingsPage() {
   const { me } = useSession();
   const toast = useToast();
   const { data, mutate } = useSWR<SystemSettings>(me.is_superuser ? "/v1/system-settings/" : null);
+  const [open, setOpen] = useState<Section | null>(null);
+  const [log, setLog] = useState(false);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [testTo, setTestTo] = useState("");
   useEffect(() => {
-    if (data) setValues(initialValues(ALL, data as unknown as Record<string, unknown>));
-  }, [data]);
+    if (data && open) setValues(initialValues(open.fields, data as unknown as Record<string, unknown>));
+  }, [data, open]);
 
   if (!me.is_superuser) return <Card><Empty>Only the platform administrator can change system settings.</Empty></Card>;
   if (!data) return <Loading />;
@@ -117,13 +145,20 @@ export default function SystemSettingsPage() {
   const errors = error instanceof ApiError && error.data && typeof error.data === "object"
     ? Object.fromEntries(Object.entries(error.data as Record<string, unknown>).filter(([k]) => k !== "detail").map(([k, v]) => [k, errorMessage(v, "Invalid")]))
     : {};
+  const required = SECTIONS.filter((x) => x.ready(data) !== null);
+  const done = required.filter((x) => x.ready(data)).length;
 
-  async function save(then?: "livekit" | "fcm" | "email") {
-    setBusy(then ?? "save");
+  function edit(section: Section) {
+    setError(null);
+    setOpen(section);
+  }
+
+  async function save(section: Section, test: boolean) {
+    setBusy(test ? "test" : "save");
     setError(null);
     try {
       const body: Record<string, unknown> = {};
-      for (const f of ALL) {
+      for (const f of section.fields) {
         const v = values[f.name];
         if ((f.type === "secret" || f.type === "secret-text") && v === "") continue;
         if (f.required && (v === "" || v === null)) continue;  // Keep the saved value rather than clear a required one.
@@ -131,13 +166,15 @@ export default function SystemSettingsPage() {
       }
       await api("/v1/system-settings/", { method: "PATCH", body });
       await mutate();
-      if (then) {
-        const result = await api<{ ok: boolean; detail: string }>(`/v1/system-settings/test-${then}/`,
-          { method: "POST", body: then === "email" ? { to: testTo.trim() || undefined } : undefined });
+      if (test && section.test) {
+        const result = await api<{ ok: boolean; detail: string }>(`/v1/system-settings/test-${section.key}/`,
+          { method: "POST", body: section.key === "email" ? { to: testTo.trim() || undefined } : undefined });
         toast(result.ok ? "success" : "error", result.detail);
+        if (!result.ok) return;
       } else {
-        toast("success", "System settings saved. They apply immediately.");
+        toast("success", `${section.title} saved. It applies immediately.`);
       }
+      setOpen(null);
     } catch (err) {
       setError(err);
     } finally {
@@ -145,64 +182,62 @@ export default function SystemSettingsPage() {
     }
   }
 
-  const change = (n: string, v: unknown) => setValues((s) => ({ ...s, [n]: v }));
-  const record = data as unknown as Record<string, unknown>;
-
   return (
     <>
-      <PageHeader title="System settings" description="Server-wide integrations for every condominium. Secrets are stored encrypted and never shown again." />
-      <div className="max-w-4xl space-y-6">
-        <ErrorNote error={Object.keys(errors).length ? null : error} />
-        <Card>
-          <CardHeader title="Video intercom (LiveKit)" action={data.livekit_configured ? <Badge tone="green">Configured</Badge> : <Badge tone="amber">Not configured</Badge>} />
-          <div className="space-y-4 p-5 sm:p-6">
-            <FormFields fields={livekitFields} values={values} errors={errors} record={record} onChange={change} />
-            <SourceNote sources={data.sources} names={["livekit_url", "livekit_api_key", "livekit_api_secret"]} />
-            <div className="flex justify-end gap-2 border-t border-line pt-4">
-              <Button busy={busy === "livekit"} onClick={() => save("livekit")}>Save &amp; test connection</Button>
-            </div>
-          </div>
-        </Card>
-        <Card>
-          <CardHeader title="Push notifications (Firebase)" action={data.fcm_configured ? <Badge tone="green">Configured</Badge> : <Badge tone="amber">Not configured</Badge>} />
-          <div className="space-y-4 p-5 sm:p-6">
-            <p className="text-sm text-muted">Without Firebase, residents are only rung while the app is open.</p>
-            <FormFields fields={fcmFields} values={values} errors={errors} record={record} onChange={change} />
-            <div className="flex justify-end gap-2 border-t border-line pt-4">
-              <Button busy={busy === "fcm"} onClick={() => save("fcm")}>Save &amp; test Firebase</Button>
-            </div>
-          </div>
-        </Card>
-        <Card>
-          <CardHeader title="Kiosk AI assistant (OpenAI)" action={data.openai_configured ? <Badge tone="green">Configured</Badge> : <Badge tone="amber">Not configured</Badge>} />
-          <div className="space-y-4 p-5 sm:p-6">
-            <p className="text-sm text-muted">Visitors talk to the assistant on the kiosk. Each site turns it on and writes what it knows under Site setup → AI Assistant. Nothing visitors say is stored.</p>
-            <FormFields fields={assistantFields} values={values} errors={errors} record={record} onChange={change} />
-            <SourceNote sources={data.sources} names={["openai_api_key"]} />
-          </div>
-        </Card>
-        <Card>
-          <CardHeader title="Email (SMTP)" action={data.email_configured ? <Badge tone="green">Configured</Badge> : <Badge tone="amber">Not configured</Badge>} />
-          <div className="space-y-4 p-5 sm:p-6">
-            <p className="text-sm text-muted">Outgoing email for subscription notices and alerts. Every message is listed in the email log below for 30 days.</p>
-            <FormFields fields={emailFields} values={values} errors={errors} record={record} onChange={change} />
-            <SourceNote sources={data.sources} names={["smtp_host", "smtp_password", "email_from_address"]} />
-            <div className="flex flex-col gap-2 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-end">
-              <Input type="email" value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder={me.email || "Send the test to…"} className="sm:w-64" aria-label="Send the test email to" />
-              <Button busy={busy === "email"} onClick={() => save("email")}>Save &amp; send test email</Button>
-            </div>
-          </div>
-        </Card>
-        <EmailLogCard />
-        <Card>
-          <CardHeader title="Gate relays & LPR tuning" />
-          <div className="p-5 sm:p-6"><FormFields fields={tuningFields} values={values} errors={errors} record={record} onChange={change} /></div>
-        </Card>
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted">{data.updated_at && `Last saved ${formatDateTime(data.updated_at)}`}</span>
-          <Button variant="primary" busy={busy === "save"} onClick={() => save()}>Save all settings</Button>
-        </div>
+      <PageHeader title="System settings" description="Services every condominium uses. Open a card to set it up; secrets are stored encrypted and never shown again." />
+      <div className={`mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm ${done === required.length ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200" : "border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200"}`}>
+        <Icon name={done === required.length ? "check" : "bell"} className="h-5 w-5 shrink-0" />
+        <span><strong>{done} of {required.length}</strong> services set up{data.updated_at && ` · last change ${formatDateTime(data.updated_at)}`}</span>
       </div>
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        {SECTIONS.map((section) => {
+          const ready = section.ready(data);
+          return (
+            <Card key={section.key} className="flex flex-col">
+              <div className="flex flex-1 flex-col p-5 sm:p-6">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-500/10 text-primary-600 dark:text-primary-300"><Icon name={section.icon} className="h-6 w-6" /></span>
+                  {ready === null ? <Badge>Optional</Badge> : ready ? <Badge tone="green">Set up</Badge> : <Badge tone="amber">Not set up</Badge>}
+                </div>
+                <h2 className="mt-4 text-lg font-semibold text-ink">{section.title}</h2>
+                <p className="mt-1 flex-1 text-sm text-body">{section.what}</p>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <Button variant={ready === false ? "primary" : "secondary"} onClick={() => edit(section)}>{ready === false ? "Set up" : "Change"}</Button>
+                  {section.key === "email" && <Button variant="ghost" onClick={() => setLog(true)}>Email log</Button>}
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      <Modal wide open={!!open} onClose={() => setOpen(null)} title={open?.title ?? ""}
+        footer={open && (
+          <>
+            <Button onClick={() => setOpen(null)}>Cancel</Button>
+            {open.test && <Button busy={busy === "test"} onClick={() => save(open, true)}>{open.test}</Button>}
+            <Button variant="primary" busy={busy === "save"} onClick={() => save(open, false)}>Save</Button>
+          </>
+        )}>
+        {open && (
+          <div className="space-y-4">
+            <p className="text-sm text-body">{open.what}</p>
+            <ErrorNote error={Object.keys(errors).length ? null : error} />
+            <FormFields fields={open.fields} values={values} errors={errors} record={data as unknown as Record<string, unknown>}
+              onChange={(n, v) => setValues((s) => ({ ...s, [n]: v }))} />
+            {open.envNames && <SourceNote sources={data.sources} names={open.envNames} />}
+            {open.key === "email" && (
+              <div className="border-t border-line pt-4">
+                <label className="text-sm font-medium text-ink" htmlFor="test-to">Send the test email to</label>
+                <Input id="test-to" type="email" value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder={me.email || "you@company.com"} className="mt-1" />
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+      <Modal wide open={log} onClose={() => setLog(false)} title="Email log">
+        {log && <EmailLogList />}
+      </Modal>
     </>
   );
 }

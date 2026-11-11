@@ -410,7 +410,7 @@ warning on the run if one is not). Before the first upload:
 
 ## System settings
 
-**Platform → System settings** in the dashboard (also available in Django admin) is a single page for server-wide integrations: LiveKit (URL, key, secret,
+**Platform → System settings** in the dashboard (also available in Django admin) shows one card per server-wide service with its status (*Set up / Not set up*); *Set up / Change* opens that service's fields with its own *Save* and *Test*. Services: LiveKit (URL, key, secret,
 token lifetime, unlock window), the Firebase service-account JSON, the relay HTTP timeout and the LPR
 debounce. Secrets are stored encrypted and never shown again; a saved one shows *Saved* with *Remove*. Changes apply immediately to the web,
 worker processes (no restart). Any blank field falls back to the matching `.env` variable
@@ -422,15 +422,15 @@ camera credentials on their own admin pages.
 
 ### Email (SMTP)
 
-*System settings → Email (SMTP)* holds the outgoing mail server: host, port, security (STARTTLS, SSL/TLS
+*System settings → Email* (card → *Set up / Change*) holds the outgoing mail server: host, port, security (STARTTLS, SSL/TLS
 or none), username, password (encrypted), from address and name, reply-to; `.env` fallbacks
 `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_SECURITY`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`,
 `EMAIL_FROM_ADDRESS`, `EMAIL_FROM_NAME`, `EMAIL_REPLY_TO`. *Save & send test email* sends a test at once
 (to the address typed next to it, or the admin's own). Other emails are queued: `core.mail.queue()`
 renders `templates/email/<name>.{subject.txt,txt,html}` (branded `base.html`) into an `EmailLog` row per
 recipient and the worker sends it, retrying network errors and temporary (4xx) server answers up to 3
-times; rejected logins or recipients fail at once with the reason on the log. The **Email log** on the
-same page (`GET /v1/email-logs/`, platform admin) lists the last 30 days; older rows are pruned daily
+times; rejected logins or recipients fail at once with the reason on the log. The **Email log** button on
+the Email card (`GET /v1/email-logs/`, platform admin) lists the last 30 days; older rows are pruned daily
 (`core.tasks.prune_email_log`, 04:45).
 
 ## Plans & subscriptions
