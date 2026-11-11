@@ -59,7 +59,7 @@ export default function LoginPage() {
       <div className="brand-panel px-6 pb-24 pt-12 text-center text-white sm:pt-16 lg:hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/elix-logo.png" alt="Elix" className="mx-auto h-12 w-auto drop-shadow-[0_0_24px_rgba(47,111,255,0.55)] sm:h-16" />
-        <p className="mx-auto mt-4 max-w-xs text-sm text-slate-300 sm:max-w-md sm:text-base">Visitor management and access control for Singapore condominiums.</p>
+        <p className="mx-auto mt-4 text-sm font-medium tracking-wide text-slate-300 sm:text-base">Engage Link Identified Experience</p>
       </div>
       <div className="-mt-16 flex flex-1 flex-col items-center px-4 pb-8 sm:px-6 lg:mt-0 lg:justify-center lg:py-12">
         <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-card sm:p-8 lg:max-w-sm lg:border-0 lg:p-0 lg:shadow-none">
@@ -93,7 +93,7 @@ export default function LoginPage() {
         <div className="relative">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/elix-logo.png" alt="Elix" className="w-72 drop-shadow-[0_0_30px_rgba(47,111,255,0.55)]" />
-          <h2 className="mt-10 max-w-md text-2xl font-semibold leading-snug">Visitor management and access control for Singapore condominiums.</h2>
+          <h2 className="mt-10 max-w-md text-2xl font-semibold leading-snug">Engage Link Identified Experience</h2>
           <ul className="mt-6 space-y-2.5 text-sm text-slate-300">
             {["Licence-plate entry with Dahua LPR", "Video intercom with swipe-to-open", "QR invitations for visitors", "Shelly & Sonoff gate relays"].map((t) => (
               <li key={t} className="flex items-center gap-2.5">
