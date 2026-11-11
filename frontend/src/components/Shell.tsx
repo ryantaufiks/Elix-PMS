@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 
 import { query } from "@/lib/api";
@@ -118,6 +118,18 @@ export function Shell({ children }: { children: React.ReactNode }) {
   }, [current?.group]); // eslint-disable-line react-hooks/exhaustive-deps
   const name = [me.first_name, me.last_name].filter(Boolean).join(" ") || me.username;
   const roleLabel = me.is_superuser ? "Platform admin" : ROLE_LABEL[role];
+  // Short screens (tablets) hide the Platform group below the fold: show a fade while there is more to scroll.
+  const navScroll = useRef<HTMLDivElement>(null);
+  const [navMore, setNavMore] = useState(false);
+  const checkNavScroll = useCallback(() => {
+    const el = navScroll.current;
+    if (el) setNavMore(el.scrollHeight - el.scrollTop - el.clientHeight > 8);
+  }, []);
+  useEffect(() => {
+    checkNavScroll();
+    window.addEventListener("resize", checkNavScroll);
+    return () => window.removeEventListener("resize", checkNavScroll);
+  }, [checkNavScroll, closed, menuOpen]);
 
   const sidebar = (
     <nav className="sidebar-bg flex h-full flex-col text-slate-300">
@@ -129,7 +141,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <div className="mx-4 mb-2 rounded-lg border border-white/10 bg-white/5 p-1">
         <SitePicker />
       </div>
-      <div className="flex-1 overflow-y-auto px-3 py-3">
+      <div className="relative min-h-0 flex-1">
+      <div ref={navScroll} onScroll={checkNavScroll} className="h-full overflow-y-auto px-3 py-3">
         {groups.map((group) => {
           const open = !closed.has(group.title);
           return (
@@ -170,6 +183,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </div>
           );
         })}
+      </div>
+      {navMore && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex h-12 items-end justify-center bg-gradient-to-t from-navy-900 to-transparent pb-1 text-slate-400" aria-hidden="true">
+          <Icon name="chevron" className="h-4 w-4 rotate-90" />
+        </div>
+      )}
       </div>
       <div className="border-t border-white/10 px-6 py-4 text-xs text-slate-500">
         Elix PMS · Singapore

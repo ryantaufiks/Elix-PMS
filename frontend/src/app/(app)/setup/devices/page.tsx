@@ -183,7 +183,10 @@ export default function DevicesSetupPage() {
   const saved = () => { close(); refresh(); };
 
   const states = [...relayList.map(relayState), ...cameraList.map(cameraState), ...kioskList.map(kioskState)];
-  const attention = states.filter((x) => x.tone === "red" || x.tone === "amber").length;
+  const bad = (x: { tone: string }) => x.tone === "red" || x.tone === "amber";
+  const attention = states.filter(bad).length;
+  const issueView: View | null = relayList.map(relayState).some(bad) ? "relays" : cameraList.map(cameraState).some(bad) ? "cameras"
+    : kioskList.map(kioskState).some(bad) ? "kiosks" : null;
   const lprInfo = catalogue?.modules.find((m) => m.key === "lpr");
 
   async function command(relay: Relay, action: "test" | "check") {
@@ -257,7 +260,9 @@ export default function DevicesSetupPage() {
             <Icon name={attention ? "bell" : "check"} className="h-5 w-5 shrink-0" />
             <span>
               {plural(gateList.length, "gate")} · {plural(states.length, "device")} ·{" "}
-              {attention ? <strong>{attention} need{attention === 1 ? "s" : ""} attention</strong> : <strong>everything is working</strong>}
+              {attention
+                ? <button type="button" onClick={() => issueView && setView(issueView)} className="font-semibold underline underline-offset-2 hover:opacity-80">{attention} need{attention === 1 ? "s" : ""} attention →</button>
+                : <strong>everything is working</strong>}
             </span>
           </div>
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">

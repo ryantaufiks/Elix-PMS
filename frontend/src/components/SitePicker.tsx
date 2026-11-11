@@ -33,7 +33,7 @@ export function SitePicker() {
       <button onClick={() => { setOpen(!open); setSearch(""); }} aria-haspopup="listbox" aria-expanded={open} aria-label={`Site: ${condo.name}. Change site`}
         className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-white transition hover:bg-white/5">
         <Icon name="building" className="h-4 w-4 shrink-0 text-slate-400" />
-        <span className="min-w-0 flex-1 truncate">{condo.name}</span>
+        <span className="line-clamp-2 min-w-0 flex-1 leading-tight">{condo.name}</span>
         <Icon name="chevron" className={cx("h-4 w-4 shrink-0 text-slate-400 transition-transform", open ? "-rotate-90" : "rotate-90")} />
       </button>
       {open && (

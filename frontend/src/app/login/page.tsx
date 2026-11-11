@@ -79,7 +79,7 @@ export default function LoginPage() {
               } />
             <Button type="submit" variant="primary" size="lg" className="w-full !rounded-xl" busy={busy}>Sign in</Button>
           </form>
-          <p className="mt-8 text-center text-xs text-muted lg:text-left">Residents: please use the Elix mobile app.</p>
+          <p className="mt-8 text-center text-xs text-muted lg:text-left">Forgot your password? Ask your site admin to set a new one.<br />Residents: please use the Elix mobile app.</p>
           <p className="mt-3 flex justify-center gap-4 text-xs text-muted lg:justify-start">
             <a href="/privacy/" className="hover:text-primary-500 hover:underline">Privacy policy</a>
             <a href="/security/" className="hover:text-primary-500 hover:underline">Cybersecurity policy</a>

@@ -141,8 +141,14 @@ export function Input(props: React.ComponentProps<"input">) {
   return <input {...props} className={cx(inputClass, props.className)} />;
 }
 
-export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className={cx(inputClass, "pr-8", props.className)} />;
+/** A native select drawn like the inputs beside it: no browser chrome, the app's chevron. ``className`` sizes the box. */
+export function Select({ className, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <span className={cx("relative block", className)}>
+      <select {...props} className={cx(inputClass, "w-full appearance-none pr-9")} />
+      <Icon name="chevron" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-muted" />
+    </span>
+  );
 }
 
 export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {

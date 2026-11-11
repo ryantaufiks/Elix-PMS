@@ -49,6 +49,10 @@ no relay is wired to it.
 The top bar carries a quiet breadcrumb ("Operations › Invitations"), the page heading is the only title.
 Empty lists use `Empty` with an icon, a title, a one-line hint and, where the viewer may add the first
 record, the matching button. Report types on Reports are a 3-column grid of equal cards.
+Selects are drawn like the inputs beside them (own chevron, no browser chrome); the sidebar shows a fade with a
+chevron while more menu lies below the fold (short tablet screens); a long site name wraps to two lines in
+the picker; on Gates & devices the "N need attention" count opens the kind of device concerned; the login page
+says where to turn for a forgotten password.
 Sidebar groups (Operations, Community, Site setup, Platform) fold open and closed like dropdowns,
 remembered per browser; the group of the current page always opens. The **bell** in
 the top bar lists live activity for the selected condo as it happens: visitors in and out, intercom

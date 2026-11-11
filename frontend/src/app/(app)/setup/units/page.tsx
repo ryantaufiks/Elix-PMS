@@ -87,7 +87,7 @@ export default function UnitsSetupPage() {
                     <Td label="Unit" className="font-medium text-ink">{u.label}</Td>
                     <Td label="Block">{blockName(u.block)}</Td>
                     <Td label="Floor">{u.floor || "—"}</Td>
-                    <Td label="Status">{u.is_active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}</Td>
+                    <Td label="Status">{u.is_active ? <span className="text-muted">Active</span> : <Badge tone="amber">Inactive</Badge>}</Td>
                     <Td className="whitespace-nowrap text-right">
                       <RowMenu primary={{ label: "Edit", onClick: () => setEditingUnit(u) }} items={[
                         { label: "Delete unit", onClick: () => setDeletingUnit(u), danger: true },
