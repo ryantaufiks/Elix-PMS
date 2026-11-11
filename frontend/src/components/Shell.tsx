@@ -18,18 +18,18 @@ import { useTheme } from "@/lib/theme";
 import { cx, useToast } from "./ui";
 import { Credit } from "./Credit";
 
-type NavItem = { href: string; label: string; icon: IconName; admin?: boolean; superuser?: boolean };
+type NavItem = { href: string; label: string; icon: IconName; admin?: boolean; superuser?: boolean; module?: string };
 const NAV: { title: string; items: NavItem[] }[] = [
   {
     title: "Operations",
     items: [
       { href: "/", label: "Dashboard", icon: "home" },
       { href: "/access/", label: "Access log", icon: "list" },
-      { href: "/intercom/", label: "Intercom", icon: "phone" },
+      { href: "/intercom/", label: "Intercom", icon: "phone", module: "intercom" },
       { href: "/visits/", label: "Visitor list", icon: "clipboard" },
       { href: "/gates/", label: "Open gates", icon: "unlock" },
       { href: "/invitations/", label: "Invitations", icon: "ticket" },
-      { href: "/bookings/", label: "Bookings", icon: "calendar" },
+      { href: "/bookings/", label: "Bookings", icon: "calendar", module: "facilities" },
       { href: "/reports/", label: "Reports", icon: "report" },
     ],
   },
@@ -38,7 +38,7 @@ const NAV: { title: string; items: NavItem[] }[] = [
     items: [
       { href: "/residents/", label: "Residents", icon: "users" },
       { href: "/vehicles/", label: "Vehicles", icon: "car" },
-      { href: "/feedback/", label: "Feedback", icon: "star" },
+      { href: "/feedback/", label: "Feedback", icon: "star", module: "resident_app" },
       { href: "/staff/", label: "Staff", icon: "shield", admin: true },
     ],
   },
@@ -48,14 +48,15 @@ const NAV: { title: string; items: NavItem[] }[] = [
       { href: "/setup/site/", label: "Site settings", icon: "sliders", admin: true },
       { href: "/setup/units/", label: "Blocks & units", icon: "grid", admin: true },
       { href: "/setup/devices/", label: "Gates & devices", icon: "cpu", admin: true },
-      { href: "/setup/facilities/", label: "Facilities & payments", icon: "calendar", admin: true },
-      { href: "/setup/assistant/", label: "AI Assistant", icon: "sparkle", admin: true },
+      { href: "/setup/facilities/", label: "Facilities & payments", icon: "calendar", admin: true, module: "facilities" },
+      { href: "/setup/assistant/", label: "AI Assistant", icon: "sparkle", admin: true, module: "ai_concierge" },
     ],
   },
   {
     title: "Platform",
     items: [
       { href: "/platform/condominiums/", label: "Condominiums", icon: "building", superuser: true },
+      { href: "/platform/plans/", label: "Plans", icon: "tag", superuser: true },
       { href: "/platform/system/", label: "System settings", icon: "settings", superuser: true },
       { href: "/platform/backups/", label: "Backups", icon: "archive", superuser: true },
     ],
@@ -153,6 +154,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 <ul className="mt-0.5 space-y-0.5">
                   {group.items.map((item) => {
                     const active = isActive(item.href);
+                    const locked = item.module ? !condo.modules?.includes(item.module) : false;
                     return (
                       <li key={item.href}>
                         <Link
@@ -166,6 +168,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                           {active && <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-r bg-primary-400 shadow-[0_0_10px_rgba(91,147,255,0.9)]" />}
                           <Icon name={item.icon} className={cx("h-[18px] w-[18px] shrink-0", active ? "text-primary-300" : "text-slate-500")} />
                           {item.label}
+                          {locked && <Icon name="lock" className="ml-auto h-3.5 w-3.5 text-slate-500" />}
                         </Link>
                       </li>
                     );
@@ -281,7 +284,8 @@ function IncomingCalls() {
   const [calls, setCalls] = useState<Record<number, IntercomCall>>({});
   const [muted, setMuted] = useState(false);
 
-  const { data } = useSWR<Page<IntercomCall>>(`/v1/intercom-calls/${query({ condominium: condo.id, status: "ringing" })}`);
+  const hasIntercom = condo.modules?.includes("intercom") ?? false;
+  const { data } = useSWR<Page<IntercomCall>>(hasIntercom ? `/v1/intercom-calls/${query({ condominium: condo.id, status: "ringing" })}` : null);
   useEffect(() => {
     setCalls(Object.fromEntries((data?.results ?? []).filter((c) => c.is_open).map((c) => [c.id, c])));
   }, [data]);

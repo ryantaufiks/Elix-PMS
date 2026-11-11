@@ -12,7 +12,7 @@ from rest_framework.settings import api_settings
 from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
 
-from . import access, assistant, intercom, livekit, visits
+from . import access, assistant, entitlements, intercom, livekit, visits
 from . import visitor_identity as identity
 from . import models as m
 from . import serializers as s
@@ -127,8 +127,8 @@ class DirectoryView(KioskView, generics.ListAPIView):
         takes_calls = m.Residency.objects.filter(unit=OuterRef("pk"), is_active=True, receives_intercom_calls=True)
         qs = m.Unit.objects.filter(condominium=self.kiosk.condominium_id, is_active=True).select_related("block")
         if self.request.query_params.get("walk_in") != "1":
-            if not self.kiosk.condominium.resident_app_enabled:
-                return m.Unit.objects.none()  # no calls without the resident app
+            if not entitlements.has(self.kiosk.condominium, "intercom"):
+                return m.Unit.objects.none()  # no calls without the intercom module
             qs = qs.filter(Exists(takes_calls))
         if q := self.request.query_params.get("q", "").strip().lstrip("#"):
             floor, _, number = q.partition("-")
@@ -206,7 +206,7 @@ class QrLookupView(KioskView):
             return Response({"detail": "This kiosk is not linked to a gate."}, status=status.HTTP_409_CONFLICT)
         invitation = access.find_invitation(self.kiosk.condominium_id, body.validated_data["code"])
         problem = access.qr_problem(invitation, self.kiosk.gate)
-        result = "denied" if problem else ("face_required" if invitation.require_face else "granted")
+        result = "denied" if problem else ("face_required" if invitation.needs_face else "granted")
         return Response({"result": result, "reason": problem, "invitation": _pass(invitation)})
 
 
@@ -310,7 +310,7 @@ class WalkInCheckOutView(KioskView):
         code, pin, face = body.validated_data["code"], body.validated_data["pin"], body.validated_data["face"]
         condo = self.kiosk.condominium
         if face and not code and not pin:
-            if not (condo.kiosk_checkout and condo.kiosk_face_checkout):
+            if not (condo.kiosk_checkout and condo.kiosk_face_checkout and entitlements.has(condo, "face_kiosk")):
                 return Response({"detail": "Face check-out is turned off at this site."}, status=status.HTTP_409_CONFLICT)
             with transaction.atomic():
                 visit, reason = visits.match_face(condo.pk, face, lock=True)

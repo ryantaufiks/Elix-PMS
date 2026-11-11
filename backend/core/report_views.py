@@ -7,6 +7,7 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from . import entitlements
 from . import models as m
 from . import reports
 from .scoping import ALL_STAFF, staff_condo_ids
@@ -104,6 +105,9 @@ class ReportView(APIView):
         count = len(rows) if isinstance(rows, list) else rows.count()
 
         export = params.get("export")
+        if export in CONTENT_TYPES or params.get("page_size") == "print":
+            for site in sites:  # Export and print / PDF are Advanced reports.
+                entitlements.require(site, "advanced_reports")
         if export in CONTENT_TYPES:
             if count > reports.EXPORT_MAX_ROWS:
                 raise ValidationError({"detail": f"{count:,} rows is too many to export; narrow the period or filters "

@@ -20,7 +20,7 @@ def staff_condo_ids(user, roles=ALL_STAFF) -> set[int]:
 def _active_residencies(user):
     """Residencies that give access, i.e. at sites that use the resident app."""
     return Residency.objects.filter(user=user, is_active=True, unit__is_active=True,
-                                    unit__condominium__resident_app_enabled=True)
+                                    unit__condominium__modules__contains=["resident_app"])
 
 
 def resident_unit_ids(user) -> set[int]:

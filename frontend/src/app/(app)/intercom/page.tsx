@@ -12,6 +12,7 @@ import { formatDateTime, formatTime, visitPurpose } from "@/lib/format";
 import { useLiveEvents } from "@/lib/live";
 import { useSession } from "@/lib/session";
 import type { IntercomCall, LiveKitConnection, Page } from "@/lib/types";
+import { ModuleGate } from "@/components/ModuleGate";
 
 function useElapsed(since: string) {
   const [now, setNow] = useState(Date.now());
@@ -103,7 +104,7 @@ function ActiveCall({ call, connection, onAnswered, onDone }: {
   );
 }
 
-export default function IntercomPage() {
+function IntercomPage() {
   const { condo } = useSession();
   const [page, setPage] = useState(1);
   const [connections, setConnections] = useState<Record<number, LiveKitConnection>>({});
@@ -188,4 +189,8 @@ export default function IntercomPage() {
       </Card>
     </>
   );
+}
+
+export default function Page() {
+  return <ModuleGate module="intercom"><IntercomPage /></ModuleGate>;
 }

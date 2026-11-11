@@ -8,7 +8,7 @@ from core import assistant
 from core import models as m
 from core.scoping import ADMIN
 
-from .factories import make_condo, make_invitation, make_resident, make_staff, make_unit, make_user
+from .factories import make_condo, make_invitation, make_resident, make_staff, make_unit, make_user, set_plan
 from .test_intercom import LIVEKIT
 
 
@@ -29,7 +29,7 @@ class ResidentAppSwitchTests(APITestCase):
         self.invitation = make_invitation(self.unit, self.alice)
 
     def switch_off(self):
-        m.Condominium.objects.filter(pk=self.condo.pk).update(resident_app_enabled=False)
+        set_plan(self.condo, "full", disabled_modules=["resident_app"])
 
     def kiosk_get(self, url):
         return self.client.get(url, HTTP_AUTHORIZATION=f"Kiosk {self.token}")
@@ -67,11 +67,11 @@ class ResidentAppSwitchTests(APITestCase):
         self.assertNotIn("call_resident", assistant.instructions(self.condo))
 
     def test_only_the_platform_admin_switches_it(self, *mocks):
-        url = f"/v1/condominiums/{self.condo.pk}/"
+        url = f"/v1/subscriptions/{self.condo.pk}/"
         self.client.force_authenticate(make_staff("admin", self.condo, ADMIN))
-        self.assertEqual(self.client.patch(url, {"resident_app_enabled": False}).status_code, 403)
-        self.assertEqual(self.client.patch(url, {"name": "Alpha Residences"}).status_code, 200)
+        self.assertEqual(self.client.patch(url, {"disabled_modules": ["resident_app"]}, format="json").status_code, 403)
         self.client.force_authenticate(make_user("root", is_superuser=True, is_staff=True))
-        self.assertEqual(self.client.patch(url, {"resident_app_enabled": False}).status_code, 200)
+        self.assertEqual(self.client.patch(url, {"disabled_modules": ["resident_app"]}, format="json").status_code, 200)
         self.condo.refresh_from_db()
         self.assertFalse(self.condo.resident_app_enabled)
+        self.assertNotIn("intercom", self.condo.modules)  # needs the resident app

@@ -15,7 +15,7 @@ from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 
-from . import access, assistant, backups, intercom, livekit, mail, privacy, push, relays, visits
+from . import access, assistant, backups, entitlements, intercom, livekit, mail, privacy, push, relays, visits
 from . import visitor_identity as identity
 from . import models as m
 from . import serializers as s
@@ -61,15 +61,29 @@ class ScopedViewSetMixin:
     """
 
     condo_path = "condominium"
+    module = None  # Module the site needs for these records (core.entitlements); None: always available.
+    limit_key = None  # Plan limit counted when a record is added (core.entitlements.LIMITS).
     staff_read_roles = ALL_STAFF
     staff_write_roles = (ADMIN,)
     resident_unit_path = None
     resident_condo_read = False
     resident_writable = False
 
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        # Asking for one site's records: say plainly when its plan does not include them.
+        condo_id = request.query_params.get("condominium")
+        if self.module and condo_id and condo_id.isdigit():
+            condo = m.Condominium.objects.filter(pk=condo_id).only("modules").first()
+            if condo is not None:
+                entitlements.require(condo, self.module)
+
     def get_queryset(self):
         qs = super().get_queryset()
         user = self.request.user
+        if self.module:
+            lookup = "modules__contains" if self.condo_path == "id" else f"{self.condo_path}__modules__contains"
+            qs = qs.filter(**{lookup: [self.module]})
         if user.is_superuser:
             return qs
         scope = Q(**{f"{self.condo_path}__in": staff_condo_ids(user, self.staff_read_roles)})
@@ -84,6 +98,10 @@ class ScopedViewSetMixin:
         return qs.distinct() if any(_fans_out(qs.model, p) for p in paths) else qs
 
     def check_write(self, source):
+        if self.module:
+            condo = m.Condominium.objects.filter(pk=_resolve_pk(source, self.condo_path)).only("modules").first()
+            if condo is not None:
+                entitlements.require(condo, self.module)
         user = self.request.user
         if user.is_superuser:
             return
@@ -98,9 +116,17 @@ class ScopedViewSetMixin:
         raise PermissionDenied("You do not have permission to modify this record.")
 
 
+    def check_limit(self, source, adding=1):
+        if self.limit_key:
+            condo = m.Condominium.objects.filter(pk=_resolve_pk(source, self.condo_path)).first()
+            if condo is not None:
+                entitlements.check_limit(condo, self.limit_key, adding)
+
+
 class ScopedModelViewSet(ScopedViewSetMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         self.check_write(serializer.validated_data)
+        self.check_limit(serializer.validated_data)
         serializer.save()
 
     def perform_update(self, serializer):
@@ -157,15 +183,22 @@ class CondominiumViewSet(ScopedModelViewSet):
     def perform_create(self, serializer):
         if not self.request.user.is_superuser:
             raise PermissionDenied("Only the platform administrator can add condominiums.")
-        serializer.save()
+        plan = serializer.validated_data.pop("plan", None)
+        condo = serializer.save()  # Starts a trial on the default plan (signal); switch to the chosen one.
+        sub = m.Subscription.objects.filter(condominium=condo).first()
+        if sub is not None:
+            if plan is not None and sub.plan_id != plan.pk:
+                sub.plan = plan
+                sub.save(update_fields=["plan", "updated_at"])
+                sub.events.update(summary=f"Trial started on {plan.name} until {sub.trial_ends_on:%d %b %Y}.")
+                condo.subscription = sub  # The response shows the chosen plan.
+            sub.events.filter(actor=None).update(actor=self.request.user)
 
     def perform_update(self, serializer):
+        serializer.validated_data.pop("plan", None)  # The plan changes on the Subscription, not here.
         if "is_active" in serializer.validated_data and not self.request.user.is_superuser \
                 and serializer.validated_data["is_active"] != serializer.instance.is_active:
             raise PermissionDenied("Only the platform administrator can activate or deactivate a condominium.")
-        if "resident_app_enabled" in serializer.validated_data and not self.request.user.is_superuser \
-                and serializer.validated_data["resident_app_enabled"] != serializer.instance.resident_app_enabled:
-            raise PermissionDenied("Only the platform administrator can turn the resident app on or off.")
         super().perform_update(serializer)
 
     def perform_destroy(self, instance):
@@ -183,6 +216,7 @@ class BlockViewSet(ScopedModelViewSet):
 
 
 class UnitViewSet(ScopedModelViewSet):
+    limit_key = "units"
     queryset = m.Unit.objects.select_related("block")
     serializer_class = s.UnitSerializer
     resident_unit_path = "id"
@@ -206,6 +240,7 @@ class UnitViewSet(ScopedModelViewSet):
             for number in data["numbers"]
             if (str(floor).zfill(2), number) not in existing
         ]
+        self.check_limit({"condominium": data["condominium"]}, adding=len(new))
         m.Unit.objects.bulk_create(new)
         total = (data["floor_to"] - data["floor_from"] + 1) * len(data["numbers"])
         return Response({"created": len(new), "skipped": total - len(new)}, status=status.HTTP_201_CREATED)
@@ -247,6 +282,12 @@ class StaffAssignmentViewSet(MembershipViewSet):
     serializer_class = s.StaffAssignmentSerializer
     staff_read_roles = (ADMIN,)
     filterset_fields = ["condominium", "role", "user"]
+
+    def check_limit(self, source, adding=1):
+        # A person who already has a role at the site is not a new staff account.
+        data = source if isinstance(source, dict) else {}
+        if not m.StaffAssignment.objects.filter(user=data.get("user"), condominium=data.get("condominium")).exists():
+            entitlements.check_limit(data["condominium"], "staff_accounts", adding)
 
 
 class ResidencyViewSet(MembershipViewSet):
@@ -323,6 +364,7 @@ class ResidentOpenThrottle(UserRateThrottle):
 
 
 class AccessGateViewSet(ScopedModelViewSet):
+    limit_key = "gates"
     queryset = m.AccessGate.objects.all()
     serializer_class = s.AccessGateSerializer
     resident_condo_read = True
@@ -390,6 +432,8 @@ class RelayControllerViewSet(ScopedModelViewSet):
 
 
 class LprCameraViewSet(ScopedModelViewSet):
+    module = "lpr"
+    limit_key = "lpr_cameras"
     queryset = m.LprCamera.objects.all()
     serializer_class = s.LprCameraSerializer
     condo_path = "gate__condominium"
@@ -399,6 +443,7 @@ class LprCameraViewSet(ScopedModelViewSet):
 
 
 class KioskViewSet(ScopedModelViewSet):
+    limit_key = "kiosks"
     queryset = m.Kiosk.objects.all()
     serializer_class = s.KioskSerializer
     staff_read_roles = (ADMIN,)
@@ -406,6 +451,7 @@ class KioskViewSet(ScopedModelViewSet):
 
     def perform_create(self, serializer):
         self.check_write(serializer.validated_data)
+        self.check_limit(serializer.validated_data)
         kiosk = serializer.save()
         self._raw_token = kiosk.issue_token()
         kiosk.save(update_fields=["token_hint", "token_hash"])
@@ -498,6 +544,7 @@ def _livekit_unavailable():
 class IntercomCallViewSet(ScopedReadOnlyViewSet):
     """Calls to the user's units (residents) or condominium (staff), with the resident-side actions."""
 
+    module = "intercom"
     queryset = m.IntercomCall.objects.select_related("unit__block", "kiosk")
     serializer_class = s.IntercomCallSerializer
     resident_unit_path = "unit"
@@ -846,6 +893,8 @@ class ManagedUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixin
                 allowed = data["staff"]["condominium"].pk in staff_condo_ids(user, (ADMIN,))
             if not allowed:
                 raise PermissionDenied("You can only add residents to your own sites, and staff only to sites you administer.")
+        if serializer.validated_data.get("staff"):
+            entitlements.check_limit(serializer.validated_data["staff"]["condominium"], "staff_accounts")
         serializer.save()
 
     def perform_update(self, serializer):
@@ -895,6 +944,7 @@ class AssistantSettingsView(generics.GenericAPIView):
             raise ValidationError({"condominium": "Choose the site."})
         if not self.request.user.is_superuser and condo.pk not in staff_condo_ids(self.request.user, (ADMIN,)):
             raise PermissionDenied("Only the site admin manages the assistant.")
+        entitlements.require(condo, "ai_concierge")
         return condo
 
     def get_object(self):
@@ -929,6 +979,7 @@ class AssistantTestView(AssistantSettingsView):
 
 
 class AssistantModuleViewSet(ScopedModelViewSet):
+    module = "ai_concierge"
     queryset = m.AssistantModule.objects.all()
     serializer_class = s.AssistantModuleSerializer
     staff_read_roles = (ADMIN,)
@@ -936,6 +987,7 @@ class AssistantModuleViewSet(ScopedModelViewSet):
 
 
 class AssistantMapViewSet(ScopedModelViewSet):
+    module = "ai_concierge"
     queryset = m.AssistantMap.objects.all()
     serializer_class = s.AssistantMapSerializer
     staff_read_roles = (ADMIN,)

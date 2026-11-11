@@ -11,6 +11,7 @@ import { api, ApiError, query } from "@/lib/api";
 import { timeAgo } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import type { Camera, Gate, IntegrationAccount, Kiosk, Page, Relay } from "@/lib/types";
+import { LockedFeature } from "@/components/ModuleGate";
 
 type Tab = "gates" | "relays" | "cameras" | "kiosks" | "accounts";
 
@@ -26,7 +27,8 @@ export default function DevicesSetupPage() {
   });
   const gates = useGates(condo.id);
   const relays = useSWR<Page<Relay>>(isAdmin ? `/v1/relays/${query({ gate__condominium: condo.id, page_size: 200 })}` : null);
-  const cameras = useSWR<Page<Camera>>(isAdmin ? `/v1/cameras/${query({ gate__condominium: condo.id, page_size: 200 })}` : null);
+  const hasLpr = condo.modules?.includes("lpr") ?? false;
+  const cameras = useSWR<Page<Camera>>(isAdmin && hasLpr ? `/v1/cameras/${query({ gate__condominium: condo.id, page_size: 200 })}` : null);
   const kiosks = useSWR<Page<Kiosk>>(isAdmin ? `/v1/kiosks/${query({ condominium: condo.id, page_size: 200 })}` : null);
   const accounts = useSWR<Page<IntegrationAccount>>(isAdmin ? `/v1/integration-accounts/${query({ condominium: condo.id, page_size: 200 })}` : null);
 
@@ -49,14 +51,15 @@ export default function DevicesSetupPage() {
           tabs={[
             { key: "gates", label: "Gates", count: gates.data?.count },
             { key: "relays", label: "Relays", count: relays.data?.count },
-            { key: "cameras", label: "LPR cameras", count: cameras.data?.count },
+            { key: "cameras", label: hasLpr ? "LPR cameras" : "LPR cameras 🔒", count: cameras.data?.count },
             { key: "kiosks", label: "Kiosks", count: kiosks.data?.count },
             { key: "accounts", label: "Cloud accounts", count: accounts.data?.count },
           ]}
         />
         {tab === "gates" && <GatesTab condoId={condo.id} data={gates.data} mutate={gates.mutate} />}
         {tab === "relays" && <RelaysTab data={relays.data} mutate={relays.mutate} gateOptions={gateOptions} gateName={gateName} accounts={accounts.data?.results ?? []} />}
-        {tab === "cameras" && <CamerasTab data={cameras.data} mutate={cameras.mutate} gateOptions={gateOptions} gateName={gateName} />}
+        {tab === "cameras" && !hasLpr && <div className="p-4"><LockedFeature module="lpr" /></div>}
+        {tab === "cameras" && hasLpr && <CamerasTab data={cameras.data} mutate={cameras.mutate} gateOptions={gateOptions} gateName={gateName} />}
         {tab === "kiosks" && <KiosksTab condoId={condo.id} data={kiosks.data} mutate={kiosks.mutate} gateOptions={gateOptions} gateName={gateName} />}
         {tab === "accounts" && <AccountsTab condoId={condo.id} data={accounts.data} mutate={accounts.mutate} />}
       </Card>

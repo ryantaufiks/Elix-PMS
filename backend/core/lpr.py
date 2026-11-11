@@ -10,6 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse
 
+from . import entitlements
 from .access import handle_plate
 from .auth_views import client_ip, over_limit
 from .models import LprCamera
@@ -109,7 +110,8 @@ def lpr_webhook(request):
     camera.last_payload = payload
     camera.save(update_fields=["last_seen_at", "last_payload"])
 
-    if not camera.is_active or not camera.gate.condominium.lpr_enabled:
+    condo = camera.gate.condominium
+    if not camera.is_active or not condo.lpr_enabled or not entitlements.has(condo, "lpr"):
         return JsonResponse({"status": "recorded", "detail": "LPR is disabled; payload stored for inspection"})
 
     plate = extract_plate(camera, payload)

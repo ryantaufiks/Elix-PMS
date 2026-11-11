@@ -1,4 +1,5 @@
 from .assistant import AssistantMap, AssistantModule, AssistantSession, AssistantSettings
+from .billing import Plan, Subscription, SubscriptionEvent
 from .access import AccessLog, IntercomCall
 from .amenities import Booking, Facility, PaymentSettings
 from .community import Feedback
@@ -11,6 +12,6 @@ from .visitors import Invitation, Visit, Visitor, VisitPurpose
 
 __all__ = [
     "AccessGate", "AccessLog", "Block", "Booking", "Condominium", "Direction", "EmailLog", "Facility", "Feedback",
-    "IntegrationAccount", "IntercomCall", "Invitation", "Kiosk", "LprCamera", "PaymentSettings", "Provider", "PushDevice", "RelayController", "Residency", "StaffAssignment", "SystemSettings",
+    "IntegrationAccount", "IntercomCall", "Invitation", "Kiosk", "LprCamera", "PaymentSettings", "Plan", "Provider", "PushDevice", "RelayController", "Residency", "StaffAssignment", "Subscription", "SubscriptionEvent", "SystemSettings",
     "Unit", "User", "Vehicle", "Visit", "Visitor", "VisitPurpose",
 ]

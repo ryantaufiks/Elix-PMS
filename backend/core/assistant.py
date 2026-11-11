@@ -17,7 +17,7 @@ from asgiref.sync import sync_to_async
 from django.core.cache import cache
 from django.utils import timezone
 
-from . import config
+from . import config, entitlements
 from . import models as m
 
 log = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ def site_settings(condo):
 
 
 def available(condo):
-    return site_settings(condo).enabled and bool(api_key(condo))
+    return entitlements.has(condo, "ai_concierge") and site_settings(condo).enabled and bool(api_key(condo))
 
 
 # --- What the assistant knows and may do -------------------------------------------------------------
@@ -52,7 +52,7 @@ def instructions(condo):
     site = site_settings(condo)
     maps = m.AssistantMap.objects.filter(condominium=condo, is_active=True)
     modules = m.AssistantModule.objects.filter(condominium=condo, is_active=True)
-    calls = condo.resident_app_enabled
+    calls = entitlements.has(condo, "intercom")
     parts = [
         f"You are {site.name}, the voice concierge on the visitor kiosk at the entrance of {condo.name}"
         f"{f', {condo.address}' if condo.address else ''}, a residential condominium in Singapore. You help visitors, "
@@ -102,7 +102,7 @@ def tools(condo):
         {"name": "end_conversation", "description": "Close the assistant when the visitor is done or says goodbye.",
          "parameters": {"type": "object", "properties": {}}},
     ]
-    if not condo.resident_app_enabled:
+    if not entitlements.has(condo, "intercom"):
         found = [t for t in found if t["name"] != "call_resident"]
     if map_ids:
         found.insert(0, {"name": "show_map", "description": "Show a map or floor plan on the kiosk screen.",

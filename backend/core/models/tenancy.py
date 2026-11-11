@@ -1,3 +1,4 @@
+from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
@@ -18,10 +19,9 @@ class Condominium(TimeStampedModel):
     contact_phone = PhoneNumberField(blank=True)
     is_active = models.BooleanField(default=True)
 
-    resident_app_enabled = models.BooleanField(
-        "Resident app", default=True,
-        help_text="Residents use the Elix app (calls from the kiosk, invitations, bookings). When off, the site runs "
-                  "on the kiosk and the management dashboard only. Set by the platform administrator.",
+    modules = ArrayField(
+        models.CharField(max_length=30), default=list, blank=True, editable=False,
+        help_text="Effective modules from the subscription (kept up to date by core.entitlements).",
     )
     lpr_enabled = models.BooleanField(
         "LPR enabled", default=False,
@@ -88,6 +88,10 @@ class Condominium(TimeStampedModel):
 
     def __str__(self):
         return self.name
+
+    @property
+    def resident_app_enabled(self) -> bool:
+        return "resident_app" in (self.modules or [])
 
 
 class Block(TimeStampedModel):

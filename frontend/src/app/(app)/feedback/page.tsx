@@ -11,6 +11,7 @@ import { formatDateTime } from "@/lib/format";
 import { useLiveEvents } from "@/lib/live";
 import { useSession } from "@/lib/session";
 import type { Feedback, FeedbackSummary, Page } from "@/lib/types";
+import { ModuleGate } from "@/components/ModuleGate";
 
 const CATEGORIES = [
   ["security", "Security"], ["cleanliness", "Cleanliness"], ["facilities", "Facilities"], ["maintenance", "Maintenance"],
@@ -67,7 +68,7 @@ function Reply({ feedback, onClose, onSaved }: { feedback: Feedback; onClose: ()
   );
 }
 
-export default function FeedbackPage() {
+function FeedbackPage() {
   const { condo, isManager } = useSession();
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState("");
@@ -154,4 +155,8 @@ export default function FeedbackPage() {
       {replying && <Reply feedback={replying} onClose={() => setReplying(null)} onSaved={() => { setReplying(null); mutate(); refreshSummary(); }} />}
     </>
   );
+}
+
+export default function Page() {
+  return <ModuleGate module="resident_app"><FeedbackPage /></ModuleGate>;
 }

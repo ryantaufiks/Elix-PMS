@@ -108,6 +108,11 @@ class Invitation(TimeStampedModel):
             models.Index(fields=["condominium", "vehicle_plate"]),
         ]
 
+    @property
+    def needs_face(self) -> bool:
+        """Face verification applies only while the site has the Face check module."""
+        return self.require_face and "face_kiosk" in (self.condominium.modules or [])
+
     def __str__(self):
         return f"{self.visitor_name} -> {self.unit} ({self.valid_from:%d %b %Y})"
 

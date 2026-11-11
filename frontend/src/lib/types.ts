@@ -70,7 +70,10 @@ export type Condominium = {
   postal_code: string;
   contact_phone: string;
   is_active: boolean;
-  resident_app_enabled: boolean;
+  /** Modules the site's subscription includes (core.entitlements). */
+  modules: string[];
+  plan_name: string;
+  subscription_status: SubscriptionStatus | "";
   lpr_enabled: boolean;
   invitation_max_days: number;
   intercom_ring_timeout_seconds: number;
@@ -143,6 +146,47 @@ export type SystemSettings = {
   email_configured: boolean;
   sources: Record<string, "admin" | ".env" | "">;
   updated_at: string | null;
+};
+
+export type SubscriptionStatus = "trial" | "active" | "grace" | "suspended" | "cancelled";
+
+export type ModuleInfo = { key: string; name: string; description: string; requires: string[]; available: boolean; upsell_plan: string };
+export type LimitInfo = { key: string; name: string; unit: string; enforced: boolean };
+export type ModuleCatalogue = { modules: ModuleInfo[]; limits: LimitInfo[] };
+
+export type Plan = {
+  id: number;
+  code: string;
+  name: string;
+  description: string;
+  modules: string[];
+  limits: Record<string, number | null>;
+  sort_order: number;
+  is_public: boolean;
+  is_active: boolean;
+  subscriptions: number;
+  updated_at: string;
+};
+
+export type Subscription = {
+  condominium: number;
+  condominium_name: string;
+  plan: number;
+  plan_name: string;
+  addons: string[];
+  disabled_modules: string[];
+  limit_overrides: Record<string, number | null>;
+  status: SubscriptionStatus;
+  trial_ends_on: string | null;
+  period_ends_on: string | null;
+  billing_name: string;
+  billing_email: string;
+  notes?: string;
+  modules: string[];
+  limits: Record<string, number | null>;
+  usage: Record<string, number>;
+  events?: { id: number; at: string; actor_name: string; summary: string }[];
+  updated_at: string;
 };
 
 export type EmailLog = {

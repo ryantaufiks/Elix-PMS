@@ -10,6 +10,9 @@ const time = new Intl.DateTimeFormat("en-SG", {
 
 export const formatDateTime = (iso?: string | null) => (iso ? dateTime.format(new Date(iso)) : "—");
 export const formatTime = (iso?: string | null) => (iso ? time.format(new Date(iso)) : "—");
+const day = new Intl.DateTimeFormat("en-SG", { timeZone: TIME_ZONE, day: "numeric", month: "short", year: "numeric" });
+/** A calendar date (YYYY-MM-DD), e.g. "30 Nov 2026". */
+export const formatDate = (date?: string | null) => (date ? day.format(new Date(`${date}T12:00:00+08:00`)) : "—");
 
 export function timeAgo(iso?: string | null): string {
   if (!iso) return "never";

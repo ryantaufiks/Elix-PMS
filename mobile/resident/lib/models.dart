@@ -11,6 +11,8 @@ class Residency {
   bool get receivesCalls => json['receives_intercom_calls'] as bool? ?? true;
   /// The site uses the resident app (the platform administrator can turn it off per site).
   bool get appEnabled => json['resident_app_enabled'] as bool? ?? true;
+  /// Modules of the site's plan; servers before plans send none, which means everything.
+  bool hasModule(String key) => (json['modules'] as List?)?.contains(key) ?? true;
 }
 
 class Me {

@@ -5,6 +5,7 @@ import useSWR from "swr";
 
 import { BarList, DailyChart } from "@/components/charts";
 import { Icon, type IconName } from "@/components/icons";
+import { upsellText, useModule, useModuleCatalogue } from "@/components/ModuleGate";
 import { ReportPrint } from "@/components/ReportPrint";
 import {
   Badge, Button, Card, CardHeader, cx, Empty, ErrorNote, Field, Input, Loading, PageHeader, Pagination, Select, Table, Td, Th, useToast,
@@ -79,6 +80,8 @@ function SitePicker({ catalog, value, onChange }: { catalog: ReportCatalog; valu
 
 export default function ReportsPage() {
   const { condo } = useSession();
+  const advanced = useModule("advanced_reports");
+  const advancedInfo = useModuleCatalogue()?.modules.find((x) => x.key === "advanced_reports");
   const toast = useToast();
   const { data: catalog, error: catalogError } = useSWR<ReportCatalog>("/v1/reports/");
   const [reportKey, setReportKey] = useState("visits");
@@ -176,13 +179,17 @@ export default function ReportsPage() {
         description={catalog.can_combine
           ? "Consolidated reports across your sites. Pick a report, the sites and the period, then print or export."
           : `Reports for ${condo.name}. Pick a report and the period, then print or export.`}
-        action={
+        action={advanced ? (
           <>
             <Button onClick={print} busy={busy === "print"} disabled={!!busy || !data}><Icon name="printer" className="h-4 w-4" /> Print / PDF</Button>
             <Button onClick={() => download("xlsx")} busy={busy === "xlsx"} disabled={!!busy || !data}><Icon name="download" className="h-4 w-4" /> Excel</Button>
             <Button variant="ghost" onClick={() => download("csv")} busy={busy === "csv"} disabled={!!busy || !data}>CSV</Button>
           </>
-        }
+        ) : (
+          <span className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm text-muted" title="Print and export are part of Advanced reports.">
+            <Icon name="lock" className="h-4 w-4" /> Print &amp; export · {upsellText(advancedInfo)}
+          </span>
+        )}
       />
 
       {/* Report types */}

@@ -10,6 +10,7 @@ import { Badge, Button, Card, CardHeader, Checkbox, Empty, ErrorNote, Field, Ico
 import { api, ApiError, errorMessage } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import type { AssistantAction, AssistantMap, AssistantModule, AssistantSettings, Page } from "@/lib/types";
+import { ModuleGate } from "@/components/ModuleGate";
 
 const settingsFields: FieldDef[] = [
   { name: "enabled", label: "Show the assistant on this site's kiosks", type: "checkbox", wide: true },
@@ -40,7 +41,7 @@ const ACTION_LABEL = (a: AssistantAction, maps: AssistantMap[]) => {
   }
 };
 
-export default function AssistantSetupPage() {
+function AssistantSetupPage() {
   const { condo, isAdmin } = useSession();
   const toast = useToast();
   const base = `?condominium=${condo.id}`;
@@ -257,4 +258,8 @@ function TryIt({ condoId, maps }: { condoId: number; maps: AssistantMap[] }) {
       </div>
     </Card>
   );
+}
+
+export default function Page() {
+  return <ModuleGate module="ai_concierge"><AssistantSetupPage /></ModuleGate>;
 }

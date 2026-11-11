@@ -8,6 +8,7 @@ from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from . import entitlements
 from . import models as m
 
 
@@ -63,15 +64,28 @@ class ModelCleanSerializer(serializers.ModelSerializer):
 # --- Tenancy -----------------------------------------------------------------
 
 class CondominiumSerializer(ModelCleanSerializer):
+    plan_name = serializers.CharField(source="subscription.plan.name", default="", read_only=True)
+    subscription_status = serializers.CharField(source="subscription.status", default="", read_only=True)
+    plan = serializers.SlugRelatedField(
+        slug_field="code", queryset=m.Plan.objects.filter(is_active=True), write_only=True, required=False,
+        help_text="New sites only: the plan the trial starts on (default Standard).")
+
     class Meta:
         model = m.Condominium
         fields = [
-            "id", "name", "code", "address", "postal_code", "timezone", "contact_phone", "is_active", "resident_app_enabled",
-            "lpr_enabled", "invitation_max_days", "intercom_ring_timeout_seconds", "face_verification_enabled",
+            "id", "name", "code", "address", "postal_code", "timezone", "contact_phone", "is_active", "modules", "plan_name",
+            "subscription_status", "lpr_enabled", "invitation_max_days", "intercom_ring_timeout_seconds", "face_verification_enabled",
             "visitor_data_retention_days", "kiosk_visitor_form", "kiosk_photo_required", "kiosk_walk_in", "kiosk_walk_in_photo", "kiosk_checkout", "kiosk_face_checkout",
-            "visitor_privacy_notice",
+            "visitor_privacy_notice", "plan",
             "created_at", "updated_at",
         ]
+
+    def validate(self, attrs):
+        plan = attrs.pop("plan", None)
+        attrs = super().validate(attrs)
+        if plan is not None:
+            attrs["plan"] = plan
+        return attrs
 
 
 class BlockSerializer(ModelCleanSerializer):
@@ -110,12 +124,13 @@ class ResidencySerializer(ModelCleanSerializer):
     condominium = serializers.IntegerField(source="unit.condominium_id", read_only=True)
     condominium_name = serializers.CharField(source="unit.condominium.name", read_only=True)
     resident_app_enabled = serializers.BooleanField(source="unit.condominium.resident_app_enabled", read_only=True)
+    modules = serializers.ListField(source="unit.condominium.modules", child=serializers.CharField(), read_only=True)
     unit_display = serializers.CharField(source="unit.__str__", read_only=True)
 
     class Meta:
         model = m.Residency
         fields = [
-            "id", "user", "user_detail", "unit", "unit_display", "condominium", "condominium_name", "resident_app_enabled", "resident_type",
+            "id", "user", "user_detail", "unit", "unit_display", "condominium", "condominium_name", "resident_app_enabled", "modules", "resident_type",
             "is_primary_contact", "receives_intercom_calls", "start_date", "end_date", "is_active",
         ]
 
@@ -541,16 +556,21 @@ class KioskSelfSerializer(serializers.ModelSerializer):
     walk_in = serializers.BooleanField(source="condominium.kiosk_walk_in")
     walk_in_photo = serializers.BooleanField(source="condominium.kiosk_walk_in_photo")
     checkout = serializers.BooleanField(source="condominium.kiosk_checkout")
-    call_resident = serializers.BooleanField(source="condominium.resident_app_enabled")
+    call_resident = serializers.SerializerMethodField()
+    modules = serializers.ListField(source="condominium.modules", child=serializers.CharField(), read_only=True)
     face_checkout = serializers.SerializerMethodField()
 
     class Meta:
         model = m.Kiosk
         fields = ["id", "name", "condominium", "condominium_name", "gate", "gate_name", "ring_timeout_seconds",
-                  "visitor_form", "photo_required", "privacy_notice", "walk_in", "walk_in_photo", "checkout", "call_resident", "face_checkout", "prints_slips"]
+                  "visitor_form", "photo_required", "privacy_notice", "walk_in", "walk_in_photo", "checkout", "call_resident", "face_checkout", "prints_slips", "modules"]
+
+    def get_call_resident(self, obj) -> bool:
+        return entitlements.has(obj.condominium, "intercom")
 
     def get_face_checkout(self, obj) -> bool:
-        return obj.condominium.kiosk_checkout and obj.condominium.kiosk_face_checkout
+        return (obj.condominium.kiosk_checkout and obj.condominium.kiosk_face_checkout
+                and entitlements.has(obj.condominium, "face_kiosk"))
 
 
 class PushDeviceSerializer(serializers.ModelSerializer):
@@ -838,6 +858,7 @@ class InvitationPassSerializer(serializers.ModelSerializer):
     unit_display = serializers.CharField(source="unit.__str__")
     host_first_name = serializers.SerializerMethodField()
     privacy_notice = serializers.CharField(source="condominium.privacy_notice")
+    require_face = serializers.BooleanField(source="needs_face", read_only=True)
     entries_left = serializers.SerializerMethodField()
     usable = serializers.SerializerMethodField()
     problem = serializers.SerializerMethodField()

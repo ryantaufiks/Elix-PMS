@@ -2,11 +2,23 @@ from datetime import timedelta
 
 from django.utils import timezone
 
+from core import entitlements
 from core import models as m
 
 
-def make_condo(code="alpha", **kw):
-    return m.Condominium.objects.create(name=code.title(), code=code, **kw)
+def make_condo(code="alpha", plan="full", **kw):
+    """A site on ``plan`` (default every module), active."""
+    condo = m.Condominium.objects.create(name=code.title(), code=code, **kw)
+    set_plan(condo, plan)
+    return condo
+
+
+def set_plan(condo, plan, **subscription):
+    entitlements.ensure_default_plans()  # TransactionTestCase empties the tables migrations filled.
+    m.Subscription.objects.update_or_create(condominium=condo, defaults={
+        "plan": m.Plan.objects.get(code=plan), "status": m.Subscription.Status.ACTIVE, **subscription})
+    condo.refresh_from_db()
+    return condo
 
 
 def make_unit(condo, floor="05", number="12"):

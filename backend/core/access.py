@@ -67,7 +67,7 @@ def handle_plate(camera, plate, payload):
         return deny(gate, reason="Unregistered plate", **fields)
 
     fields.update(invitation=invitation, unit=invitation.unit, visitor=invitation.visitor)
-    if invitation.require_face:
+    if invitation.needs_face:
         return deny(gate, reason="Invitation requires face verification at the kiosk", **fields)
     if not gate.lpr_auto_open_invited:
         return deny(gate, reason="Auto-open for invited vehicles is off at this gate", **fields)
@@ -137,7 +137,7 @@ def handle_qr(kiosk, code, plate="", face_photo=None, face_descriptor=None):
         return deny(gate, reason=problem, **fields)
     if plate and invitation.vehicle_plate and plate != invitation.vehicle_plate:
         return deny(gate, reason=f"Vehicle {plate} does not match the invitation", **fields)
-    if invitation.require_face and face_photo is None:
+    if invitation.needs_face and face_photo is None:
         raise FaceRequired()
 
     invitation.record_entry()

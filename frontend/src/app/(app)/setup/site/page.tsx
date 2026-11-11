@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { FormFields, initialValues } from "@/components/forms";
 import { Button, Card, CardHeader, Empty, ErrorNote, PageHeader, useToast } from "@/components/ui";
 import { api, ApiError, errorMessage } from "@/lib/api";
+import { PlanSummary } from "@/components/PlanSummary";
 import { condoFields } from "@/lib/fields";
 import { useSession } from "@/lib/session";
 import type { Condominium } from "@/lib/types";
@@ -43,6 +44,7 @@ export default function SiteSettingsPage() {
   return (
     <>
       <PageHeader title="Site settings" description={`Details and visitor policy for ${condo.name}.`} />
+      <div className="mb-6"><PlanSummary condoId={condo.id} /></div>
       <Card className="max-w-4xl">
         <CardHeader title="Condominium" />
         <form onSubmit={save} className="space-y-5 p-5 sm:p-6">

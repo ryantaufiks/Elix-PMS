@@ -4,7 +4,7 @@ from django.db import transaction
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
-from .models import AccessLog, AssistantMap, Backup, ResidentDocument, User
+from .models import AccessLog, AssistantMap, Backup, Condominium, Plan, ResidentDocument, Subscription, User
 from .realtime import broadcast
 
 logger = logging.getLogger(__name__)
@@ -55,3 +55,33 @@ def delete_backup_file(sender, instance, **kwargs):
 def delete_assistant_map_image(sender, instance, **kwargs):
     if instance.image:
         transaction.on_commit(lambda: instance.image.storage.delete(instance.image.name))
+
+
+# --- Subscriptions: keep each site's effective modules current ---------------------------------------
+
+@receiver(post_save, sender=Condominium)
+def start_trial(sender, instance, created, raw=False, **kwargs):
+    """Every new site starts a trial (the dashboard passes the chosen plan; anywhere else gets the default)."""
+    if created and not raw:
+        from . import entitlements
+
+        entitlements.start_subscription(instance)
+
+
+@receiver(post_save, sender=Subscription)
+@receiver(post_delete, sender=Subscription)
+def subscription_changed(sender, instance, raw=False, **kwargs):
+    if not raw:
+        from . import entitlements
+
+        condo = Condominium.objects.filter(pk=instance.condominium_id).first()
+        if condo is not None:
+            entitlements.refresh(condo)
+
+
+@receiver(post_save, sender=Plan)
+def plan_changed(sender, instance, raw=False, **kwargs):
+    if not raw:
+        from . import entitlements
+
+        entitlements.refresh_plan(instance)

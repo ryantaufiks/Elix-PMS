@@ -3,15 +3,16 @@ import type { FieldDef } from "@/components/forms";
 
 const slug = (v: string) => v.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+/, "");
 
-export const condoFields = (opts: { superuser: boolean; creating: boolean }): FieldDef[] => [
+export const condoFields = (opts: { superuser: boolean; creating: boolean; plans?: { code: string; name: string }[] }): FieldDef[] => [
   { name: "name", label: "Name", required: true, placeholder: "e.g. The Sail @ Marina Bay" },
   { name: "code", label: "Short code", required: true, transform: slug, hint: "Unique, lowercase, e.g. the-sail.", placeholder: "the-sail" },
   { name: "address", label: "Address", wide: true },
   { name: "postal_code", label: "Postal code", hint: "6 digits", placeholder: "018987" },
   { name: "contact_phone", label: "Management office phone", type: "tel", placeholder: "+65 6123 4567" },
   ...(opts.superuser && !opts.creating ? [{ name: "is_active", label: "Site is active", type: "checkbox" } as FieldDef] : []),
-  ...(opts.superuser ? [{ name: "resident_app_enabled", label: "Residents use the Elix app", type: "checkbox", wide: true, section: "Resident app",
-    hint: "When off, the site runs on the kiosk and this dashboard only: residents cannot sign in to the app, and the kiosk offers no calls (Call a resident and the assistant's calls are hidden)." } as FieldDef] : []),
+  ...(opts.superuser && opts.creating && opts.plans?.length ? [{ name: "plan", label: "Plan", type: "select", required: true, section: "Subscription", wide: true,
+    options: opts.plans.map((p) => ({ value: p.code, label: p.name })),
+    hint: "The site starts a 30-day trial on this plan. Change it later under Subscription." } as FieldDef] : []),
   { name: "lpr_enabled", label: "Licence-plate recognition enabled", type: "checkbox", section: "Access policy", wide: true,
     hint: "When off, camera events are only recorded (useful while setting up cameras)." },
   { name: "intercom_ring_timeout_seconds", label: "Intercom ring timeout (seconds)", type: "number", hint: "After this the call is marked missed." },
@@ -36,6 +37,6 @@ export const condoFields = (opts: { superuser: boolean; creating: boolean }): Fi
 ];
 
 export const condoDefaults = {
-  intercom_ring_timeout_seconds: 45, invitation_max_days: 30, visitor_data_retention_days: 90, resident_app_enabled: true, lpr_enabled: false,
+  intercom_ring_timeout_seconds: 45, invitation_max_days: 30, visitor_data_retention_days: 90, lpr_enabled: false, plan: "standard",
   kiosk_visitor_form: true, kiosk_photo_required: true, kiosk_walk_in: true, kiosk_walk_in_photo: true, kiosk_checkout: true,
 };

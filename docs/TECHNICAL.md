@@ -278,12 +278,12 @@ gate calls (native full-screen ringing when the app is closed, in-app screen wit
 when open), video with the kiosk, **swipe to open**, invite visitors and share the QR pass, register
 vehicles, and see the unit's recent entries. Staff use the web dashboard instead.
 
-**Sites without the app:** the platform admin can turn off *Residents use the Elix app* per site
-(Platform → Condominiums → Edit; `resident_app_enabled`, only superusers may change it). The site then
-runs on the kiosk and the dashboard only: residents there get no API access (the app shows *Your
-condominium does not use the Elix app*), the kiosk hides *Call a resident* and refuses calls (409),
-the kiosk assistant loses its `call_resident` tool, and the Residents page hides the APK button.
-Walk-ins, invitation QRs and check-out keep working.
+**Sites without the app:** a site whose plan lacks the *Resident app* module (or where the platform
+admin switched it off under Subscription, see *Plans & subscriptions*) runs on the kiosk and the
+dashboard only: residents there get no API access (the app shows *Your condominium does not use the
+Elix app*), the kiosk hides *Call a resident* and refuses calls (409), the kiosk assistant loses its
+`call_resident` tool, and the Residents page hides the APK button. Walk-ins, invitation QRs and
+check-out keep working. The app hides *Facility* when the plan has no Facilities module.
 
 The sign-in screen has a slowly drifting blue glow behind it (still when the phone's *Remove
 animations* setting is on). The home header shows the **weather** at the condo next to the resident's
@@ -432,6 +432,30 @@ recipient and the worker sends it, retrying network errors and temporary (4xx) s
 times; rejected logins or recipients fail at once with the reason on the log. The **Email log** on the
 same page (`GET /v1/email-logs/`, platform admin) lists the last 30 days; older rows are pruned daily
 (`core.tasks.prune_email_log`, 04:45).
+
+## Plans & subscriptions
+
+Elix is sold per site as **modules** (`core/entitlements.py` holds the catalogue): `core` (always),
+`resident_app`, `intercom` and `facilities` (both need the resident app), `lpr`, `face_kiosk`,
+`ai_concierge`, `advanced_reports` (export and print / PDF), and, coming, `local_devices`,
+`lpr_camera_list`, `face_terminal`. A **Plan** (*Platform → Plans*) bundles modules with **limits**
+(units, kiosks, gates, LPR cameras and staff accounts are enforced; video minutes, AI conversations,
+face terminals and storage are shown and enforced later); empty means unlimited. Migration 0018 made
+Basic, Standard and Premium plus an internal **Full** plan, and put every existing site on Full.
+
+Each site has a **Subscription** (*Platform → Condominiums → Subscription*): plan, add-ons, modules
+switched off, limit overrides, status (trial, active, grace, suspended, cancelled), trial and paid-until
+dates, billing contact and internal notes, with a history of every change. A new site starts a 30-day
+trial on the plan chosen when adding it (default Standard). The effective modules (plan + add-ons −
+switched off, minus modules whose requirements are gone; while suspended or cancelled only `core`, `lpr`
+and the on-site access modules) are stored on `Condominium.modules` and checked on the server:
+viewsets with `module = "…"` refuse a locked site with 403 `{"code": "module_locked", "module": …}`,
+`limit_key` refuses additions past a limit with 403 `{"code": "limit_reached"}`, and the kiosk
+(`/v1/kiosk/me/` → `modules`, `call_resident`, `face_checkout`), the assistant, face verification of
+invitations, the LPR webhook (records only) and report export / print follow the same modules. The
+dashboard keeps locked menus visible with a padlock and shows what the feature does and which plan
+includes it (`GET /v1/modules/`); site admins see their plan, modules and usage under *Site settings →
+Your plan* (`GET /v1/subscriptions/<site>/`, without internal notes).
 
 ## Production
 

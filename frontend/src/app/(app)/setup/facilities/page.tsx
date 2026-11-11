@@ -12,6 +12,7 @@ import {
 import { api, ApiError, errorMessage } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import type { Facility, Page, PaymentSettings } from "@/lib/types";
+import { ModuleGate } from "@/components/ModuleGate";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 /** Icons the resident app knows (Material icon names). */
@@ -194,7 +195,7 @@ function Payments({ condoId }: { condoId: number }) {
   );
 }
 
-export default function FacilitiesPage() {
+function FacilitiesPage() {
   const { condo, isAdmin } = useSession();
   const { data, mutate } = useSWR<Page<Facility>>(isAdmin ? `/v1/facilities/?condominium=${condo.id}&page_size=100` : null);
   const [editing, setEditing] = useState<Facility | "new" | null>(null);
@@ -252,4 +253,8 @@ export default function FacilitiesPage() {
         onClose={() => setDeleting(null)} onConfirm={async () => { await remove(`/v1/facilities/${deleting!.id}/`); mutate(); }} />
     </>
   );
+}
+
+export default function Page() {
+  return <ModuleGate module="facilities"><FacilitiesPage /></ModuleGate>;
 }

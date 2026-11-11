@@ -1,7 +1,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from . import amenity_views, auth_views, feed_views, kiosk_views, report_views, views
+from . import amenity_views, auth_views, billing_views, feed_views, kiosk_views, report_views, views
 
 router = DefaultRouter()
 router.register("condominiums", views.CondominiumViewSet)
@@ -12,6 +12,7 @@ router.register("residencies", views.ResidencyViewSet)
 router.register("resident-documents", views.ResidentDocumentViewSet)
 router.register("backups", views.BackupViewSet)
 router.register("email-logs", views.EmailLogViewSet)
+router.register("plans", billing_views.PlanViewSet)
 router.register("assistant-modules", views.AssistantModuleViewSet)
 router.register("assistant-maps", views.AssistantMapViewSet)
 router.register("vehicles", views.VehicleViewSet)
@@ -41,6 +42,8 @@ urlpatterns = [
     path("system-settings/test-livekit/", views.test_livekit, name="system-settings-test-livekit"),
     path("system-settings/test-fcm/", views.test_fcm, name="system-settings-test-fcm"),
     path("system-settings/test-email/", views.test_email, name="system-settings-test-email"),
+    path("subscriptions/<int:condominium>/", billing_views.SubscriptionView.as_view(), name="subscription"),
+    path("modules/", billing_views.ModuleCatalogueView.as_view(), name="module-catalogue"),
     path("assistant-settings/", views.AssistantSettingsView.as_view(), name="assistant-settings"),
     path("assistant-settings/test/", views.AssistantTestView.as_view(), name="assistant-test"),
     path("dashboard/summary/", views.DashboardSummaryView.as_view(), name="dashboard-summary"),

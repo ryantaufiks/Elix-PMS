@@ -73,6 +73,18 @@ class _HomeTabState extends State<HomeTab> {
   @override
   Widget build(BuildContext context) {
     final me = Session.instance.me!;
+    // Facility booking only where the site's plan includes it.
+    final menu = [
+      _MenuCard(icon: Icons.lock_open_rounded, label: 'Access', color: const Color(0xFF16A34A),
+          onTap: () => _open(const AccessScreen())),
+      if (me.residencies.any((r) => r.hasModule('facilities')))
+        _MenuCard(icon: Icons.event_available_rounded, label: 'Facility', color: brandBlue,
+            onTap: () => _open(const FacilitiesScreen())),
+      _MenuCard(icon: Icons.people_alt_rounded, label: 'Visitor', color: const Color(0xFF7C3AED),
+          onTap: () => _open(const VisitorsScreen())),
+      _MenuCard(icon: Icons.star_rounded, label: 'Feedback', color: const Color(0xFFF59E0B),
+          onTap: () => _open(const FeedbackScreen())),
+    ];
     final hour = DateTime.now().hour;
     final greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
     return RefreshIndicator(
@@ -156,20 +168,11 @@ class _HomeTabState extends State<HomeTab> {
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
           sliver: SliverGrid.count(
-            crossAxisCount: 4,
+            crossAxisCount: menu.length,
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
-            childAspectRatio: 0.82,
-            children: [
-              _MenuCard(icon: Icons.lock_open_rounded, label: 'Access', color: const Color(0xFF16A34A),
-                  onTap: () => _open(const AccessScreen())),
-              _MenuCard(icon: Icons.event_available_rounded, label: 'Facility', color: brandBlue,
-                  onTap: () => _open(const FacilitiesScreen())),
-              _MenuCard(icon: Icons.people_alt_rounded, label: 'Visitor', color: const Color(0xFF7C3AED),
-                  onTap: () => _open(const VisitorsScreen())),
-              _MenuCard(icon: Icons.star_rounded, label: 'Feedback', color: const Color(0xFFF59E0B),
-                  onTap: () => _open(const FeedbackScreen())),
-            ],
+            childAspectRatio: menu.length == 4 ? 0.82 : 1.0,
+            children: menu,
           ),
         ),
         SliverPadding(

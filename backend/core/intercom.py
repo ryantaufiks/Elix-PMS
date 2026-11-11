@@ -11,7 +11,7 @@ from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
 
-from . import access, config, visits
+from . import access, config, entitlements, visits
 from .models import AccessLog, IntercomCall, Residency, StaffAssignment
 from .realtime import broadcast_call
 
@@ -51,7 +51,7 @@ def _notify(call):
 def start(kiosk, unit, visitor_name="", snapshot=None, visitor=None, purpose="", company="", face_descriptor=None):
     from .tasks import end_call_room, expire_call, finish_call, push_incoming_call
 
-    if not kiosk.condominium.resident_app_enabled:
+    if not entitlements.has(kiosk.condominium, "intercom"):
         raise CallError("This site does not take calls from the kiosk.")
     if not recipients(unit).exists():
         raise CallError("Nobody at this unit accepts intercom calls.")

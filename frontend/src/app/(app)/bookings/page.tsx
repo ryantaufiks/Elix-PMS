@@ -12,6 +12,7 @@ import { formatDateTime, formatTime } from "@/lib/format";
 import { useLiveEvents } from "@/lib/live";
 import { useSession } from "@/lib/session";
 import type { Booking, BookingStatus, Facility, Page, PaymentStatus } from "@/lib/types";
+import { ModuleGate } from "@/components/ModuleGate";
 
 const STATUS: Record<BookingStatus, "green" | "amber" | "slate" | "red"> = {
   confirmed: "green", pending_payment: "amber", cancelled: "slate", expired: "red",
@@ -21,7 +22,7 @@ const PAYMENT: Record<PaymentStatus, "green" | "amber" | "slate" | "red" | "blue
 };
 type Tab = "upcoming" | "all";
 
-export default function BookingsPage() {
+function BookingsPage() {
   const { condo, isManager } = useSession();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>("upcoming");
@@ -111,4 +112,8 @@ export default function BookingsPage() {
         onConfirm={async () => { await api(`/v1/bookings/${refunding!.id}/refunded/`, { method: "POST" }); toast("success", "Refund recorded."); mutate(); }} />
     </>
   );
+}
+
+export default function Page() {
+  return <ModuleGate module="facilities"><BookingsPage /></ModuleGate>;
 }

@@ -16,7 +16,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
-from . import bookings, payments
+from . import bookings, entitlements, payments
 from . import models as m
 from . import serializers as s
 from .realtime import broadcast
@@ -52,6 +52,8 @@ def residents_unit(user, unit=None, condo_id=None):
 
 class FacilityViewSet(ScopedModelViewSet):
     """Bookable facilities. Site admins configure them; residents see the active ones of their condominium."""
+
+    module = "facilities"
 
     queryset = m.Facility.objects.select_related("condominium")
     serializer_class = s.FacilitySerializer
@@ -108,6 +110,8 @@ class BookingViewSet(mixins.CreateModelMixin, ScopedReadOnlyViewSet):
 
     ``?upcoming=1`` keeps bookings not yet over; ``?date_from=`` / ``?date_to=`` filter by day (YYYY-MM-DD)."""
 
+    module = "facilities"
+
     queryset = m.Booking.objects.select_related("facility", "unit__block", "user")
     serializer_class = s.BookingSerializer
     resident_unit_path = "unit"
@@ -156,6 +160,7 @@ class BookingViewSet(mixins.CreateModelMixin, ScopedReadOnlyViewSet):
         body.is_valid(raise_exception=True)
         data = body.validated_data
         facility = data["facility"]
+        entitlements.require(facility.condominium, "facilities")
         unit = residents_unit(request.user, data.get("unit"), facility.condominium_id)
         try:
             booking = bookings.book(facility, unit, request.user, data["starts_at"], data["slots"],
@@ -244,6 +249,7 @@ class PaymentSettingsView(generics.RetrieveUpdateAPIView):
         if not is_staff_of(self.request.user, condo_id, (ADMIN,)):
             raise PermissionDenied("Only site admins can see payment settings.")
         condo = generics.get_object_or_404(m.Condominium, pk=condo_id)
+        entitlements.require(condo, "facilities")
         return m.PaymentSettings.objects.get_or_create(condominium=condo)[0]
 
 
@@ -336,8 +342,10 @@ class FeedbackViewSet(mixins.CreateModelMixin, ScopedReadOnlyViewSet):
     search_fields = ["comment", "reply", "user__first_name", "user__last_name", "unit__unit_number"]
     ordering_fields = ["created_at", "rating"]
 
+    module = "resident_app"  # Feedback comes from the resident app.
+
     def get_queryset(self):
-        qs = self.queryset.all()
+        qs = self.queryset.filter(condominium__modules__contains=[self.module])
         user = self.request.user
         if user.is_superuser:
             return qs
