@@ -131,7 +131,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
             value={condo.id}
             onChange={(e) => selectCondo(Number(e.target.value))}
             aria-label="Condominium"
-            className="w-full cursor-pointer rounded-md bg-transparent px-2 py-1.5 text-sm font-medium text-white focus:outline-none [&>option]:text-ink"
+            // The sidebar is always navy: a dark list in every theme keeps the site names readable.
+            style={{ colorScheme: "dark" }}
+            className="w-full cursor-pointer rounded-md bg-transparent px-2 py-1.5 text-sm font-medium text-white focus:outline-none [&>option]:bg-[#0b1631] [&>option]:text-white"
           >
             {condos.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
