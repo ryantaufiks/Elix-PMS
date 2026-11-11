@@ -17,6 +17,7 @@ import { useTheme } from "@/lib/theme";
 
 import { cx, useToast } from "./ui";
 import { Credit } from "./Credit";
+import { SitePicker } from "./SitePicker";
 import { SubscriptionBanner } from "./SubscriptionBanner";
 
 type NavItem = { href: string; label: string; icon: IconName; admin?: boolean; superuser?: boolean; module?: string };
@@ -93,7 +94,7 @@ function initials(name: string) {
 }
 
 export function Shell({ children }: { children: React.ReactNode }) {
-  const { me, condos, condo, role, isAdmin, selectCondo, logout } = useSession();
+  const { me, condo, role, isAdmin, logout } = useSession();
   const pathname = usePathname();
   const live = useLiveStatus();
   const [theme, toggleTheme] = useTheme();
@@ -126,20 +127,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <span className="ml-2.5 mt-1 rounded border border-white/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">PMS</span>
       </div>
       <div className="mx-4 mb-2 rounded-lg border border-white/10 bg-white/5 p-1">
-        {condos.length > 1 ? (
-          <select
-            value={condo.id}
-            onChange={(e) => selectCondo(Number(e.target.value))}
-            aria-label="Condominium"
-            // The sidebar is always navy: a dark list in every theme keeps the site names readable.
-            style={{ colorScheme: "dark" }}
-            className="w-full cursor-pointer rounded-md bg-transparent px-2 py-1.5 text-sm font-medium text-white focus:outline-none [&>option]:bg-[#0b1631] [&>option]:text-white"
-          >
-            {condos.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        ) : (
-          <div className="truncate px-2 py-1.5 text-sm font-medium text-white">{condo.name}</div>
-        )}
+        <SitePicker />
       </div>
       <div className="flex-1 overflow-y-auto px-3 py-3">
         {groups.map((group) => {
