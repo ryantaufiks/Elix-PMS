@@ -6,7 +6,7 @@ import useSWR from "swr";
 import { ConfirmDialog, EntityModal, remove } from "@/components/forms";
 import { AddStaff, EditPerson, SetPassword } from "@/components/people";
 import { Icon } from "@/components/icons";
-import { Badge, Button, Card, Empty, Loading, PageHeader, Table, Td, Th } from "@/components/ui";
+import { Badge, Button, Card, Empty, Loading, PageHeader, RowMenu, Table, Td, Th } from "@/components/ui";
 import { query } from "@/lib/api";
 import { formatDateTime, ROLE_LABEL, userName } from "@/lib/format";
 import { useSession } from "@/lib/session";
@@ -42,16 +42,17 @@ export default function StaffPage() {
             <tbody className="divide-y divide-line">
               {data.results.map((s) => (
                 <tr key={s.id}>
-                  <Td className="font-medium text-ink">{userName(s.user_detail)}{s.user === me.id && <span className="ml-2"><Badge tone="blue">You</Badge></span>}</Td>
-                  <Td>{s.user_detail.username}</Td>
-                  <Td><Badge tone={ROLE_TONE[s.role]}>{ROLE_LABEL[s.role]}</Badge></Td>
-                  <Td className="text-xs">{s.user_detail.phone}<div className="text-muted">{s.user_detail.email}</div></Td>
-                  <Td className="whitespace-nowrap">{formatDateTime(s.created_at)}</Td>
+                  <Td label="Name" className="font-medium text-ink">{userName(s.user_detail)}{s.user === me.id && <span className="ml-2"><Badge tone="blue">You</Badge></span>}</Td>
+                  <Td label="Username">{s.user_detail.username}</Td>
+                  <Td label="Role"><Badge tone={ROLE_TONE[s.role]}>{ROLE_LABEL[s.role]}</Badge></Td>
+                  <Td label="Contact" className="text-xs">{s.user_detail.phone}<div className="text-muted">{s.user_detail.email}</div></Td>
+                  <Td label="Since" className="whitespace-nowrap">{formatDateTime(s.created_at)}</Td>
                   <Td className="whitespace-nowrap text-right">
-                    <Button size="sm" variant="ghost" onClick={() => setEditingRole(s)}>Role</Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEditingPerson(s)}>Profile</Button>
-                    <Button size="sm" variant="ghost" onClick={() => setPassword(s)}>Password</Button>
-                    {s.user !== me.id && <Button size="sm" variant="ghost" onClick={() => setRemoving(s)}>Remove</Button>}
+                    <RowMenu primary={{ label: "Profile", onClick: () => setEditingPerson(s) }} items={[
+                      { label: "Change role", onClick: () => setEditingRole(s) },
+                      { label: "Set password", onClick: () => setPassword(s) },
+                      { label: "Remove from staff", onClick: () => setRemoving(s), danger: true, hidden: s.user === me.id },
+                    ]} />
                   </Td>
                 </tr>
               ))}

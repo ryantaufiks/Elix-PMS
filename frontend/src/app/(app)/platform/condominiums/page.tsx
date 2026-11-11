@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import useSWR from "swr";
 
@@ -8,7 +7,7 @@ import { EntityModal } from "@/components/forms";
 import { AddStaff } from "@/components/people";
 import { STATUS } from "@/components/PlanSummary";
 import { Icon } from "@/components/icons";
-import { Badge, Button, Card, Empty, Loading, PageHeader, Table, Td, Th } from "@/components/ui";
+import { Badge, Button, Card, Empty, Loading, PageHeader, RowMenu, Table, Td, Th } from "@/components/ui";
 import { condoDefaults, condoFields } from "@/lib/fields";
 import { userName } from "@/lib/format";
 import { useSession } from "@/lib/session";
@@ -39,23 +38,24 @@ export default function CondominiumsPage() {
             <tbody className="divide-y divide-line">
               {data.results.map((c) => (
                 <tr key={c.id}>
-                  <Td className="font-medium text-ink">
+                  <Td label="Site" className="font-medium text-ink">
                     {c.name}{c.id === current.id && <span className="ml-2"><Badge tone="blue">Selected</Badge></span>}
                     <div className="font-mono text-xs font-normal text-muted">{c.code}</div>
                   </Td>
-                  <Td>{c.plan_name || "—"}</Td>
-                  <Td>{c.subscription_status ? <Badge tone={STATUS[c.subscription_status].tone}>{STATUS[c.subscription_status].label}</Badge> : "—"}</Td>
-                  <Td>
+                  <Td label="Plan">{c.plan_name || "—"}</Td>
+                  <Td label="Subscription">{c.subscription_status ? <Badge tone={STATUS[c.subscription_status].tone}>{STATUS[c.subscription_status].label}</Badge> : "—"}</Td>
+                  <Td label="Site admins">
                     {adminsOf(c.id).length
                       ? <span className="text-sm text-ink">{adminsOf(c.id).map((a) => userName(a.user_detail)).join(", ")}</span>
                       : <Badge tone="amber">None yet</Badge>}
                   </Td>
-                  <Td>{c.is_active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}</Td>
+                  <Td label="Status">{c.is_active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}</Td>
                   <Td className="whitespace-nowrap text-right">
-                    {c.is_active && c.id !== current.id && <Button size="sm" variant="ghost" onClick={() => selectCondo(c.id)}>Switch to</Button>}
-                    <Button size="sm" variant="ghost" onClick={() => setAddingAdmin(c)}>Add site admin</Button>
-                    <Link href={`/platform/subscription/?site=${c.id}`}><Button size="sm" variant="ghost">Subscription</Button></Link>
-                    <Button size="sm" variant="ghost" onClick={() => setEditing(c)}>Edit</Button>
+                    <RowMenu primary={{ label: "Switch to", onClick: () => selectCondo(c.id), hidden: !c.is_active || c.id === current.id }} items={[
+                      { label: "Subscription", href: `/platform/subscription/?site=${c.id}` },
+                      { label: "Add site admin", onClick: () => setAddingAdmin(c) },
+                      { label: "Edit site", onClick: () => setEditing(c) },
+                    ]} />
                   </Td>
                 </tr>
               ))}

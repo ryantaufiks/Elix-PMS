@@ -132,6 +132,7 @@ Pastikan perangkat lokal Anda telah terinstal:
 * Untuk Microsoft 365 / Gmail dengan verifikasi dua langkah, gunakan *app password*.
 
 ### 6. Sidebar & notifikasi dashboard
+* Di tabel (Residents, Staff, Blocks & units, Condominiums) setiap baris punya satu tombol utama dan menu **⋯** untuk aksi lainnya; aksi hapus/remove ada paling bawah, berwarna merah, supaya tidak terklik tanpa sengaja. Di layar HP tabel berubah menjadi daftar kartu.
 * Grup menu sidebar (Operations, Community, Site setup, Platform) bisa dibuka-tutup seperti dropdown dengan klik judul grupnya; pilihan diingat per browser, dan grup halaman yang sedang dibuka selalu terbuka.
 * **Bell notifikasi** di top bar menampilkan aktivitas baru secara realtime untuk site yang dipilih: tamu masuk/keluar, panggilan intercom dan hasilnya, gerbang terbuka/ditolak, booking dan feedback baru. Badge merah menunjukkan jumlah yang belum dibaca; 50 notifikasi terakhir disimpan di browser.
 

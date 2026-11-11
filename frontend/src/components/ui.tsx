@@ -220,7 +220,7 @@ export function Pagination({ page, count, pageSize = 50, onPage }: { page: numbe
 export function Table({ children }: { children: React.ReactNode }) {
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-line text-sm">{children}</table>
+      <table className="tbl min-w-full divide-y divide-line text-sm">{children}</table>
     </div>
   );
 }
@@ -229,8 +229,77 @@ export function Th({ children, className }: { children?: React.ReactNode; classN
   return <th className={cx("whitespace-nowrap bg-surface-2 px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted", className)}>{children}</th>;
 }
 
-export function Td({ children, className }: { children?: React.ReactNode; className?: string }) {
-  return <td className={cx("px-5 py-3.5 align-top text-body", className)}>{children}</td>;
+/** ``label`` names the column on phones, where the table turns into cards (see globals.css). */
+export function Td({ children, className, label }: { children?: React.ReactNode; className?: string; label?: string }) {
+  // One wrapper per cell, so on phones the whole value sits as a block beside its label.
+  return <td data-label={label} className={cx("px-5 py-3.5 align-top text-body", className)}><div className="min-w-0">{children}</div></td>;
+}
+
+// --- Row actions -------------------------------------------------------------
+
+export type MenuItem = { label: string; onClick?: () => void; href?: string; danger?: boolean; hidden?: boolean };
+
+/** The actions of a table row: an optional visible ``primary`` action and a "⋯" menu with the rest.
+    Destructive items sit last, after a divider, in red, so they are not clicked by accident. */
+export function RowMenu({ items, primary, label = "More actions" }: { items: MenuItem[]; primary?: MenuItem; label?: string }) {
+  const [open, setOpen] = useState<{ top: number; right: number } | null>(null);
+  const id = useId();
+  const visible = items.filter((i) => !i.hidden);
+  const plain = visible.filter((i) => !i.danger);
+  const danger = visible.filter((i) => i.danger);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(null);
+    const onDown = (e: MouseEvent) => { if (!(e.target as Element).closest(`[data-menu="${id}"]`)) close(); };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open, id]);
+
+  function toggle(e: React.MouseEvent<HTMLButtonElement>) {
+    if (open) return setOpen(null);
+    const r = e.currentTarget.getBoundingClientRect();
+    setOpen({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) });
+  }
+
+  const item = (i: MenuItem) => {
+    const className = cx("block w-full rounded-md px-3 py-2 text-left text-sm", i.danger ? "text-rose-600 hover:bg-rose-500/10" : "text-ink hover:bg-surface-2");
+    return i.href
+      ? <a key={i.label} href={i.href} role="menuitem" className={className}>{i.label}</a>
+      : <button key={i.label} type="button" role="menuitem" className={className} onClick={() => { setOpen(null); i.onClick?.(); }}>{i.label}</button>;
+  };
+
+  return (
+    <span className="inline-flex items-center gap-1" data-menu={id}>
+      {primary && !primary.hidden && (primary.href
+        ? <a href={primary.href}><Button size="sm" variant="ghost">{primary.label}</Button></a>
+        : <Button size="sm" variant="ghost" onClick={primary.onClick}>{primary.label}</Button>)}
+      {visible.length > 0 && (
+        <>
+          <IconButton label={label} onClick={toggle} aria-haspopup="menu" aria-expanded={!!open}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" className="h-5 w-5" aria-hidden="true"><path d="M4.5 12h.6M11.7 12h.6M18.9 12h.6" /></svg>
+          </IconButton>
+          {open && (
+            <div role="menu" style={{ position: "fixed", top: open.top, right: open.right }}
+              className="z-50 min-w-44 rounded-xl border border-line bg-surface p-1 shadow-lg">
+              {plain.map(item)}
+              {plain.length > 0 && danger.length > 0 && <div className="my-1 border-t border-line" />}
+              {danger.map(item)}
+            </div>
+          )}
+        </>
+      )}
+    </span>
+  );
 }
 
 // --- Toasts ------------------------------------------------------------------

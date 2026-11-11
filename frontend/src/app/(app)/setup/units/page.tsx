@@ -6,7 +6,7 @@ import useSWR from "swr";
 import { SearchInput } from "@/components/bits";
 import { ConfirmDialog, EntityModal, type FieldDef, remove } from "@/components/forms";
 import { Icon } from "@/components/icons";
-import { Badge, Button, Card, CardHeader, cx, Empty, ErrorNote, Field, Input, Loading, Modal, PageHeader, Pagination, Select, Table, Td, Th, useToast } from "@/components/ui";
+import { Badge, Button, Card, CardHeader, cx, Empty, ErrorNote, Field, Input, Loading, Modal, PageHeader, Pagination, RowMenu, Select, Table, Td, Th, useToast } from "@/components/ui";
 import { api, query, unitSearch } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import type { Block, Page, Unit } from "@/lib/types";
@@ -84,13 +84,14 @@ export default function UnitsSetupPage() {
               <tbody className="divide-y divide-line">
                 {units.data.results.map((u) => (
                   <tr key={u.id}>
-                    <Td className="font-medium text-ink">{u.label}</Td>
-                    <Td>{blockName(u.block)}</Td>
-                    <Td>{u.floor || "—"}</Td>
-                    <Td>{u.is_active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}</Td>
+                    <Td label="Unit" className="font-medium text-ink">{u.label}</Td>
+                    <Td label="Block">{blockName(u.block)}</Td>
+                    <Td label="Floor">{u.floor || "—"}</Td>
+                    <Td label="Status">{u.is_active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}</Td>
                     <Td className="whitespace-nowrap text-right">
-                      <Button size="sm" variant="ghost" onClick={() => setEditingUnit(u)}>Edit</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setDeletingUnit(u)}>Delete</Button>
+                      <RowMenu primary={{ label: "Edit", onClick: () => setEditingUnit(u) }} items={[
+                        { label: "Delete unit", onClick: () => setDeletingUnit(u), danger: true },
+                      ]} />
                     </Td>
                   </tr>
                 ))}

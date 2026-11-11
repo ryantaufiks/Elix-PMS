@@ -102,3 +102,17 @@ body {
     radial-gradient(40% 30% at 80% 90%, rgb(56 189 248 / 0.12), transparent 70%),
     linear-gradient(160deg, var(--color-navy-800), var(--color-navy-950));
 }
+
+/* Tables become a list of cards on phones: each row a card, each cell "label  value" (label from Td's data-label).
+   Cells without a label (actions) sit at the end, right-aligned. */
+@media (max-width: 767px) {
+  .tbl thead { display: none; }
+  .tbl, .tbl tbody { display: block; }
+  .tbl tbody > tr { display: block; padding: 0.75rem 1rem; }
+  .tbl tbody > tr > td { display: flex; justify-content: space-between; gap: 1rem; padding: 0.25rem 0; text-align: right; }
+  .tbl tbody > tr > td[data-label]::before { content: attr(data-label); flex: 0 0 7rem; text-align: left; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--c-muted); padding-top: 0.2rem; }
+  .tbl tbody > tr > td:not([data-label]) { justify-content: flex-end; padding-top: 0.5rem; }
+  .tbl tbody > tr > td > div { min-width: 0; }
+  .tbl tbody > tr > td[data-label] > div { flex: 1 1 auto; }
+  .tbl tbody > tr > td:first-child[data-label] { font-size: 1rem; padding-bottom: 0.5rem; }
+}

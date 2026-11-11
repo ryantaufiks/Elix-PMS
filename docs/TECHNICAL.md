@@ -39,6 +39,9 @@ chart colours were checked with a colour-blind-safety validator for both themes.
 `frontend/public/brand/` and `frontend/src/app/icon.png` / `apple-icon.png` (cropped from the source
 artwork `elix-logo.zip`, which is kept out of git). The dashboard home shows today's KPIs, an hourly
 traffic chart (with table view), live activity, gate health and entry methods.
+Table rows keep one visible action and put the rest behind a "⋯" menu (`RowMenu` in
+`components/ui.tsx`; destructive items last, in red, after a divider). On phones every `Table`
+turns into a list of cards: each `Td` given a `label` shows it beside the value (CSS in `globals.css`).
 Sidebar groups (Operations, Community, Site setup, Platform) fold open and closed like dropdowns,
 remembered per browser; the group of the current page always opens. The **bell** in
 the top bar lists live activity for the selected condo as it happens: visitors in and out, intercom

@@ -8,7 +8,7 @@ import { ResidentDocuments } from "@/components/documents";
 import { ConfirmDialog, EntityModal, FormFields, type FieldDef, initialValues, remove } from "@/components/forms";
 import { EditPerson, fieldErrorsOf, personFields, SetPassword } from "@/components/people";
 import { Icon } from "@/components/icons";
-import { Badge, Button, Card, Empty, ErrorNote, Field, Loading, Modal, PageHeader, Pagination, Select, Table, Td, Th, useToast } from "@/components/ui";
+import { Badge, Button, Card, Empty, ErrorNote, Field, Loading, Modal, PageHeader, Pagination, RowMenu, Select, Table, Td, Th, useToast } from "@/components/ui";
 import { api, query, unitSearch } from "@/lib/api";
 import { RESIDENT_TYPE_LABEL, userName } from "@/lib/format";
 import { useSession } from "@/lib/session";
@@ -76,26 +76,27 @@ export default function ResidentsPage() {
             <tbody className="divide-y divide-line">
               {data.results.map((r) => (
                 <tr key={r.id} className={r.is_active ? undefined : "opacity-60"}>
-                  <Td className="whitespace-nowrap font-medium text-ink">{r.unit_display}</Td>
-                  <Td>
+                  <Td label="Unit" className="whitespace-nowrap font-medium text-ink">{r.unit_display}</Td>
+                  <Td label="Resident">
                     <span className="font-medium text-ink">{userName(r.user_detail)}</span>
                     {r.is_primary_contact && <span className="ml-2"><Badge tone="blue">Primary</Badge></span>}
                     {!r.is_active && <span className="ml-2"><Badge>Moved out</Badge></span>}
                     <div className="text-xs text-muted">{r.user_detail.username}</div>
                   </Td>
-                  <Td>{RESIDENT_TYPE_LABEL[r.resident_type]}</Td>
-                  <Td className="text-xs">
+                  <Td label="Type">{RESIDENT_TYPE_LABEL[r.resident_type]}</Td>
+                  <Td label="Contact" className="text-xs">
                     {r.user_detail.phone && <div>{r.user_detail.phone}</div>}
                     {r.user_detail.email && <div className="text-muted">{r.user_detail.email}</div>}
                   </Td>
-                  <Td>{r.receives_intercom_calls ? <Badge tone="green">Receives calls</Badge> : <Badge>Muted</Badge>}</Td>
+                  <Td label="Intercom">{r.receives_intercom_calls ? <Badge tone="green">Receives calls</Badge> : <Badge>Muted</Badge>}</Td>
                   {isManager && (
                     <Td className="whitespace-nowrap text-right">
-                      <Button size="sm" variant="ghost" onClick={() => setEditingResidency(r)}>Unit role</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setEditingPerson(r)}>Profile</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setPassword(r)}>Password</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setDocuments(r)}>Documents</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setRemoving(r)}>Remove</Button>
+                      <RowMenu primary={{ label: "Profile", onClick: () => setEditingPerson(r) }} items={[
+                        { label: "Unit role", onClick: () => setEditingResidency(r) },
+                        { label: "Documents", onClick: () => setDocuments(r) },
+                        { label: "Set password", onClick: () => setPassword(r) },
+                        { label: "Remove from unit", onClick: () => setRemoving(r), danger: true },
+                      ]} />
                     </Td>
                   )}
                 </tr>
