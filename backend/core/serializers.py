@@ -66,6 +66,8 @@ class ModelCleanSerializer(serializers.ModelSerializer):
 class CondominiumSerializer(ModelCleanSerializer):
     plan_name = serializers.CharField(source="subscription.plan.name", default="", read_only=True)
     subscription_status = serializers.CharField(source="subscription.status", default="", read_only=True)
+    subscription_ends_on = serializers.SerializerMethodField(
+        help_text="Trial end, paid-until or grace end, whichever applies to the current status.")
     plan = serializers.SlugRelatedField(
         slug_field="code", queryset=m.Plan.objects.filter(is_active=True), write_only=True, required=False,
         help_text="New sites only: the plan the trial starts on (default Standard).")
@@ -74,11 +76,17 @@ class CondominiumSerializer(ModelCleanSerializer):
         model = m.Condominium
         fields = [
             "id", "name", "code", "address", "postal_code", "timezone", "contact_phone", "is_active", "modules", "plan_name",
-            "subscription_status", "lpr_enabled", "invitation_max_days", "intercom_ring_timeout_seconds", "face_verification_enabled",
+            "subscription_status", "subscription_ends_on", "lpr_enabled", "invitation_max_days", "intercom_ring_timeout_seconds", "face_verification_enabled",
             "visitor_data_retention_days", "kiosk_visitor_form", "kiosk_photo_required", "kiosk_walk_in", "kiosk_walk_in_photo", "kiosk_checkout", "kiosk_face_checkout",
             "visitor_privacy_notice", "plan",
             "created_at", "updated_at",
         ]
+
+    def get_subscription_ends_on(self, obj):
+        sub = getattr(obj, "subscription", None)
+        if sub is None:
+            return None
+        return {"trial": sub.trial_ends_on, "active": sub.period_ends_on, "grace": sub.grace_ends_on}.get(sub.status)
 
     def validate(self, attrs):
         plan = attrs.pop("plan", None)

@@ -1,0 +1,5 @@
+The {{ brand }} trial for {{ site }} ({{ plan }} plan) ends on {{ date|date:"j M Y" }}.
+
+To keep every feature running, confirm your subscription before then{% if contact %} by replying to this email or writing to {{ contact }}{% endif %}.
+
+If the trial ends without a subscription, {{ site }} gets a 14-day grace period in which everything keeps working.

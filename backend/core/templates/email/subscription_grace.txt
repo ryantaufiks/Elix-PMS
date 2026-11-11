@@ -1,0 +1,5 @@
+The {{ brand }} subscription for {{ site }} ({{ plan }} plan) has ended and is now in its grace period.
+
+Everything keeps working until {{ date|date:"j M Y" }}. After that the site is suspended: gates, plate recognition and the basic kiosk keep working, but the resident app, video intercom, bookings and other premium features stop, and site setup is locked.
+
+To renew{% if contact %}, reply to this email or write to {{ contact }}{% else %}, contact Elix{% endif %}.

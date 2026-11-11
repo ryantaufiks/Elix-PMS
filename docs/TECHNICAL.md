@@ -457,6 +457,18 @@ dashboard keeps locked menus visible with a padlock and shows what the feature d
 includes it (`GET /v1/modules/`); site admins see their plan, modules and usage under *Site settings →
 Your plan* (`GET /v1/subscriptions/<site>/`, without internal notes).
 
+**Lifecycle** (`core/subscriptions.py`, daily at 08:05 SGT, `core.tasks.subscription_lifecycle`): a trial
+that ends goes to *active* if a paid-until date is still ahead, otherwise to *grace* for 14 days; an
+active site whose paid-until date has passed goes to *grace*; when the grace end date passes the site is
+*suspended*. While suspended, premium modules are off, site setup (site settings, units, gates and
+devices, facilities, assistant) refuses changes with 403 `site_suspended` (platform admin excepted), and
+reports can still be exported; gates, plates and the basic kiosk keep working. A *cancelled* site is
+closed to its staff. Emails (via SMTP, to the site admins, the billing email and the platform admins):
+trial ends in 7 days and 1 day, grace started, suspended, active again; each is sent once per date
+(`Subscription.notices_sent`), whether the change was scheduled or made by hand. Setting *grace* by hand
+without a date starts 14 days from today. Site admins see a banner for a trial ending within 7 days, a
+grace period or a suspension.
+
 ## Production
 
 Production runs on the same server as a separate stack and is published through **Cloudflare Tunnel**,

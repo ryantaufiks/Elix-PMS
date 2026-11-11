@@ -13,6 +13,7 @@ def staff_condo_ids(user, roles=ALL_STAFF) -> set[int]:
         return set()
     return set(
         StaffAssignment.objects.filter(user=user, role__in=roles, condominium__is_active=True)
+        .exclude(condominium__subscription__status="cancelled")  # A cancelled site is closed to its staff.
         .values_list("condominium_id", flat=True)
     )
 

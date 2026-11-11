@@ -17,6 +17,7 @@ import { useTheme } from "@/lib/theme";
 
 import { cx, useToast } from "./ui";
 import { Credit } from "./Credit";
+import { SubscriptionBanner } from "./SubscriptionBanner";
 
 type NavItem = { href: string; label: string; icon: IconName; admin?: boolean; superuser?: boolean; module?: string };
 const NAV: { title: string; items: NavItem[] }[] = [
@@ -255,6 +256,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </header>
         <IncomingCalls />
         <WalkInAlerts />
+        <SubscriptionBanner />
         <main className="mx-auto max-w-7xl px-4 pb-10 pt-6 sm:px-8 sm:pt-8">{children}</main>
         <Credit className="border-t border-line px-4 py-5" />
       </div>

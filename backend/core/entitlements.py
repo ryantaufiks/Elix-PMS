@@ -75,6 +75,15 @@ class ModuleLocked(APIException):
                           "module": module})
 
 
+class SiteSuspended(APIException):
+    status_code = status.HTTP_403_FORBIDDEN
+    default_code = "site_suspended"
+
+    def __init__(self):
+        super().__init__({"detail": "This site's subscription is suspended: setup is locked until it is renewed. "
+                                    "Contact Elix.", "code": "site_suspended"})
+
+
 class LimitReached(APIException):
     status_code = status.HTTP_403_FORBIDDEN
     default_code = "limit_reached"
@@ -115,7 +124,9 @@ def effective_modules(subscription) -> list:
     cancelled only what keeps physical access working."""
     keys = ({"core"} | set(subscription.plan.modules) | set(subscription.addons)) - set(subscription.disabled_modules)
     keys.add("core")
-    if subscription.status in (subscription.Status.SUSPENDED, subscription.Status.CANCELLED):
+    if subscription.status == subscription.Status.SUSPENDED:  # Gates keep working; reports can still be exported.
+        keys = {k for k in keys if MODULES[k].keeps_access or k == "advanced_reports"}
+    elif subscription.status == subscription.Status.CANCELLED:
         keys = {k for k in keys if MODULES[k].keeps_access}
     while True:  # Drop modules whose requirements are not (or no longer) there, transitively.
         kept = {k for k in keys if k in MODULES and all(r in keys for r in MODULES[k].requires)}
@@ -150,6 +161,15 @@ def has(condo, module) -> bool:
 def require(condo, module):
     if not has(condo, module):
         raise ModuleLocked(module)
+
+
+LOCKED_STATUSES = ("suspended", "cancelled")
+
+
+def setup_locked(condo) -> bool:
+    """Suspended and cancelled sites keep running but their setup cannot change (platform admin excepted)."""
+    sub = getattr(condo, "subscription", None)
+    return sub is not None and sub.status in LOCKED_STATUSES
 
 
 # --- Limits ------------------------------------------------------------------------------------------

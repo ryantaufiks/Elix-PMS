@@ -1,0 +1,6 @@
+{% extends "email/base.html" %}
+{% block content %}
+<h1 style="margin:0 0 12px;font-size:20px;">Subscription active again</h1>
+<p style="margin:0 0 12px;">Thank you. The {{ brand }} subscription for <strong>{{ site }}</strong> ({{ plan }} plan) is active again{% if date %}, paid until <strong>{{ date|date:"j M Y" }}</strong>{% endif %}.</p>
+<p style="margin:0;">Every feature of the plan is back on, including the resident app and site setup.</p>
+{% endblock %}

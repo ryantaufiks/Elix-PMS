@@ -13,14 +13,14 @@ import { useSession } from "@/lib/session";
 import type { Plan, Subscription, SubscriptionStatus } from "@/lib/types";
 
 type Draft = Pick<Subscription, "plan" | "addons" | "disabled_modules" | "limit_overrides" | "status" | "trial_ends_on"
-  | "period_ends_on" | "billing_name" | "billing_email" | "notes">;
+  | "period_ends_on" | "grace_ends_on" | "billing_name" | "billing_email" | "notes">;
 
 const STATUS_HINT: Record<SubscriptionStatus, string> = {
-  trial: "Every module of the plan, until the trial ends.",
-  active: "Paid: everything in the plan and add-ons.",
-  grace: "Payment overdue: everything still works; the site admin sees a reminder.",
-  suspended: "Premium modules off. Gates, plate and face access and the basic kiosk keep working.",
-  cancelled: "Contract ended. Only physical access keeps working until the data is exported and removed.",
+  trial: "Every module of the plan until the trial ends; then grace (or active if paid). Reminders 7 and 1 days before.",
+  active: "Paid: everything in the plan and add-ons. Grace starts the day after Paid until.",
+  grace: "Payment overdue: everything still works for 14 days; the site admin sees a banner and gets an email.",
+  suspended: "Premium modules off and setup locked; gates, plate access and the basic kiosk keep working, reports still export.",
+  cancelled: "Contract ended: the site is closed to its staff. Gates keep working until the data is exported and removed.",
 };
 
 export default function SubscriptionPage() {
@@ -36,7 +36,7 @@ export default function SubscriptionPage() {
   const [error, setError] = useState<unknown>(null);
   useEffect(() => {
     if (data) setDraft({ plan: data.plan, addons: data.addons, disabled_modules: data.disabled_modules, limit_overrides: data.limit_overrides,
-      status: data.status, trial_ends_on: data.trial_ends_on, period_ends_on: data.period_ends_on, billing_name: data.billing_name,
+      status: data.status, trial_ends_on: data.trial_ends_on, period_ends_on: data.period_ends_on, grace_ends_on: data.grace_ends_on, billing_name: data.billing_name,
       billing_email: data.billing_email, notes: data.notes ?? "" });
   }, [data]);
 
@@ -83,7 +83,12 @@ export default function SubscriptionPage() {
               </Select>
             </Field>
             <Field label="Trial ends"><Input type="date" value={draft.trial_ends_on ?? ""} onChange={(e) => set("trial_ends_on", e.target.value || null)} /></Field>
-            <Field label="Paid until"><Input type="date" value={draft.period_ends_on ?? ""} onChange={(e) => set("period_ends_on", e.target.value || null)} /></Field>
+            <Field label="Paid until" hint="After this date the site moves to its grace period automatically."><Input type="date" value={draft.period_ends_on ?? ""} onChange={(e) => set("period_ends_on", e.target.value || null)} /></Field>
+            {draft.status === "grace" && (
+              <Field label="Grace ends" hint="Suspended the day after. Empty: 14 days from today.">
+                <Input type="date" value={draft.grace_ends_on ?? ""} onChange={(e) => set("grace_ends_on", e.target.value || null)} />
+              </Field>
+            )}
           </div>
         </Card>
 

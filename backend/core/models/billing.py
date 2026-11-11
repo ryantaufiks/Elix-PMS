@@ -58,6 +58,9 @@ class Subscription(TimeStampedModel):
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.TRIAL)
     trial_ends_on = models.DateField(null=True, blank=True)
     period_ends_on = models.DateField(null=True, blank=True, help_text="End of the paid period.")
+    grace_ends_on = models.DateField(null=True, blank=True, help_text="Last day of the grace period; suspended after.")
+    notices_sent = models.JSONField(default=list, blank=True, editable=False,
+                                    help_text="Reminder emails already sent, e.g. 'trial_ending-7:2026-12-10'.")
     billing_name = models.CharField("Billing contact", max_length=120, blank=True)
     billing_email = models.EmailField("Billing email", blank=True)
     notes = models.TextField(blank=True, help_text="Internal: contract, invoice numbers, special terms.")

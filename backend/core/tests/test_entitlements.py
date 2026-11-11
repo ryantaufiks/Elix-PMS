@@ -26,8 +26,10 @@ class EffectiveModulesTests(APITestCase):
         set_plan(self.condo, "standard", addons=[], disabled_modules=["resident_app"])
         self.assertEqual(self.condo.modules, ["core", "advanced_reports"])
 
-    def test_suspended_keeps_physical_access_only(self):
+    def test_suspended_keeps_physical_access_and_export(self):
         set_plan(self.condo, "premium", status=Status.SUSPENDED)
+        self.assertEqual(self.condo.modules, ["core", "lpr", "advanced_reports"])
+        set_plan(self.condo, "premium", status=Status.CANCELLED)
         self.assertEqual(self.condo.modules, ["core", "lpr"])
 
     def test_editing_a_plan_updates_its_sites(self):

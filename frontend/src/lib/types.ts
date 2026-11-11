@@ -74,6 +74,8 @@ export type Condominium = {
   modules: string[];
   plan_name: string;
   subscription_status: SubscriptionStatus | "";
+  /** Trial end, paid-until or grace end, whichever applies to the status. */
+  subscription_ends_on: string | null;
   lpr_enabled: boolean;
   invitation_max_days: number;
   intercom_ring_timeout_seconds: number;
@@ -179,6 +181,7 @@ export type Subscription = {
   status: SubscriptionStatus;
   trial_ends_on: string | null;
   period_ends_on: string | null;
+  grace_ends_on: string | null;
   billing_name: string;
   billing_email: string;
   notes?: string;

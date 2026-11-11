@@ -1,6 +1,9 @@
 """Plans and subscriptions: the platform admin sells modules per site; site admins see what they have."""
+from datetime import timedelta
+
 from django.db import transaction
 from django.db.models import ProtectedError
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, serializers, status, viewsets
 from rest_framework.exceptions import PermissionDenied
@@ -8,7 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from . import entitlements
+from . import entitlements, subscriptions
 from . import models as m
 from .scoping import ADMIN, ALL_STAFF, staff_condo_ids
 from .serializers import ModelCleanSerializer
@@ -44,7 +47,7 @@ class SubscriptionSerializer(ModelCleanSerializer):
     class Meta:
         model = m.Subscription
         fields = ["condominium", "condominium_name", "plan", "plan_name", "addons", "disabled_modules", "limit_overrides",
-                  "status", "trial_ends_on", "period_ends_on", "billing_name", "billing_email", "notes",
+                  "status", "trial_ends_on", "period_ends_on", "grace_ends_on", "billing_name", "billing_email", "notes",
                   "modules", "limits", "usage", "updated_at"]
         read_only_fields = ["condominium"]
 
@@ -76,7 +79,7 @@ def describe_changes(before: m.Subscription, after: m.Subscription) -> str:
             parts.append(f"{label}: {names(getattr(after, field))}")
     if before.limit_overrides != after.limit_overrides:
         parts.append("limits changed")
-    for field, label in (("trial_ends_on", "trial ends"), ("period_ends_on", "paid until")):
+    for field, label in (("trial_ends_on", "trial ends"), ("period_ends_on", "paid until"), ("grace_ends_on", "grace until")):
         if getattr(before, field) != getattr(after, field):
             value = getattr(after, field)
             parts.append(f"{label} {value:%d %b %Y}" if value else f"{label} cleared")
@@ -136,10 +139,17 @@ class SubscriptionView(generics.RetrieveUpdateAPIView):
 
     def perform_update(self, serializer):
         before = m.Subscription.objects.select_related("plan").get(pk=serializer.instance.pk)
+        status_now = serializer.validated_data.get("status", before.status)
+        extra = {}
+        if status_now == m.Subscription.Status.GRACE and not serializer.validated_data.get("grace_ends_on", before.grace_ends_on):
+            extra["grace_ends_on"] = timezone.localdate() + timedelta(days=subscriptions.GRACE_DAYS)
+        elif status_now in (m.Subscription.Status.ACTIVE, m.Subscription.Status.TRIAL):
+            extra["grace_ends_on"] = None
         with transaction.atomic():
-            sub = serializer.save()
+            sub = serializer.save(**extra)
             if summary := describe_changes(before, sub):
                 m.SubscriptionEvent.objects.create(subscription=sub, actor=self.request.user, summary=summary[:500])
+        subscriptions.on_status_change(sub, before.status, self.request.user)
 
     def update(self, request, *args, **kwargs):
         super().update(request, *args, **kwargs)

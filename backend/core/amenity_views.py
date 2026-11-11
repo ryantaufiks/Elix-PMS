@@ -54,6 +54,7 @@ class FacilityViewSet(ScopedModelViewSet):
     """Bookable facilities. Site admins configure them; residents see the active ones of their condominium."""
 
     module = "facilities"
+    setup = True
 
     queryset = m.Facility.objects.select_related("condominium")
     serializer_class = s.FacilitySerializer

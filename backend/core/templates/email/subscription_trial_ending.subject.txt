@@ -1,0 +1,1 @@
+{{ site }}: your {{ brand }} trial ends {% if days == 1 %}tomorrow{% else %}in {{ days }} days{% endif %}

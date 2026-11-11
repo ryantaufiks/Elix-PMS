@@ -1,0 +1,3 @@
+Thank you. The {{ brand }} subscription for {{ site }} ({{ plan }} plan) is active again{% if date %}, paid until {{ date|date:"j M Y" }}{% endif %}.
+
+Every feature of the plan is back on, including the resident app and site setup.

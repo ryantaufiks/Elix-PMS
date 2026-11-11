@@ -1,0 +1,6 @@
+The {{ brand }} subscription for {{ site }} is suspended from {{ date|date:"j M Y" }}.
+
+Still working: gates and relays, plate recognition, and the kiosk for walk-ins, invitation QR codes and check-out. The dashboard can still be read and reports exported.
+Stopped: the resident app, video intercom, facility bookings, the AI concierge and face check. Site setup is locked.
+
+Everything comes back as soon as the subscription is renewed{% if contact %}: reply to this email or write to {{ contact }}{% endif %}.

@@ -216,6 +216,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "core.tasks.prune_backups",
         "schedule": crontab(hour=4, minute=30),
     },
+    "subscription-lifecycle": {
+        "task": "core.tasks.subscription_lifecycle",
+        "schedule": crontab(hour=8, minute=5),
+    },
     "prune-email-log": {
         "task": "core.tasks.prune_email_log",
         "schedule": crontab(hour=4, minute=45),

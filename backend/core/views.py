@@ -63,6 +63,7 @@ class ScopedViewSetMixin:
     condo_path = "condominium"
     module = None  # Module the site needs for these records (core.entitlements); None: always available.
     limit_key = None  # Plan limit counted when a record is added (core.entitlements.LIMITS).
+    setup = False  # Site setup: locked while the site's subscription is suspended.
     staff_read_roles = ALL_STAFF
     staff_write_roles = (ADMIN,)
     resident_unit_path = None
@@ -98,11 +99,13 @@ class ScopedViewSetMixin:
         return qs.distinct() if any(_fans_out(qs.model, p) for p in paths) else qs
 
     def check_write(self, source):
-        if self.module:
-            condo = m.Condominium.objects.filter(pk=_resolve_pk(source, self.condo_path)).only("modules").first()
-            if condo is not None:
-                entitlements.require(condo, self.module)
         user = self.request.user
+        if self.module or self.setup:
+            condo = m.Condominium.objects.filter(pk=_resolve_pk(source, self.condo_path)).select_related("subscription").first()
+            if condo is not None and self.module:
+                entitlements.require(condo, self.module)
+            if condo is not None and self.setup and not user.is_superuser and entitlements.setup_locked(condo):
+                raise entitlements.SiteSuspended()
         if user.is_superuser:
             return
         if _resolve_pk(source, self.condo_path) in staff_condo_ids(user, self.staff_write_roles):
@@ -173,6 +176,7 @@ def health(request):
 # --- Tenancy -----------------------------------------------------------------
 
 class CondominiumViewSet(ScopedModelViewSet):
+    setup = True
     queryset = m.Condominium.objects.all()
     serializer_class = s.CondominiumSerializer
     condo_path = "id"
@@ -208,6 +212,7 @@ class CondominiumViewSet(ScopedModelViewSet):
 
 
 class BlockViewSet(ScopedModelViewSet):
+    setup = True
     queryset = m.Block.objects.all()
     serializer_class = s.BlockSerializer
     resident_condo_read = True
@@ -217,6 +222,7 @@ class BlockViewSet(ScopedModelViewSet):
 
 class UnitViewSet(ScopedModelViewSet):
     limit_key = "units"
+    setup = True
     queryset = m.Unit.objects.select_related("block")
     serializer_class = s.UnitSerializer
     resident_unit_path = "id"
@@ -353,6 +359,7 @@ class VehicleViewSet(ScopedModelViewSet):
 # --- Devices (site admins only) ----------------------------------------------
 
 class IntegrationAccountViewSet(ScopedModelViewSet):
+    setup = True
     queryset = m.IntegrationAccount.objects.all()
     serializer_class = s.IntegrationAccountSerializer
     staff_read_roles = (ADMIN,)
@@ -365,6 +372,7 @@ class ResidentOpenThrottle(UserRateThrottle):
 
 class AccessGateViewSet(ScopedModelViewSet):
     limit_key = "gates"
+    setup = True
     queryset = m.AccessGate.objects.all()
     serializer_class = s.AccessGateSerializer
     resident_condo_read = True
@@ -403,6 +411,7 @@ class AccessGateViewSet(ScopedModelViewSet):
 
 
 class RelayControllerViewSet(ScopedModelViewSet):
+    setup = True
     queryset = m.RelayController.objects.all()
     serializer_class = s.RelayControllerSerializer
     condo_path = "gate__condominium"
@@ -434,6 +443,7 @@ class RelayControllerViewSet(ScopedModelViewSet):
 class LprCameraViewSet(ScopedModelViewSet):
     module = "lpr"
     limit_key = "lpr_cameras"
+    setup = True
     queryset = m.LprCamera.objects.all()
     serializer_class = s.LprCameraSerializer
     condo_path = "gate__condominium"
@@ -444,6 +454,7 @@ class LprCameraViewSet(ScopedModelViewSet):
 
 class KioskViewSet(ScopedModelViewSet):
     limit_key = "kiosks"
+    setup = True
     queryset = m.Kiosk.objects.all()
     serializer_class = s.KioskSerializer
     staff_read_roles = (ADMIN,)
@@ -980,6 +991,7 @@ class AssistantTestView(AssistantSettingsView):
 
 class AssistantModuleViewSet(ScopedModelViewSet):
     module = "ai_concierge"
+    setup = True
     queryset = m.AssistantModule.objects.all()
     serializer_class = s.AssistantModuleSerializer
     staff_read_roles = (ADMIN,)
@@ -988,6 +1000,7 @@ class AssistantModuleViewSet(ScopedModelViewSet):
 
 class AssistantMapViewSet(ScopedModelViewSet):
     module = "ai_concierge"
+    setup = True
     queryset = m.AssistantMap.objects.all()
     serializer_class = s.AssistantMapSerializer
     staff_read_roles = (ADMIN,)

@@ -172,6 +172,13 @@ def send_email(self, log_id: int):
 
 
 @shared_task
+def subscription_lifecycle() -> dict:
+    from . import subscriptions
+
+    return subscriptions.run_daily()
+
+
+@shared_task
 def prune_email_log() -> int:
     from datetime import timedelta
 
