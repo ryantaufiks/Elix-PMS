@@ -2,7 +2,7 @@
 
 import { Credit } from "./Credit";
 
-/** Public page (privacy policy, account deletion) that Google Play and the resident app link to. */
+/** Public page (privacy, cybersecurity, account deletion) linked from the login page, Google Play and the resident app. */
 export function LegalPage({ title, updated, children }: { title: string; updated: string; children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-canvas">

@@ -382,7 +382,8 @@ warning on the run if one is not). Before the first upload:
 - **Store listing and policy links:** privacy policy at `https://<your-host>/privacy/`, account
   deletion at `https://<your-host>/account-deletion/` (both public pages of the web app, also linked
   from the app's login and Profile; the contact address is `PRIVACY_EMAIL` in
-  `frontend/src/lib/legal.ts`).
+  `frontend/src/lib/legal.ts`). A short cybersecurity policy is at `/security/`; the dashboard login
+  page links to it and to the privacy policy (useful for vendor security questionnaires).
 - **Declarations:** `USE_FULL_SCREEN_INTENT` (calling app: the video intercom), the foreground service
   types `phoneCall`, `camera` and `microphone` that the call plugin declares (with a short video of an
   intercom call), Data safety (name, phone, photos/video during calls, documents, plates, payments via

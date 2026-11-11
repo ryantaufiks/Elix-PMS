@@ -54,6 +54,10 @@ export default function LoginPage() {
             <Button type="submit" variant="primary" size="lg" className="w-full" busy={busy}>Sign in</Button>
           </form>
           <p className="mt-8 text-xs text-muted">Residents: please use the Elix mobile app.</p>
+          <p className="mt-3 flex gap-4 text-xs text-muted">
+            <a href="/privacy/" className="hover:text-primary-500 hover:underline">Privacy policy</a>
+            <a href="/security/" className="hover:text-primary-500 hover:underline">Cybersecurity policy</a>
+          </p>
           <Credit className="mt-10 lg:hidden" />
         </div>
       </div>
