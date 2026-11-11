@@ -6,7 +6,7 @@ import useSWR from "swr";
 import { ConfirmDialog } from "@/components/forms";
 import { Icon } from "@/components/icons";
 import { useModuleCatalogue } from "@/components/ModuleGate";
-import { Badge, Button, Card, Checkbox, Empty, ErrorNote, Field, Input, Loading, Modal, PageHeader, Table, Td, Th, Textarea, useToast } from "@/components/ui";
+import { Badge, Button, Card, Checkbox, Empty, ErrorNote, Field, Input, Loading, Modal, PageHeader, Textarea, useToast } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import type { ModuleCatalogue, Plan } from "@/lib/types";
@@ -122,36 +122,60 @@ export default function PlansPage() {
   const [deleting, setDeleting] = useState<Plan | null>(null);
 
   if (!me.is_superuser) return <Card><Empty>Only the platform administrator manages plans.</Empty></Card>;
-  const name = (key: string) => catalogue?.modules.find((m) => m.key === key)?.name ?? key;
 
   return (
     <>
-      <PageHeader title="Plans" description="What each package includes and its limits. Sites get a plan under Condominiums → Subscription."
+      <PageHeader title="Plans" description="What each package includes and its limits. Give a site its plan under Condominiums → Subscription."
         action={<Button variant="primary" onClick={() => setEditing("new")}><Icon name="plus" className="h-4 w-4" /> Add plan</Button>} />
-      <Card>
-        {!data || !catalogue ? <Loading /> : data.length === 0 ? <Empty>No plans.</Empty> : (
-          <Table>
-            <thead><tr><Th>Plan</Th><Th>Modules</Th><Th>Sites</Th><Th>Status</Th><Th /></tr></thead>
-            <tbody className="divide-y divide-line">
-              {data.map((p) => (
-                <tr key={p.id}>
-                  <Td className="font-medium text-ink">{p.name}<div className="font-mono text-xs font-normal text-muted">{p.code}</div></Td>
-                  <Td className="max-w-md text-xs">{p.modules.filter((k) => k !== "core").map(name).join(", ") || "Core only"}</Td>
-                  <Td>{p.subscriptions}</Td>
-                  <Td className="space-x-1 whitespace-nowrap">
-                    {p.is_active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}
-                    {!p.is_public && <Badge>Internal</Badge>}
-                  </Td>
-                  <Td className="whitespace-nowrap text-right">
-                    <Button size="sm" variant="ghost" onClick={() => setEditing(p)}>Edit</Button>
-                    {p.subscriptions === 0 && <Button size="sm" variant="ghost" onClick={() => setDeleting(p)}>Delete</Button>}
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        )}
-      </Card>
+      {!data || !catalogue ? <Loading /> : data.length === 0 ? <Card><Empty>No plans.</Empty></Card> : (
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          {data.map((p) => (
+            <Card key={p.id} className={`flex flex-col ${p.is_active ? "" : "opacity-70"}`}>
+              <div className="border-b border-line p-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-xl font-semibold text-ink">{p.name}</h2>
+                  {!p.is_public && <Badge>Internal</Badge>}
+                  {!p.is_active && <Badge tone="amber">Not offered</Badge>}
+                </div>
+                {p.description && <p className="mt-1 text-sm text-muted">{p.description}</p>}
+                <p className="mt-3 text-sm text-body"><strong className="text-ink">{p.subscriptions}</strong> site{p.subscriptions === 1 ? "" : "s"} on this plan</p>
+              </div>
+              <ul className="space-y-2 p-5 text-sm">
+                {catalogue.modules.filter((m) => m.available || p.modules.includes(m.key)).map((m) => {
+                  const on = p.modules.includes(m.key) || m.key === "core";
+                  return (
+                    <li key={m.key} className="flex items-center gap-2">
+                      <Icon name={!m.available ? "sparkle" : on ? "check" : "x"} className={`h-4 w-4 shrink-0 ${!m.available ? "text-primary-500" : on ? "text-emerald-500" : "text-muted"}`} />
+                      <span className={on ? "text-ink" : "text-muted line-through decoration-slate-400/60"}>{m.name}</span>
+                      {!m.available && <span className="ml-auto text-xs text-muted">soon</span>}
+                    </li>
+                  );
+                })}
+              </ul>
+              <dl className="mx-5 mb-5 divide-y divide-line rounded-xl bg-surface-3/60 px-3 text-sm">
+                {catalogue.limits.filter((l) => l.enforced || l.metered).map((l) => (
+                  <div key={l.key} className="flex items-baseline justify-between gap-3 py-1.5">
+                    <dt className="text-muted">{l.name}{l.metered ? " / month" : ""}</dt>
+                    <dd className="text-right font-medium text-ink">
+                      {p.limits[l.key] ?? "∞"}
+                      {l.metered && p.overage_rates[l.key] !== undefined && <span className="block text-xs font-normal text-muted">+{p.currency} {p.overage_rates[l.key]} each over</span>}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="mt-auto flex gap-2 border-t border-line p-4">
+                <Button className="flex-1" onClick={() => setEditing(p)}>Edit plan</Button>
+                {p.subscriptions === 0 && <Button variant="ghost" onClick={() => setDeleting(p)}>Delete</Button>}
+              </div>
+            </Card>
+          ))}
+          <button onClick={() => setEditing("new")}
+            className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-line text-muted transition hover:border-primary-400/60 hover:text-primary-600">
+            <Icon name="plus" className="h-6 w-6" />
+            <span className="font-medium">Add plan</span>
+          </button>
+        </div>
+      )}
       {editing && catalogue && (
         <PlanEditor plan={editing === "new" ? null : editing} catalogue={catalogue} onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); mutate(); toast("success", "Plan saved. Sites on it are updated."); }} />
