@@ -722,8 +722,9 @@ class SetPasswordSerializer(serializers.Serializer):
 
 
 class SystemSettingsSerializer(ModelCleanSerializer):
-    secret_fields = ("livekit_api_secret", "fcm_service_account_json", "openai_api_key")
+    secret_fields = ("livekit_api_secret", "fcm_service_account_json", "openai_api_key", "smtp_password")
     livekit_configured = serializers.SerializerMethodField()
+    email_configured = serializers.SerializerMethodField()
     fcm_configured = serializers.SerializerMethodField()
     openai_configured = serializers.SerializerMethodField()
     sources = serializers.SerializerMethodField()
@@ -735,13 +736,19 @@ class SystemSettingsSerializer(ModelCleanSerializer):
             "intercom_unlock_window_seconds", "fcm_service_account_json", "relay_http_timeout",
             "lpr_debounce_seconds", "openai_api_key", "assistant_mode", "assistant_chat_model", "assistant_transcribe_model",
             "assistant_tts_model", "assistant_realtime_model", "assistant_voice", "assistant_max_session_seconds",
-            "assistant_daily_sessions", "livekit_configured", "fcm_configured", "openai_configured", "sources", "updated_at",
+            "assistant_daily_sessions", "smtp_host", "smtp_port", "smtp_security", "smtp_username", "smtp_password",
+            "email_from_address", "email_from_name", "email_reply_to",
+            "livekit_configured", "fcm_configured", "openai_configured", "email_configured", "sources", "updated_at",
         ]
         read_only_fields = ["updated_at"]
 
     def get_livekit_configured(self, obj) -> bool:
         from . import config
         return all(config.source(n) for n in ("LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET"))
+
+    def get_email_configured(self, obj) -> bool:
+        from . import mail
+        return mail.is_configured()
 
     def get_openai_configured(self, obj) -> bool:
         from . import config
@@ -755,6 +762,19 @@ class SystemSettingsSerializer(ModelCleanSerializer):
         """Where each value currently comes from: 'admin', '.env' or '' (unset)."""
         from . import config
         return {field: config.source(name) for name, field in config.FIELDS.items()}
+
+
+class EmailLogSerializer(serializers.ModelSerializer):
+    condominium_name = serializers.CharField(source="condominium.name", default="", read_only=True)
+
+    class Meta:
+        model = m.EmailLog
+        fields = ["id", "condominium", "condominium_name", "to", "subject", "template", "status", "attempts", "error",
+                  "created_at", "sent_at"]
+
+
+class TestEmailSerializer(serializers.Serializer):
+    to = serializers.EmailField(required=False, help_text="Defaults to your own email address.")
 
 
 class BulkUnitsSerializer(serializers.Serializer):

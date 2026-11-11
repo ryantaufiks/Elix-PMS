@@ -1,0 +1,5 @@
+This is a test email from {{ brand }}.
+
+If you can read this, outgoing email (SMTP) is set up correctly.
+
+Sent {{ sent_at|date:"j M Y, H:i" }}.

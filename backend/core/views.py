@@ -15,7 +15,7 @@ from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 
-from . import access, assistant, backups, intercom, livekit, privacy, push, relays, visits
+from . import access, assistant, backups, intercom, livekit, mail, privacy, push, relays, visits
 from . import visitor_identity as identity
 from . import models as m
 from . import serializers as s
@@ -1008,6 +1008,29 @@ def test_fcm(request):
     except Exception as exc:
         return Response({"ok": False, "detail": f"{exc.__class__.__name__}: {exc}"})
     return Response({"ok": True, "detail": f"Firebase OK - project {project_id}."})
+
+
+@extend_schema(request=s.TestEmailSerializer, responses={200: OpenApiResponse(description="{'ok': bool, 'detail': str}")})
+@api_view(["POST"])
+@permission_classes([IsSuperuser])
+def test_email(request):
+    body = s.TestEmailSerializer(data=request.data)
+    body.is_valid(raise_exception=True)
+    to = body.validated_data.get("to") or request.user.email
+    if not to:
+        return Response({"ok": False, "detail": "Enter an address to send the test to (your account has no email)."})
+    ok, detail = mail.send_test(to)
+    return Response({"ok": ok, "detail": detail})
+
+
+class EmailLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """Outgoing emails of the last 30 days (platform administrator only)."""
+
+    queryset = m.EmailLog.objects.select_related("condominium")
+    serializer_class = s.EmailLogSerializer
+    permission_classes = [IsSuperuser]
+    filterset_fields = ["status", "condominium", "template"]
+    search_fields = ["to", "subject"]
 
 
 # --- Public visitor pass -----------------------------------------------------

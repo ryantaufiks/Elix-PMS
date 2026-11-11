@@ -129,11 +129,34 @@ export type SystemSettings = {
   assistant_voice: string;
   assistant_max_session_seconds: number;
   assistant_daily_sessions: number;
+  smtp_host: string;
+  smtp_port: number | null;
+  smtp_security: "" | "starttls" | "ssl" | "none";
+  smtp_username: string;
+  has_smtp_password: boolean;
+  email_from_address: string;
+  email_from_name: string;
+  email_reply_to: string;
   livekit_configured: boolean;
   fcm_configured: boolean;
   openai_configured: boolean;
+  email_configured: boolean;
   sources: Record<string, "admin" | ".env" | "">;
   updated_at: string | null;
+};
+
+export type EmailLog = {
+  id: number;
+  condominium: number | null;
+  condominium_name: string;
+  to: string;
+  subject: string;
+  template: string;
+  status: "queued" | "sent" | "failed";
+  attempts: number;
+  error: string;
+  created_at: string;
+  sent_at: string | null;
 };
 
 export type AssistantSettings = {

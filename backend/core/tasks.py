@@ -151,3 +151,33 @@ def prune_backups() -> int:
     from . import backups
 
     return backups.prune()
+
+
+@shared_task(bind=True, max_retries=3)
+def send_email(self, log_id: int):
+    """Send one queued email; retries a few times when the mail server or the network is the problem."""
+    from . import mail
+    from .models import EmailLog
+
+    log = EmailLog.objects.filter(pk=log_id, status__in=[EmailLog.Status.QUEUED, EmailLog.Status.FAILED]).first()
+    if log is None:
+        return None
+    try:
+        mail.deliver(log)
+    except Exception as exc:  # Recorded on the log; only network or temporary server trouble is retried.
+        if mail.is_transient(exc):
+            raise self.retry(exc=exc, countdown=60 * 2 ** self.request.retries)
+        logger.warning("Email %s to %s failed: %s", log.pk, log.to, log.error)
+    return log.status
+
+
+@shared_task
+def prune_email_log() -> int:
+    from datetime import timedelta
+
+    from django.conf import settings
+
+    from .models import EmailLog
+
+    cutoff = timezone.now() - timedelta(days=settings.EMAIL_LOG_KEEP_DAYS)
+    return EmailLog.objects.filter(created_at__lt=cutoff).delete()[0]

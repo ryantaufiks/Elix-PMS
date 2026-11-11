@@ -420,6 +420,19 @@ worker processes (no restart). Any blank field falls back to the matching `.env`
 Per-condo settings (LPR on/off, ring timeout, invitation limits) are on each Condominium, and relay /
 camera credentials on their own admin pages.
 
+### Email (SMTP)
+
+*System settings → Email (SMTP)* holds the outgoing mail server: host, port, security (STARTTLS, SSL/TLS
+or none), username, password (encrypted), from address and name, reply-to; `.env` fallbacks
+`EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_SECURITY`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`,
+`EMAIL_FROM_ADDRESS`, `EMAIL_FROM_NAME`, `EMAIL_REPLY_TO`. *Save & send test email* sends a test at once
+(to the address typed next to it, or the admin's own). Other emails are queued: `core.mail.queue()`
+renders `templates/email/<name>.{subject.txt,txt,html}` (branded `base.html`) into an `EmailLog` row per
+recipient and the worker sends it, retrying network errors and temporary (4xx) server answers up to 3
+times; rejected logins or recipients fail at once with the reason on the log. The **Email log** on the
+same page (`GET /v1/email-logs/`, platform admin) lists the last 30 days; older rows are pruned daily
+(`core.tasks.prune_email_log`, 04:45).
+
 ## Production
 
 Production runs on the same server as a separate stack and is published through **Cloudflare Tunnel**,

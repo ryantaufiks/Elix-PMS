@@ -11,6 +11,7 @@ router.register("staff-assignments", views.StaffAssignmentViewSet)
 router.register("residencies", views.ResidencyViewSet)
 router.register("resident-documents", views.ResidentDocumentViewSet)
 router.register("backups", views.BackupViewSet)
+router.register("email-logs", views.EmailLogViewSet)
 router.register("assistant-modules", views.AssistantModuleViewSet)
 router.register("assistant-maps", views.AssistantMapViewSet)
 router.register("vehicles", views.VehicleViewSet)
@@ -39,6 +40,7 @@ urlpatterns = [
     path("system-settings/", views.SystemSettingsView.as_view(), name="system-settings"),
     path("system-settings/test-livekit/", views.test_livekit, name="system-settings-test-livekit"),
     path("system-settings/test-fcm/", views.test_fcm, name="system-settings-test-fcm"),
+    path("system-settings/test-email/", views.test_email, name="system-settings-test-email"),
     path("assistant-settings/", views.AssistantSettingsView.as_view(), name="assistant-settings"),
     path("assistant-settings/test/", views.AssistantTestView.as_view(), name="assistant-test"),
     path("dashboard/summary/", views.DashboardSummaryView.as_view(), name="dashboard-summary"),

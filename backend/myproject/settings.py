@@ -216,6 +216,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "core.tasks.prune_backups",
         "schedule": crontab(hour=4, minute=30),
     },
+    "prune-email-log": {
+        "task": "core.tasks.prune_email_log",
+        "schedule": crontab(hour=4, minute=45),
+    },
     "purge-visitor-data": {
         "task": "core.tasks.purge_visitor_data",
         "schedule": crontab(hour=3, minute=30),
@@ -240,6 +244,18 @@ FCM_SERVICE_ACCOUNT_FILE = env("FCM_SERVICE_ACCOUNT_FILE", default="")
 
 # Kiosk AI assistant: platform OpenAI key when System settings leaves it blank.
 OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
+
+# Outgoing email (SMTP). System settings > Email overrides these when filled in.
+EMAIL_HOST = env("EMAIL_HOST", default="")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_SECURITY = env("EMAIL_SECURITY", default="starttls")  # starttls, ssl or none
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_FROM_ADDRESS = env("EMAIL_FROM_ADDRESS", default="")
+EMAIL_FROM_NAME = env("EMAIL_FROM_NAME", default="Elix")
+EMAIL_REPLY_TO = env("EMAIL_REPLY_TO", default="")
+EMAIL_TIMEOUT = 15
+EMAIL_LOG_KEEP_DAYS = 30
 
 # Weather from NEA's realtime readings on data.gov.sg. Works without a key; a key raises the rate limit.
 DATA_GOV_SG_API_KEY = env("DATA_GOV_SG_API_KEY", default="")

@@ -73,6 +73,23 @@ class SystemSettings(TimeStampedModel):
         "Conversations per kiosk per day", default=100, help_text="Caps the OpenAI bill of each kiosk.",
     )
 
+    # Outgoing email (SMTP): subscription notices, alerts, test messages
+    class SmtpSecurity(models.TextChoices):
+        STARTTLS = "starttls", "STARTTLS (usually port 587)"
+        SSL = "ssl", "SSL/TLS (usually port 465)"
+        NONE = "none", "None (port 25, trusted networks only)"
+
+    smtp_host = models.CharField("SMTP host", max_length=255, blank=True, help_text="e.g. smtp.office365.com")
+    smtp_port = models.PositiveIntegerField("SMTP port", null=True, blank=True, help_text="Default 587.")
+    smtp_security = models.CharField("Security", max_length=10, choices=SmtpSecurity.choices, blank=True,
+                                     help_text="Default STARTTLS.")
+    smtp_username = models.CharField("SMTP username", max_length=255, blank=True)
+    smtp_password = EncryptedTextField("SMTP password", blank=True, default="")
+    email_from_address = models.EmailField("From address", blank=True, help_text="e.g. no-reply@yourcompany.com.sg")
+    email_from_name = models.CharField("From name", max_length=100, blank=True, help_text="Default Elix.")
+    email_reply_to = models.EmailField("Reply-to address", blank=True,
+                                       help_text="Where replies go, e.g. your support mailbox.")
+
     class Meta:
         verbose_name = verbose_name_plural = "System settings"
 
@@ -167,3 +184,33 @@ class BackupDownload(models.Model):
 
     class Meta:
         ordering = ["-at"]
+
+
+class EmailLog(models.Model):
+    """One outgoing email to one recipient. Kept 30 days so the platform admin can see what went out and why
+    something failed; the body is stored so a retry sends exactly the same message."""
+
+    class Status(models.TextChoices):
+        QUEUED = "queued", "Queued"
+        SENT = "sent", "Sent"
+        FAILED = "failed", "Failed"
+
+    condominium = models.ForeignKey("core.Condominium", on_delete=models.CASCADE, null=True, blank=True,
+                                    related_name="+", help_text="The site the email is about, if any.")
+    to = models.EmailField()
+    subject = models.CharField(max_length=200)
+    template = models.CharField(max_length=60)
+    body_text = models.TextField()
+    body_html = models.TextField(blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.QUEUED)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["-created_at"])]
+
+    def __str__(self):
+        return f"{self.subject} -> {self.to} ({self.status})"

@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import useSWR from "swr";
 
 import { type FieldDef, FormFields, initialValues } from "@/components/forms";
-import { Badge, Button, Card, CardHeader, Empty, ErrorNote, Loading, PageHeader, useToast } from "@/components/ui";
-import { api, ApiError, errorMessage } from "@/lib/api";
+import { Badge, Button, Card, CardHeader, Empty, ErrorNote, Input, Loading, PageHeader, Pagination, Select, Table, Td, Th, useToast } from "@/components/ui";
+import { api, ApiError, errorMessage, query } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { useSession } from "@/lib/session";
-import type { SystemSettings } from "@/lib/types";
+import type { EmailLog, Page, SystemSettings } from "@/lib/types";
 
 const livekitFields: FieldDef[] = [
   { name: "livekit_url", label: "LiveKit URL", wide: true, placeholder: "wss://your-project.livekit.cloud", hint: "LiveKit Cloud > Settings > Project URL." },
@@ -40,7 +40,56 @@ const assistantFields: FieldDef[] = [
   { name: "assistant_max_session_seconds", label: "Longest conversation (seconds)", type: "number", required: true, hint: "Default 180." },
   { name: "assistant_daily_sessions", label: "Conversations per kiosk per day", type: "number", required: true, hint: "Caps each kiosk's OpenAI bill. Default 100." },
 ];
-const ALL = [...livekitFields, ...fcmFields, ...assistantFields, ...tuningFields];
+const emailFields: FieldDef[] = [
+  { name: "smtp_host", label: "SMTP host", placeholder: "smtp.office365.com" },
+  { name: "smtp_port", label: "Port", type: "number", hint: "Default 587." },
+  { name: "smtp_security", label: "Security", type: "select", options: [
+    { value: "", label: "Default (STARTTLS)" },
+    { value: "starttls", label: "STARTTLS (usually port 587)" },
+    { value: "ssl", label: "SSL/TLS (usually port 465)" },
+    { value: "none", label: "None (port 25, trusted networks only)" },
+  ] },
+  { name: "smtp_username", label: "Username", hint: "Often the full mailbox address." },
+  { name: "smtp_password", label: "Password", type: "secret", hint: "For Microsoft 365 or Gmail with two-step sign-in, use an app password." },
+  { name: "email_from_address", label: "From address", type: "email", placeholder: "no-reply@yourcompany.com.sg" },
+  { name: "email_from_name", label: "From name", placeholder: "Elix", hint: "Default Elix." },
+  { name: "email_reply_to", label: "Reply-to address", type: "email", hint: "Where replies go, e.g. your support mailbox." },
+];
+const ALL = [...livekitFields, ...fcmFields, ...assistantFields, ...emailFields, ...tuningFields];
+const EMAIL_STATUS = { queued: "amber", sent: "green", failed: "red" } as const;
+
+function EmailLogCard() {
+  const [page, setPage] = useState(1);
+  const [status, setStatus] = useState("");
+  const { data } = useSWR<Page<EmailLog>>(`/v1/email-logs/${query({ page, status })}`, { keepPreviousData: true, refreshInterval: 15000 });
+  return (
+    <Card>
+      <CardHeader title="Email log" action={
+        <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="w-36">
+          <option value="">All</option><option value="sent">Sent</option><option value="failed">Failed</option><option value="queued">Queued</option>
+        </Select>
+      } />
+      {!data ? <Loading /> : data.results.length === 0 ? <Empty>No emails in the last 30 days.</Empty> : (
+        <>
+          <Table>
+            <thead><tr><Th>When</Th><Th>To</Th><Th>Subject</Th><Th>Status</Th></tr></thead>
+            <tbody className="divide-y divide-line">
+              {data.results.map((e) => (
+                <tr key={e.id}>
+                  <Td className="whitespace-nowrap">{formatDateTime(e.created_at)}</Td>
+                  <Td>{e.to}{e.condominium_name && <div className="text-xs text-muted">{e.condominium_name}</div>}</Td>
+                  <Td>{e.subject}{e.error && <div className="text-xs text-rose-600">{e.error}</div>}</Td>
+                  <Td><Badge tone={EMAIL_STATUS[e.status]}>{e.status[0].toUpperCase() + e.status.slice(1)}</Badge></Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+          <Pagination page={page} count={data.count} onPage={setPage} />
+        </>
+      )}
+    </Card>
+  );
+}
 
 function SourceNote({ sources, names }: { sources: SystemSettings["sources"]; names: string[] }) {
   const fromEnv = names.filter((n) => sources[n] === ".env");
@@ -55,6 +104,7 @@ export default function SystemSettingsPage() {
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [testTo, setTestTo] = useState("");
   useEffect(() => {
     if (data) setValues(initialValues(ALL, data as unknown as Record<string, unknown>));
   }, [data]);
@@ -66,7 +116,7 @@ export default function SystemSettingsPage() {
     ? Object.fromEntries(Object.entries(error.data as Record<string, unknown>).filter(([k]) => k !== "detail").map(([k, v]) => [k, errorMessage(v, "Invalid")]))
     : {};
 
-  async function save(then?: "livekit" | "fcm") {
+  async function save(then?: "livekit" | "fcm" | "email") {
     setBusy(then ?? "save");
     setError(null);
     try {
@@ -80,7 +130,8 @@ export default function SystemSettingsPage() {
       await api("/v1/system-settings/", { method: "PATCH", body });
       await mutate();
       if (then) {
-        const result = await api<{ ok: boolean; detail: string }>(`/v1/system-settings/test-${then}/`, { method: "POST" });
+        const result = await api<{ ok: boolean; detail: string }>(`/v1/system-settings/test-${then}/`,
+          { method: "POST", body: then === "email" ? { to: testTo.trim() || undefined } : undefined });
         toast(result.ok ? "success" : "error", result.detail);
       } else {
         toast("success", "System settings saved. They apply immediately.");
@@ -128,6 +179,19 @@ export default function SystemSettingsPage() {
             <SourceNote sources={data.sources} names={["openai_api_key"]} />
           </div>
         </Card>
+        <Card>
+          <CardHeader title="Email (SMTP)" action={data.email_configured ? <Badge tone="green">Configured</Badge> : <Badge tone="amber">Not configured</Badge>} />
+          <div className="space-y-4 p-5 sm:p-6">
+            <p className="text-sm text-muted">Outgoing email for subscription notices and alerts. Every message is listed in the email log below for 30 days.</p>
+            <FormFields fields={emailFields} values={values} errors={errors} record={record} onChange={change} />
+            <SourceNote sources={data.sources} names={["smtp_host", "smtp_password", "email_from_address"]} />
+            <div className="flex flex-col gap-2 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-end">
+              <Input type="email" value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder={me.email || "Send the test to…"} className="sm:w-64" aria-label="Send the test email to" />
+              <Button busy={busy === "email"} onClick={() => save("email")}>Save &amp; send test email</Button>
+            </div>
+          </div>
+        </Card>
+        <EmailLogCard />
         <Card>
           <CardHeader title="Gate relays & LPR tuning" />
           <div className="p-5 sm:p-6"><FormFields fields={tuningFields} values={values} errors={errors} record={record} onChange={change} /></div>

@@ -1,0 +1,6 @@
+{% extends "email/base.html" %}
+{% block content %}
+<h1 style="margin:0 0 12px;font-size:20px;">Email is working</h1>
+<p style="margin:0 0 12px;">This is a test email from {{ brand }}. If you can read this, outgoing email (SMTP) is set up correctly.</p>
+<p style="margin:0;color:#64748b;font-size:13px;">Sent {{ sent_at|date:"j M Y, H:i" }}.</p>
+{% endblock %}

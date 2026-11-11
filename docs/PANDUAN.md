@@ -121,6 +121,12 @@ Pastikan perangkat lokal Anda telah terinstal:
 
 * **Site tanpa aplikasi penghuni:** super admin bisa mematikan *Residents use the Elix app* per site (*Platform → Condominiums → Edit*; hanya super admin yang bisa mengubahnya). Site itu lalu hanya memakai **Kiosk + dashboard Management**: resident di site itu tidak bisa masuk ke APK (muncul pesan *Your condominium does not use the Elix app*), tombol *Call a resident* di kiosk hilang dan AI assistant tidak menawarkan panggilan, tombol unduh APK di halaman Residents disembunyikan. Walk in, *I have an invitation* dan *Check out* tetap berjalan.
 
+### 5b. Email (SMTP)
+* Diatur super admin di **Platform → System settings → Email (SMTP)**: host, port, keamanan (STARTTLS/SSL/none), username, password (terenkripsi), alamat dan nama pengirim, reply-to. Bisa juga lewat `.env` (`EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_SECURITY`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_FROM_ADDRESS`, `EMAIL_FROM_NAME`, `EMAIL_REPLY_TO`).
+* Tombol *Save & send test email* langsung mengirim email uji (ke alamat yang diketik, atau email akun super admin).
+* **Email log** di halaman yang sama menampilkan semua email 30 hari terakhir (terkirim, gagal beserta alasannya, antre). Email yang gagal karena jaringan atau server sibuk dicoba ulang otomatis sampai 3 kali.
+* Untuk Microsoft 365 / Gmail dengan verifikasi dua langkah, gunakan *app password*.
+
 ### 6. Sidebar & notifikasi dashboard
 * Grup menu sidebar (Operations, Community, Site setup, Platform) bisa dibuka-tutup seperti dropdown dengan klik judul grupnya; pilihan diingat per browser, dan grup halaman yang sedang dibuka selalu terbuka.
 * **Bell notifikasi** di top bar menampilkan aktivitas baru secara realtime untuk site yang dipilih: tamu masuk/keluar, panggilan intercom dan hasilnya, gerbang terbuka/ditolak, booking dan feedback baru. Badge merah menunjukkan jumlah yang belum dibaca; 50 notifikasi terakhir disimpan di browser.

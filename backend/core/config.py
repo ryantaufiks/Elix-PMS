@@ -16,6 +16,14 @@ FIELDS = {
     "RELAY_HTTP_TIMEOUT": "relay_http_timeout",
     "LPR_DEBOUNCE_SECONDS": "lpr_debounce_seconds",
     "OPENAI_API_KEY": "openai_api_key",
+    "EMAIL_HOST": "smtp_host",
+    "EMAIL_PORT": "smtp_port",
+    "EMAIL_SECURITY": "smtp_security",
+    "EMAIL_HOST_USER": "smtp_username",
+    "EMAIL_HOST_PASSWORD": "smtp_password",
+    "EMAIL_FROM_ADDRESS": "email_from_address",
+    "EMAIL_FROM_NAME": "email_from_name",
+    "EMAIL_REPLY_TO": "email_reply_to",
 }
 
 
