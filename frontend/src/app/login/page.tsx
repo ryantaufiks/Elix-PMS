@@ -3,9 +3,24 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { Button, ErrorNote, Field, Input } from "@/components/ui";
+import { Icon, type IconName } from "@/components/icons";
+import { Button, ErrorNote, Input } from "@/components/ui";
 import { login, tokens } from "@/lib/api";
 import { Credit } from "@/components/Credit";
+
+/** Login field: rounded, with a leading icon and an optional control at the end (show password). */
+function LoginField({ id, label, icon, end, ...props }: React.ComponentProps<"input"> & { id: string; label: string; icon: IconName; end?: React.ReactNode }) {
+  return (
+    <div>
+      <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-ink">{label}</label>
+      <div className="relative">
+        <Icon name={icon} className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
+        <Input id={id} {...props} className={`!h-12 !rounded-xl !bg-surface-2 !pl-12 !text-base transition focus:!bg-surface ${end ? "!pr-12" : "!pr-4"}`} />
+        {end && <div className="absolute right-2 top-1/2 -translate-y-1/2">{end}</div>}
+      </div>
+    </div>
+  );
+}
 
 function nextPath(): string {
   const next = new URLSearchParams(window.location.search).get("next") ?? "/";
@@ -19,6 +34,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  const [show, setShow] = useState(false);
 
   useEffect(() => {
     if (tokens.access()) router.replace(nextPath());
@@ -45,13 +61,17 @@ export default function LoginPage() {
           <p className="mt-2 text-sm text-muted">Sign in to the Elix guardhouse and management console.</p>
           <form onSubmit={submit} className="mt-8 space-y-5">
             <ErrorNote error={error} />
-            <Field label="Username">
-              <Input autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus />
-            </Field>
-            <Field label="Password">
-              <Input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            </Field>
-            <Button type="submit" variant="primary" size="lg" className="w-full" busy={busy}>Sign in</Button>
+            <LoginField id="username" label="Username" icon="user" autoComplete="username" value={username}
+              onChange={(e) => setUsername(e.target.value)} required autoFocus />
+            <LoginField id="password" label="Password" icon="lock" type={show ? "text" : "password"} autoComplete="current-password"
+              value={password} onChange={(e) => setPassword(e.target.value)} required
+              end={
+                <button type="button" onClick={() => setShow((v) => !v)} aria-label={show ? "Hide password" : "Show password"}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-muted transition hover:bg-surface-3 hover:text-ink">
+                  <Icon name={show ? "eyeOff" : "eye"} className="h-5 w-5" />
+                </button>
+              } />
+            <Button type="submit" variant="primary" size="lg" className="w-full !rounded-xl" busy={busy}>Sign in</Button>
           </form>
           <p className="mt-8 text-xs text-muted">Residents: please use the Elix mobile app.</p>
           <p className="mt-3 flex gap-4 text-xs text-muted">
