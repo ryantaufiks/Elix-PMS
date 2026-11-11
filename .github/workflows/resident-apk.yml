@@ -7,7 +7,7 @@
 #                                install over earlier versions signed with the same key)
 #   ANDROID_KEYSTORE_PASSWORD    store/key password from android/key.properties
 #   GOOGLE_SERVICES_JSON_BASE64  optional: base64 of google-services.json (enables push)
-# Repository variable: API_BASE (defaults to https://myelix.kurmapos.online)
+# Repository variable: API_BASE (defaults to https://elixsmart.cloud)
 name: Resident APK
 
 on:
@@ -83,14 +83,14 @@ jobs:
       - name: Build APK
         run: |
           flutter build apk --release \
-            --dart-define=API_BASE=${{ vars.API_BASE || 'https://myelix.kurmapos.online' }} \
+            --dart-define=API_BASE=${{ vars.API_BASE || 'https://elixsmart.cloud' }} \
             --build-number=${{ github.run_number }}
           cp build/app/outputs/flutter-apk/app-release.apk elix-resident.apk
 
       - name: Build app bundle (Google Play)
         run: |
           flutter build appbundle --release \
-            --dart-define=API_BASE=${{ vars.API_BASE || 'https://myelix.kurmapos.online' }} \
+            --dart-define=API_BASE=${{ vars.API_BASE || 'https://elixsmart.cloud' }} \
             --build-number=${{ github.run_number }}
           cp build/app/outputs/bundle/release/app-release.aab elix-resident.aab
 
