@@ -1,0 +1,7 @@
+{% extends "email/base.html" %}
+{% block content %}
+<h1 style="margin:0 0 12px;font-size:20px;">{{ threshold }}% of the {{ metric|lower }} allowance used</h1>
+<p style="margin:0 0 12px;"><strong>{{ site }}</strong> has used <strong>{{ used }}</strong> of the {{ allowed }} {{ unit }} of {{ metric|lower }} included in the {{ plan }} plan this month ({{ date|date:"F Y" }}).</p>
+<p style="margin:0 0 12px;">{% if threshold >= 100 %}The allowance is used up. {{ metric }} keeps working; use above the allowance is billed at the overage rate in your agreement.{% else %}{{ metric }} keeps working past the allowance; use above it is billed at the overage rate in your agreement.{% endif %}</p>
+<p style="margin:0;">Questions{% if contact %}: reply to this email or write to <a href="mailto:{{ contact }}" style="color:#2f6fff;">{{ contact }}</a>{% else %}: contact Elix{% endif %}.</p>
+{% endblock %}

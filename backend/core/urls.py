@@ -44,6 +44,7 @@ urlpatterns = [
     path("system-settings/test-email/", views.test_email, name="system-settings-test-email"),
     path("subscriptions/<int:condominium>/", billing_views.SubscriptionView.as_view(), name="subscription"),
     path("modules/", billing_views.ModuleCatalogueView.as_view(), name="module-catalogue"),
+    path("usage/", billing_views.UsageReportView.as_view(), name="usage-report"),
     path("assistant-settings/", views.AssistantSettingsView.as_view(), name="assistant-settings"),
     path("assistant-settings/test/", views.AssistantTestView.as_view(), name="assistant-test"),
     path("dashboard/summary/", views.DashboardSummaryView.as_view(), name="dashboard-summary"),

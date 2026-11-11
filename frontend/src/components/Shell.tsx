@@ -58,6 +58,7 @@ const NAV: { title: string; items: NavItem[] }[] = [
     items: [
       { href: "/platform/condominiums/", label: "Condominiums", icon: "building", superuser: true },
       { href: "/platform/plans/", label: "Plans", icon: "tag", superuser: true },
+      { href: "/platform/usage/", label: "Usage", icon: "report", superuser: true },
       { href: "/platform/system/", label: "System settings", icon: "settings", superuser: true },
       { href: "/platform/backups/", label: "Backups", icon: "archive", superuser: true },
     ],

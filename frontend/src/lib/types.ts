@@ -134,6 +134,8 @@ export type SystemSettings = {
   assistant_voice: string;
   assistant_max_session_seconds: number;
   assistant_daily_sessions: number;
+  ai_usd_per_million_input: string | null;
+  ai_usd_per_million_output: string | null;
   smtp_host: string;
   smtp_port: number | null;
   smtp_security: "" | "starttls" | "ssl" | "none";
@@ -153,7 +155,7 @@ export type SystemSettings = {
 export type SubscriptionStatus = "trial" | "active" | "grace" | "suspended" | "cancelled";
 
 export type ModuleInfo = { key: string; name: string; description: string; requires: string[]; available: boolean; upsell_plan: string };
-export type LimitInfo = { key: string; name: string; unit: string; enforced: boolean };
+export type LimitInfo = { key: string; name: string; unit: string; enforced: boolean; metered: boolean };
 export type ModuleCatalogue = { modules: ModuleInfo[]; limits: LimitInfo[] };
 
 export type Plan = {
@@ -163,6 +165,8 @@ export type Plan = {
   description: string;
   modules: string[];
   limits: Record<string, number | null>;
+  overage_rates: Record<string, number>;
+  currency: string;
   sort_order: number;
   is_public: boolean;
   is_active: boolean;
@@ -190,6 +194,13 @@ export type Subscription = {
   usage: Record<string, number>;
   events?: { id: number; at: string; actor_name: string; summary: string }[];
   updated_at: string;
+};
+
+export type UsageRow = {
+  site: string; site_id: number; code: string; plan: string; status: string; currency: string;
+  intercom_minutes: number; intercom_minutes_allowed: number | null; intercom_minutes_overage: number; intercom_minutes_amount: number;
+  ai_conversations: number; ai_conversations_allowed: number | null; ai_conversations_overage: number; ai_conversations_amount: number;
+  ai_conversations_own_key: number; ai_tokens_in: number; ai_tokens_out: number; ai_cost_usd: number | null; overage_amount: number;
 };
 
 export type EmailLog = {

@@ -1,8 +1,11 @@
 """Plans and subscriptions: the platform admin sells modules per site; site admins see what they have."""
-from datetime import timedelta
+import csv
+import io
+from datetime import date, timedelta
 
 from django.db import transaction
 from django.db.models import ProtectedError
+from django.http import HttpResponse
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, serializers, status, viewsets
@@ -11,7 +14,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from . import entitlements, subscriptions
+from . import entitlements, subscriptions, usage
 from . import models as m
 from .scoping import ADMIN, ALL_STAFF, staff_condo_ids
 from .serializers import ModelCleanSerializer
@@ -22,8 +25,8 @@ class PlanSerializer(ModelCleanSerializer):
 
     class Meta:
         model = m.Plan
-        fields = ["id", "code", "name", "description", "modules", "limits", "sort_order", "is_public", "is_active",
-                  "subscriptions", "updated_at"]
+        fields = ["id", "code", "name", "description", "modules", "limits", "overage_rates", "currency", "sort_order",
+                  "is_public", "is_active", "subscriptions", "updated_at"]
 
 
 class SubscriptionEventSerializer(serializers.ModelSerializer):
@@ -169,6 +172,44 @@ class ModuleCatalogueView(APIView):
             "modules": [{"key": x.key, "name": x.name, "description": x.description, "requires": list(x.requires),
                          "available": x.available, "upsell_plan": entitlements.upsell_plan(x.key, plans)}
                         for x in entitlements.MODULES.values()],
-            "limits": [{"key": x.key, "name": x.name, "unit": x.unit, "enforced": x.enforced}
+            "limits": [{"key": x.key, "name": x.name, "unit": x.unit, "enforced": x.enforced, "metered": x.metered}
                        for x in entitlements.LIMITS.values()],
         }, status=status.HTTP_200_OK)
+
+
+USAGE_COLUMNS = [
+    ("site", "Site"), ("code", "Code"), ("plan", "Plan"), ("status", "Status"),
+    ("intercom_minutes", "Intercom minutes"), ("intercom_minutes_allowed", "Included"),
+    ("intercom_minutes_overage", "Over"), ("intercom_minutes_amount", "Intercom overage amount"),
+    ("ai_conversations", "AI conversations"), ("ai_conversations_allowed", "Included"),
+    ("ai_conversations_overage", "Over"), ("ai_conversations_amount", "AI overage amount"),
+    ("ai_conversations_own_key", "AI conversations (own key)"), ("ai_tokens_in", "AI input tokens"),
+    ("ai_tokens_out", "AI output tokens"), ("ai_cost_usd", "AI cost estimate (USD)"),
+    ("overage_amount", "Overage total"), ("currency", "Currency"),
+]
+
+
+class UsageReportView(APIView):
+    """Monthly usage and overage per site, for invoicing (platform administrator only)."""
+
+    @extend_schema(responses={200: dict})
+    def get(self, request):
+        if not request.user.is_superuser:
+            raise PermissionDenied("Only the platform administrator sees usage across sites.")
+        raw = request.query_params.get("month") or timezone.localdate().strftime("%Y-%m")
+        try:
+            month = date.fromisoformat(f"{raw}-01")
+        except ValueError:
+            raise serializers.ValidationError({"month": "Use YYYY-MM."})
+        sites = m.Condominium.objects.select_related("subscription__plan").order_by("name")
+        rows = usage.report(month, sites)
+        if request.query_params.get("export") == "csv":
+            out = io.StringIO()
+            writer = csv.writer(out)
+            writer.writerow([label for _, label in USAGE_COLUMNS])
+            for row in rows:
+                writer.writerow(["" if row.get(key) is None else row.get(key) for key, _ in USAGE_COLUMNS])
+            response = HttpResponse(out.getvalue(), content_type="text/csv; charset=utf-8")
+            response["Content-Disposition"] = f'attachment; filename="elix-usage-{month:%Y-%m}.csv"'
+            return response
+        return Response({"month": f"{month:%Y-%m}", "rows": rows})

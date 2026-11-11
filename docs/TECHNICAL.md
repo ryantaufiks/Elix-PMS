@@ -469,6 +469,17 @@ trial ends in 7 days and 1 day, grace started, suspended, active again; each is 
 without a date starts 14 days from today. Site admins see a banner for a trial ending within 7 days, a
 grace period or a suspension.
 
+**Usage** (`core/usage.py`, `UsageCounter` per site, month and metric): answered video intercom time
+(counted when a call ends), AI conversations (on the platform key, and separately on a site's own key),
+and AI tokens from OpenAI's answers (speech-to-text mode; realtime conversations are counted, not their
+tokens). The plan's monthly allowances `intercom_minutes` and `ai_conversations` never stop a feature:
+use above them is overage, priced per plan (`Plan.overage_rates`, `Plan.currency`), and the site
+admins, billing contact and platform admins get an email at 80% and at 100% (once per month each).
+*Platform → Usage* (`GET /v1/usage/?month=YYYY-MM`, `&export=csv`) lists every site's use, allowance,
+overage and its amount, plus an AI cost estimate when *System settings → Cost per 1M input / output
+tokens* are set. Site admins see this month's use against their allowance under *Your plan*. To stop a
+feature for a site, switch its module off under Subscription.
+
 ## Production
 
 Production runs on the same server as a separate stack and is published through **Cloudflare Tunnel**,

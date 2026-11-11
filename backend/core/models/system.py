@@ -69,6 +69,11 @@ class SystemSettings(TimeStampedModel):
     assistant_max_session_seconds = models.PositiveIntegerField(
         "Longest conversation (seconds)", default=180, help_text="A conversation ends after this long.",
     )
+    ai_usd_per_million_input = models.DecimalField(
+        "AI cost per 1M input tokens (USD)", max_digits=8, decimal_places=3, null=True, blank=True,
+        help_text="Your OpenAI price for the chat model, for the usage report's cost estimate. Blank: no estimate.")
+    ai_usd_per_million_output = models.DecimalField(
+        "AI cost per 1M output tokens (USD)", max_digits=8, decimal_places=3, null=True, blank=True)
     assistant_daily_sessions = models.PositiveIntegerField(
         "Conversations per kiosk per day", default=100, help_text="Caps the OpenAI bill of each kiosk.",
     )

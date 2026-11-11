@@ -17,7 +17,7 @@ from asgiref.sync import sync_to_async
 from django.core.cache import cache
 from django.utils import timezone
 
-from . import config, entitlements
+from . import config, entitlements, usage
 from . import models as m
 
 log = logging.getLogger(__name__)
@@ -169,7 +169,9 @@ def transcribe(condo, audio):
     response = _post(api_key(condo), "audio/transcriptions",
                      data={"model": s.assistant_transcribe_model, "prompt": f"A visitor at {condo.name} condominium kiosk."},
                      files={"file": (audio.name or "speech.webm", audio.read(), audio.content_type or "audio/webm")})
-    return response.json().get("text", "").strip()
+    data = response.json()
+    usage.tokens(condo, data)
+    return data.get("text", "").strip()
 
 
 def reply(condo, history):
@@ -180,7 +182,9 @@ def reply(condo, history):
     messages = [{"role": "system", "content": instructions(condo)}, *history]
     body = {"model": s.assistant_chat_model, "messages": messages, "max_completion_tokens": 300,
             "tools": [{"type": "function", "function": f} for f in functions], "parallel_tool_calls": False}
-    choice = _post(key, "chat/completions", json=body).json()["choices"][0]["message"]
+    answer = _post(key, "chat/completions", json=body).json()
+    usage.tokens(condo, answer)
+    choice = answer["choices"][0]["message"]
     calls = choice.get("tool_calls") or []
     actions = screen_actions(action(c["function"]["name"], c["function"].get("arguments")) for c in calls)
     text = (choice.get("content") or "").strip()
@@ -189,6 +193,7 @@ def reply(condo, history):
         messages += [{"role": "assistant", "content": None, "tool_calls": calls},
                      *[{"role": "tool", "tool_call_id": c["id"], "content": json.dumps({"done": True})} for c in calls]]
         follow = _post(key, "chat/completions", json={**body, "messages": messages, "tool_choice": "none"}).json()
+        usage.tokens(condo, follow)
         text = (follow["choices"][0]["message"].get("content") or "").strip()
     return text, actions
 
@@ -272,7 +277,9 @@ def start_session(kiosk):
     today = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0)
     if m.AssistantSession.objects.filter(kiosk=kiosk, started_at__gte=today).count() >= s.assistant_daily_sessions:
         raise AssistantError("The assistant is resting for today. Please ask at the guardhouse.")
-    return m.AssistantSession.objects.create(condominium=condo, kiosk=kiosk, mode=s.assistant_mode)
+    session = m.AssistantSession.objects.create(condominium=condo, kiosk=kiosk, mode=s.assistant_mode)
+    usage.conversation_started(condo, own_key=bool(site_settings(condo).openai_api_key))
+    return session
 
 
 def check_session(session):

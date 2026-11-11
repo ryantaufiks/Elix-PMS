@@ -764,7 +764,7 @@ class SystemSettingsSerializer(ModelCleanSerializer):
             "intercom_unlock_window_seconds", "fcm_service_account_json", "relay_http_timeout",
             "lpr_debounce_seconds", "openai_api_key", "assistant_mode", "assistant_chat_model", "assistant_transcribe_model",
             "assistant_tts_model", "assistant_realtime_model", "assistant_voice", "assistant_max_session_seconds",
-            "assistant_daily_sessions", "smtp_host", "smtp_port", "smtp_security", "smtp_username", "smtp_password",
+            "assistant_daily_sessions", "ai_usd_per_million_input", "ai_usd_per_million_output", "smtp_host", "smtp_port", "smtp_security", "smtp_username", "smtp_password",
             "email_from_address", "email_from_name", "email_reply_to",
             "livekit_configured", "fcm_configured", "openai_configured", "email_configured", "sources", "updated_at",
         ]

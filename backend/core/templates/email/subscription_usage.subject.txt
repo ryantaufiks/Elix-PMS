@@ -1,0 +1,1 @@
+{{ site }}: {{ threshold }}% of this month's {{ metric|lower }} allowance used

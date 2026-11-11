@@ -12,7 +12,7 @@ import { useSession } from "@/lib/session";
 import type { ModuleCatalogue, Plan } from "@/lib/types";
 
 type Draft = Omit<Plan, "id" | "subscriptions" | "updated_at">;
-const EMPTY: Draft = { code: "", name: "", description: "", modules: ["core"], limits: {}, sort_order: 50, is_public: true, is_active: true };
+const EMPTY: Draft = { code: "", name: "", description: "", modules: ["core"], limits: {}, overage_rates: {}, currency: "SGD", sort_order: 50, is_public: true, is_active: true };
 
 /** Turning a module on brings what it needs; turning one off takes what needs it. */
 function toggleModule(catalogue: ModuleCatalogue, modules: string[], key: string, on: boolean): string[] {
@@ -82,12 +82,26 @@ function PlanEditor({ plan, catalogue, onClose, onSaved }: { plan: Plan | null; 
         </div>
         <div>
           <h3 className="text-sm font-semibold text-ink">Limits</h3>
-          <p className="text-xs text-muted">Leave empty for unlimited. Limits marked “later” are shown to sites now and enforced in a later release.</p>
+          <p className="text-xs text-muted">Leave empty for unlimited. Monthly allowances keep working when used up; use above them is overage, priced below. Limits marked “later” are shown to sites now and enforced in a later release.</p>
           <div className="mt-2 grid gap-3 sm:grid-cols-3">
             {catalogue.limits.map((l) => (
-              <Field key={l.key} label={`${l.name}${l.unit ? ` (${l.unit})` : ""}${l.enforced ? "" : " · later"}`}>
+              <Field key={l.key} label={`${l.name}${l.unit ? ` (${l.unit})` : ""}${l.enforced || l.metered ? "" : " · later"}`}>
                 <Input type="number" min={0} value={draft.limits[l.key] ?? ""} placeholder="Unlimited"
                   onChange={(e) => set("limits", { ...Object.fromEntries(Object.entries(draft.limits).filter(([k]) => k !== l.key)),
+                    ...(e.target.value === "" ? {} : { [l.key]: Number(e.target.value) }) })} />
+              </Field>
+            ))}
+          </div>
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-ink">Overage prices</h3>
+          <p className="text-xs text-muted">Price per unit above the monthly allowance, for the usage report and invoices.</p>
+          <div className="mt-2 grid gap-3 sm:grid-cols-3">
+            <Field label="Currency"><Input value={draft.currency} maxLength={3} onChange={(e) => set("currency", e.target.value.toUpperCase())} /></Field>
+            {catalogue.limits.filter((l) => l.metered).map((l) => (
+              <Field key={l.key} label={`${l.name}, per ${l.key === "intercom_minutes" ? "minute" : "conversation"}`}>
+                <Input type="number" min={0} step="0.01" value={draft.overage_rates[l.key] ?? ""} placeholder="0"
+                  onChange={(e) => set("overage_rates", { ...Object.fromEntries(Object.entries(draft.overage_rates).filter(([k]) => k !== l.key)),
                     ...(e.target.value === "" ? {} : { [l.key]: Number(e.target.value) }) })} />
               </Field>
             ))}

@@ -62,9 +62,9 @@ export function PlanSummary({ condoId }: { condoId: number }) {
         <div>
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">Limits</h3>
           <ul className="mt-3 space-y-3">
-            {catalogue.limits.filter((l) => l.enforced).map((l) => (
+            {catalogue.limits.filter((l) => l.enforced || l.metered).map((l) => (
               <li key={l.key} className="flex items-center justify-between gap-4 text-sm">
-                <span className="text-ink">{l.name}</span>
+                <span className="text-ink">{l.name}{l.metered && <span className="block text-xs text-muted">this month</span>}</span>
                 <UsageBar used={data.usage[l.key] ?? 0} allowed={data.limits[l.key]} />
               </li>
             ))}

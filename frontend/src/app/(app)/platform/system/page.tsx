@@ -39,6 +39,8 @@ const assistantFields: FieldDef[] = [
   { name: "assistant_realtime_model", label: "Realtime model", hint: "Realtime mode. Default gpt-realtime-mini." },
   { name: "assistant_max_session_seconds", label: "Longest conversation (seconds)", type: "number", required: true, hint: "Default 180." },
   { name: "assistant_daily_sessions", label: "Conversations per kiosk per day", type: "number", required: true, hint: "Caps each kiosk's OpenAI bill. Default 100." },
+  { name: "ai_usd_per_million_input", label: "Cost per 1M input tokens (USD)", type: "number", nullable: true, hint: "Your OpenAI price for the chat model, for the usage report's cost estimate. Blank: no estimate." },
+  { name: "ai_usd_per_million_output", label: "Cost per 1M output tokens (USD)", type: "number", nullable: true },
 ];
 const emailFields: FieldDef[] = [
   { name: "smtp_host", label: "SMTP host", placeholder: "smtp.office365.com" },

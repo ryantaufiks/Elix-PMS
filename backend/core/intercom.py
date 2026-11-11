@@ -11,7 +11,7 @@ from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
 
-from . import access, config, entitlements, visits
+from . import access, config, entitlements, usage, visits
 from .models import AccessLog, IntercomCall, Residency, StaffAssignment
 from .realtime import broadcast_call
 
@@ -125,6 +125,7 @@ def reject(call, user):
     now = timezone.now()
     call.status, call.decided_by, call.decided_at, call.ended_at = IntercomCall.Status.REJECTED, user, now, now
     call.save(update_fields=["status", "decided_by", "decided_at", "ended_at", "updated_at"])
+    usage.call_ended(call)
     AccessLog.objects.create(condominium_id=call.condominium_id, gate=call.gate, method=AccessLog.Method.INTERCOM,
                              result=AccessLog.Result.DENIED, actor=user, unit=call.unit, intercom_call=call,
                              visitor=call.visitor, reason="Rejected by resident")
@@ -148,6 +149,7 @@ def hang_up(call, status=None):
         call.status = status
         fields.append("status")
     call.save(update_fields=fields)
+    usage.call_ended(call)
     _notify(call)
     transaction.on_commit(lambda: end_call_room.delay(call.room_name))
     return call

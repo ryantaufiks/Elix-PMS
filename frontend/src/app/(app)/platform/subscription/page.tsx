@@ -125,7 +125,8 @@ export default function SubscriptionPage() {
             <tbody className="divide-y divide-line">
               {catalogue.limits.map((l) => (
                 <tr key={l.key}>
-                  <Td>{l.name}{l.unit && <span className="text-xs text-muted"> ({l.unit})</span>}{!l.enforced && <div className="text-xs text-muted">Enforced in a later release</div>}</Td>
+                  <Td>{l.name}{l.unit && <span className="text-xs text-muted"> ({l.unit})</span>}{l.metered ? <div className="text-xs text-muted">Monthly allowance; use above it is overage</div>
+                    : !l.enforced && <div className="text-xs text-muted">Enforced in a later release</div>}</Td>
                   <Td>{plan?.limits[l.key] ?? "Unlimited"}</Td>
                   <Td><Input type="number" min={0} className="w-32" placeholder="As plan" value={draft.limit_overrides[l.key] ?? ""}
                     onChange={(e) => set("limit_overrides", { ...Object.fromEntries(Object.entries(draft.limit_overrides).filter(([k]) => k !== l.key)),

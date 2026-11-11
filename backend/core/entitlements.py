@@ -49,6 +49,7 @@ class Limit:
     name: str
     unit: str = ""
     enforced: bool = True  # False: shown, enforced in a later release.
+    metered: bool = False  # Monthly allowance: use past it keeps working and is billed as overage.
 
 
 LIMITS = {x.key: x for x in (
@@ -58,8 +59,8 @@ LIMITS = {x.key: x for x in (
     Limit("lpr_cameras", "LPR cameras"),
     Limit("staff_accounts", "Staff accounts"),
     Limit("face_terminals", "Face terminals", enforced=False),
-    Limit("intercom_minutes", "Video intercom", "minutes / month", enforced=False),
-    Limit("ai_conversations", "AI conversations", "per month", enforced=False),
+    Limit("intercom_minutes", "Video intercom", "minutes / month", enforced=False, metered=True),
+    Limit("ai_conversations", "AI conversations", "per month", enforced=False, metered=True),
     Limit("storage_gb", "Storage", "GB", enforced=False),
 )}
 
@@ -114,6 +115,17 @@ def bad_limits(limits) -> str:
             return f"Unknown limit: {key}."
         if value is not None and (not isinstance(value, int) or isinstance(value, bool) or value < 0):
             return f"{LIMITS[key].name}: a whole number of 0 or more, or empty for unlimited."
+    return ""
+
+
+def bad_rates(rates) -> str:
+    if not isinstance(rates, dict):
+        return "Rates must be an object of limit -> price."
+    for key, value in rates.items():
+        if key not in LIMITS or not LIMITS[key].metered:
+            return f"{key} is not a metered limit."
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+            return f"{LIMITS[key].name}: a price of 0 or more."
     return ""
 
 
@@ -186,7 +198,10 @@ def usage(condo) -> dict:
     """Current counts for the enforced limits."""
     from .models import AccessGate, Kiosk, LprCamera, StaffAssignment, Unit
 
+    from . import usage as metering
+
     return {
+        **metering.this_month(condo),
         "units": Unit.objects.filter(condominium=condo, is_active=True).count(),
         "kiosks": Kiosk.objects.filter(condominium=condo).count(),
         "gates": AccessGate.objects.filter(condominium=condo).count(),

@@ -15,6 +15,9 @@ class Plan(TimeStampedModel):
     description = models.CharField(max_length=255, blank=True)
     modules = models.JSONField(default=list, blank=True, help_text="Module keys included (core is always on).")
     limits = models.JSONField(default=dict, blank=True, help_text="Limit key -> number; missing means unlimited.")
+    overage_rates = models.JSONField(
+        default=dict, blank=True, help_text="Metered limit -> price per unit over the allowance, e.g. {'intercom_minutes': 0.05}.")
+    currency = models.CharField(max_length=3, default="SGD")
     sort_order = models.PositiveSmallIntegerField(default=0, help_text="Lower comes first in lists and upsell hints.")
     is_public = models.BooleanField(default=True, help_text="Offered to customers (internal plans are hidden in upsell hints).")
     is_active = models.BooleanField(default=True, help_text="Can be given to new subscriptions.")
@@ -35,6 +38,8 @@ class Plan(TimeStampedModel):
             errors["modules"] = missing
         if bad := entitlements.bad_limits(self.limits):
             errors["limits"] = bad
+        if bad := entitlements.bad_rates(self.overage_rates):
+            errors["overage_rates"] = bad
         if errors:
             raise ValidationError(errors)
 
@@ -96,3 +101,19 @@ class SubscriptionEvent(models.Model):
 
     class Meta:
         ordering = ["-at"]
+
+
+class UsageCounter(models.Model):
+    """Monthly usage of a metered feature at a site (e.g. video intercom seconds, AI conversations)."""
+
+    condominium = models.ForeignKey(Condominium, on_delete=models.CASCADE, related_name="usage_counters")
+    month = models.DateField(help_text="First day of the month (Singapore time).")
+    metric = models.CharField(max_length=40)
+    value = models.BigIntegerField(default=0)
+
+    class Meta:
+        ordering = ["-month", "condominium", "metric"]
+        constraints = [models.UniqueConstraint(fields=["condominium", "month", "metric"], name="uniq_usage_counter")]
+
+    def __str__(self):
+        return f"{self.condominium} {self.month:%Y-%m} {self.metric}={self.value}"

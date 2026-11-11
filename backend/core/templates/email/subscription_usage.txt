@@ -1,0 +1,5 @@
+{{ site }} has used {{ used }} of the {{ allowed }} {{ unit }} of {{ metric|lower }} included in the {{ plan }} plan this month ({{ date|date:"F Y" }}).
+
+{% if threshold >= 100 %}The allowance is used up. {{ metric }} keeps working; use above the allowance is billed at the overage rate in your agreement.{% else %}{{ metric }} keeps working past the allowance; use above it is billed at the overage rate in your agreement.{% endif %}
+
+Questions{% if contact %}: reply to this email or write to {{ contact }}{% else %}: contact Elix{% endif %}.
