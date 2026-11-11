@@ -7,7 +7,7 @@ import { ConfirmDialog, remove } from "@/components/forms";
 import { Icon } from "@/components/icons";
 import { Badge, Button, Card, CardHeader, Empty, IconButton, Loading, PageHeader, Select, Table, Td, Th, useToast } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { fileSize } from "@/lib/format";
+import { fileSize, formatDateTime } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import type { Backup, Condominium, Page } from "@/lib/types";
 
@@ -18,7 +18,7 @@ const STATUS: Record<Backup["status"], { label: string; tone: "slate" | "blue" |
   failed: { label: "Failed", tone: "red" },
 };
 
-const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+const when = (iso: string) => formatDateTime(iso);
 
 export default function BackupsPage() {
   const { me, condo } = useSession();

@@ -8,7 +8,7 @@ import { ConfirmDialog, Tabs } from "@/components/forms";
 import { Icon } from "@/components/icons";
 import { Badge, Card, Empty, Field, IconButton, Input, Loading, PageHeader, Pagination, Select, Table, Td, Th, useToast } from "@/components/ui";
 import { api, query } from "@/lib/api";
-import { formatDateTime, formatTime } from "@/lib/format";
+import { formatDateTime, formatRange } from "@/lib/format";
 import { useLiveEvents } from "@/lib/live";
 import { useSession } from "@/lib/session";
 import type { Booking, BookingStatus, Facility, Page, PaymentStatus } from "@/lib/types";
@@ -76,7 +76,7 @@ function BookingsPage() {
               {data.results.map((b) => (
                 <tr key={b.id}>
                   <Td className="font-medium text-ink">{b.facility_name}<div className="text-xs font-normal text-muted">{b.guests} guest{b.guests === 1 ? "" : "s"}{b.notes ? ` · ${b.notes}` : ""}</div></Td>
-                  <Td className="whitespace-nowrap">{formatDateTime(b.starts_at)}<div className="text-xs text-muted">to {formatTime(b.ends_at)}</div></Td>
+                  <Td className="whitespace-nowrap">{formatRange(b.starts_at, b.ends_at)}</Td>
                   <Td>{b.unit_display}</Td>
                   <Td>{b.booked_by || "—"}<div className="text-xs text-muted">{formatDateTime(b.created_at)}</div></Td>
                   <Td className="whitespace-nowrap tabular-nums">{Number(b.amount) ? `${b.currency} ${b.amount}` : "Free"}{Number(b.deposit) > 0 && <div className="text-xs text-muted">incl. {b.deposit} deposit</div>}</Td>

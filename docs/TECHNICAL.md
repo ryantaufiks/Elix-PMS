@@ -42,6 +42,10 @@ traffic chart (with table view), live activity, gate health and entry methods.
 Table rows keep one visible action and put the rest behind a "⋯" menu (`RowMenu` in
 `components/ui.tsx`; destructive items last, in red, after a divider). On phones every `Table`
 turns into a list of cards: each `Td` given a `label` shows it beside the value (CSS in `globals.css`).
+Timestamps use one format everywhere (`formatDateTime` in `lib/format.ts`: "09 Nov, 17:23", with the year
+only when it is not the current year; `formatRange` for bookings: "12 Nov, 18:00–20:00"). The traffic chart
+shows an empty state until the first gate decision of the day, and a gate's *Open* button is disabled while
+no relay is wired to it.
 Sidebar groups (Operations, Community, Site setup, Platform) fold open and closed like dropdowns,
 remembered per browser; the group of the current page always opens. The **bell** in
 the top bar lists live activity for the selected condo as it happens: visitors in and out, intercom
@@ -54,7 +58,7 @@ On first sign-in with no condominium, the platform admin is guided through creat
 | Section | Page | Who | What |
 |---|---|---|---|
 | Operations | Dashboard | all staff | Today's KPIs, hourly traffic chart, live activity, gate health with one-click opening, entry methods |
-| | Access log | all staff | Filter by gate, method, result, plate, date; camera snapshots; live updates |
+| | Access log | all staff | Filter by gate, method, result, plate and period (Today / 7 days / 30 days / custom dates, SGT); camera snapshots; live updates |
 | | Intercom | all staff | Ringing kiosk calls (ringtone + banner on every page), answer with video, swipe to open, reject; history |
 | | Visitor list | all staff | Every visitor on site and past visits (kiosk / guardhouse walk-ins, invitations, intercom) with check-in and check-out time, photo, notes; *Register visitor* at the guardhouse (webcam photo, slip printed), *Print slip*, *Edit* notes, *Check out* one or many; a toast on every page when a kiosk walk-in registers |
 | | Open gates | all staff | Manual opening with reason (logged under the user) |

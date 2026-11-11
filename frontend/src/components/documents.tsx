@@ -7,7 +7,7 @@ import { ConfirmDialog, remove } from "@/components/forms";
 import { Icon } from "@/components/icons";
 import { Button, Empty, ErrorNote, Field, IconButton, Input, Loading, Modal, Select, useToast } from "@/components/ui";
 import { api, ApiError, query } from "@/lib/api";
-import { DOCUMENT_KIND_LABEL, fileSize } from "@/lib/format";
+import { DOCUMENT_KIND_LABEL, fileSize, formatDateTime } from "@/lib/format";
 import type { Page, ResidentDocument } from "@/lib/types";
 
 const KIND_OPTIONS = Object.entries(DOCUMENT_KIND_LABEL).map(([value, label]) => ({ value, label }));
@@ -46,7 +46,7 @@ export function ResidentDocuments({ residency, title, onClose }: { residency: nu
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium text-ink">{doc.title}</div>
                   <div className="truncate text-xs text-muted">
-                    {DOCUMENT_KIND_LABEL[doc.kind]} · {doc.file_name} · {fileSize(doc.size)} · {new Date(doc.created_at).toLocaleDateString()}
+                    {DOCUMENT_KIND_LABEL[doc.kind]} · {doc.file_name} · {fileSize(doc.size)} · {formatDateTime(doc.created_at)}
                     {doc.uploaded_by_name && ` · ${doc.uploaded_by_name}`}
                   </div>
                 </div>

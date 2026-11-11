@@ -63,7 +63,13 @@ export function TrafficChart({ data, nowHour, height = 300 }: { data: HourBucket
           {table ? "Show chart" : "View as table"}
         </button>
       </div>
-      {table ? (
+      {data.every((d) => total(d) === 0) && !table ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-line py-10 text-center" style={{ minHeight: height / 2 }}>
+          <svg viewBox="0 0 24 24" className="h-8 w-8 text-muted" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2" /></svg>
+          <p className="mt-3 text-sm font-medium text-ink">No gate activity yet today</p>
+          <p className="mt-1 text-xs text-muted">The chart fills in hour by hour as the gates are used.</p>
+        </div>
+      ) : table ? (
         <div className="overflow-y-auto" style={{ maxHeight: height }}>
           <table className="w-full text-sm">
             <thead><tr className="text-left text-xs text-muted"><th className="py-1.5 font-medium">Hour</th><th className="py-1.5 text-right font-medium">Granted</th><th className="py-1.5 text-right font-medium">Denied</th><th className="py-1.5 text-right font-medium">Relay errors</th></tr></thead>

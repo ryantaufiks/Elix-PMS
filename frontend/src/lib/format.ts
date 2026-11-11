@@ -1,15 +1,30 @@
 // Singapore has no DST, so every timestamp is shown (and entered) in SGT, UTC+08:00.
 export const TIME_ZONE = "Asia/Singapore";
 
+// One look for every timestamp in the dashboard: "09 Nov, 17:23", with the year only when it is not this year.
 const dateTime = new Intl.DateTimeFormat("en-SG", {
   timeZone: TIME_ZONE, day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false,
 });
-const time = new Intl.DateTimeFormat("en-SG", {
-  timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+const dateTimeYear = new Intl.DateTimeFormat("en-SG", {
+  timeZone: TIME_ZONE, day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
 });
+const time = new Intl.DateTimeFormat("en-SG", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit", hour12: false });
+const yearOf = new Intl.DateTimeFormat("en-SG", { timeZone: TIME_ZONE, year: "numeric" });
+const dayOf = new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE });
 
-export const formatDateTime = (iso?: string | null) => (iso ? dateTime.format(new Date(iso)) : "—");
+export const formatDateTime = (iso?: string | null) => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return (yearOf.format(d) === yearOf.format(new Date()) ? dateTime : dateTimeYear).format(d);
+};
 export const formatTime = (iso?: string | null) => (iso ? time.format(new Date(iso)) : "—");
+/** "12 Nov, 18:00–20:00" when both ends fall on the same day, else both ends in full. */
+export const formatRange = (startIso: string, endIso: string) =>
+  dayOf.format(new Date(startIso)) === dayOf.format(new Date(endIso))
+    ? `${formatDateTime(startIso)}–${formatTime(endIso)}`
+    : `${formatDateTime(startIso)} → ${formatDateTime(endIso)}`;
+/** Today's SGT calendar date shifted by ``days`` (negative = past), as YYYY-MM-DD. */
+export const sgDate = (days = 0) => dayOf.format(new Date(Date.now() + days * 86400 * 1000));
 const day = new Intl.DateTimeFormat("en-SG", { timeZone: TIME_ZONE, day: "numeric", month: "short", year: "numeric" });
 /** A calendar date (YYYY-MM-DD), e.g. "30 Nov 2026". */
 export const formatDate = (date?: string | null) => (date ? day.format(new Date(`${date}T12:00:00+08:00`)) : "—");

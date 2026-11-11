@@ -21,14 +21,14 @@ function Kpi({ label, value, icon, footer, children, href }: {
   label: string; value: React.ReactNode; icon: IconName; footer?: React.ReactNode; children?: React.ReactNode; href?: string;
 }) {
   const body = (
-    <Card className={cx("flex h-full flex-col p-5", href && "transition-colors hover:border-primary-300 dark:hover:border-primary-700")}>
+    <Card className={cx("flex h-full flex-col p-4 sm:p-5", href && "transition-colors hover:border-primary-300 dark:hover:border-primary-700")}>
       <div className="flex items-start justify-between gap-3">
-        <div className="text-sm font-medium text-muted">{label}</div>
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-300">
+        <div className="text-xs font-medium text-muted sm:text-sm">{label}</div>
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-600 sm:h-9 sm:w-9 dark:text-primary-300">
           <Icon name={icon} className="h-[18px] w-[18px]" />
         </span>
       </div>
-      <div className="mt-1 text-3xl font-semibold tracking-tight text-ink">{value}</div>
+      <div className="mt-1 text-2xl font-semibold tracking-tight text-ink sm:text-3xl">{value}</div>
       {children}
       {footer && <div className="mt-auto pt-3 text-xs text-muted">{footer}</div>}
     </Card>
@@ -104,7 +104,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Four compact tiles on a phone (2x2), so the chart and feed are one swipe away. */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
         <Kpi label="Entries granted today" value={s?.granted_today ?? "–"} icon="arrowUp" href="/access/"
           footer={s && decided ? `${Math.round((s.granted_today / decided) * 100)}% of ${decided} gate decisions` : "No gate decisions yet today"}>
           {s && <Sparkline values={s.hourly.slice(0, nowHour + 1).map((h) => h.granted)} className="mt-2" />}
@@ -155,7 +156,10 @@ export default function DashboardPage() {
                         <div className={cx("flex items-center gap-1 text-xs", status.cls)}><Icon name={status.icon} className="h-3.5 w-3.5" />{status.text}</div>
                       </div>
                     </div>
-                    <Button size="sm" variant="primary" onClick={() => setOpening(gate)}><Icon name="unlock" className="h-4 w-4" /> Open</Button>
+                    <Button size="sm" variant="primary" onClick={() => setOpening(gate)} disabled={!health || health.relays_total === 0}
+                      title={!health || health.relays_total === 0 ? "No relay is wired to this gate yet (Gates & devices → Relays)" : undefined}>
+                      <Icon name="unlock" className="h-4 w-4" /> Open
+                    </Button>
                   </li>
                 );
               })}
