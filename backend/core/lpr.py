@@ -3,7 +3,10 @@ import base64
 import binascii
 import json
 import logging
+import secrets
+from functools import lru_cache
 
+from django.contrib.auth.hashers import check_password, make_password
 from django.core.cache import cache
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -29,6 +32,11 @@ def _unauthorized():
     return response
 
 
+@lru_cache(maxsize=1)
+def _dummy_hash():
+    return make_password(secrets.token_hex(16))
+
+
 def _camera_from_basic_auth(request):
     header = request.headers.get("Authorization", "")
     if not header.startswith("Basic "):
@@ -38,9 +46,10 @@ def _camera_from_basic_auth(request):
     except (binascii.Error, UnicodeDecodeError):
         return None
     camera = LprCamera.objects.select_related("gate__condominium").filter(webhook_username=username).first()
-    if camera and camera.check_webhook_password(password):
-        return camera
-    return None
+    if camera is None:
+        check_password(password, _dummy_hash())  # Same cost as a real check, so timing reveals no usernames.
+        return None
+    return camera if camera.check_webhook_password(password) else None
 
 
 def _at_path(payload, path):

@@ -276,6 +276,7 @@ if not DEBUG:
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "filters": {"redact": {"()": "myproject.logfilter.RedactSecrets"}},
+    "handlers": {"console": {"class": "logging.StreamHandler", "filters": ["redact"]}},
     "root": {"handlers": ["console"], "level": env("LOG_LEVEL", default="INFO")},
 }

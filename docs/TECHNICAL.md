@@ -20,7 +20,7 @@ docker compose exec web python manage.py test core
 | http://127.0.0.1:8001/v1/auth/token/ | JWT login (`/refresh/` to renew, `/v1/auth/logout/` revokes the refresh token) |
 | `POST /v1/lpr-webhook/` | Dahua LPR events (Basic Auth per camera) |
 | `POST /v1/gates/{id}/open/` | Manual gate opening (any site staff) |
-| `ws://…/ws/events/?token=<JWT>` | Live events (access logs, intercom calls, visits, bookings; feedback for staff) for the user's condos and units |
+| `ws://…/ws/events/?token=<JWT>` (the token is blanked in server logs, `myproject/logfilter.py`) | Live events (access logs, intercom calls, visits, bookings; feedback for staff) for the user's condos and units |
 | `ws://…/ws/events/?kiosk_token=<token>` | Live state of the kiosk's own calls |
 
 The dev API listens on `127.0.0.1:8001` (`DEV_PORT`); port 8000 belongs to production. Set `DEV_BIND`
@@ -340,7 +340,7 @@ live. The webhook URL shown there (`/v1/payments/hitpay/webhook/`) is also sent 
 | Admin / resident | `/v1/facilities/` (CRUD: admin), `GET …/{id}/availability/?date=`, `GET …/{id}/photo/` | Facilities, a day's slots, photo |
 | Resident / staff | `POST /v1/bookings/` (`facility`, `starts_at`, `slots`, `guests`, `notes`, `unit`), `GET /v1/bookings/?upcoming=1` | Book (returns `payment_url` for paid facilities); list |
 | Resident / admin | `POST /v1/bookings/{id}/pay/`, `…/refresh/`, `…/cancel/`, `…/refunded/` (admin) | Resume payment, re-check with HitPay, cancel, record refund |
-| Admin | `GET/PATCH /v1/payment-settings/?condominium=` | HitPay account (key and salt write-only) |
+| Admin | `GET/PATCH /v1/payment-settings/?condominium=` | HitPay account (key and salt write-only; the salt is required, as unsigned webhooks are rejected) |
 | HitPay | `POST /v1/payments/hitpay/webhook/`, `GET /v1/payments/hitpay/return/?booking=` | Payment notification; page after paying |
 | Resident / staff | `POST /v1/feedback/` (`rating`, `category`, `comment`), `GET /v1/feedback/`, `POST …/{id}/reply/` (admin), `GET …/summary/` | Feedback |
 | Admin, staff / resident | `GET/POST /v1/resident-documents/` (`residency`, `kind`, `title`, `file`: PDF/JPG/PNG ≤ 8 MB), `DELETE …/{id}/`, `GET …/{id}/download/` | Residents' documents; residents read only their own, officers none |

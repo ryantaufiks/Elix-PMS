@@ -159,6 +159,12 @@ class PaidBookingTests(APITestCase):
         self.assertContains(page, "Payment processing")
         forged = self.client.post("/v1/payments/hitpay/webhook/", {"payment_request_id": "pr_1", "status": "completed", "hmac": "x"})
         self.assertEqual(forged.status_code, 401)
+        # A site that has not entered its salt yet gets no unsigned webhooks acted on either.
+        m.PaymentSettings.objects.filter(condominium=self.condo).update(hitpay_salt="")
+        with mock.patch("core.payments.requests.get") as get:
+            unsigned = self.client.post("/v1/payments/hitpay/webhook/", {"payment_request_id": "pr_1", "status": "completed"})
+        self.assertEqual((unsigned.status_code, get.called), (401, False))
+        m.PaymentSettings.objects.filter(condominium=self.condo).update(hitpay_salt="salt")
 
         fields = {"payment_id": "p_9", "payment_request_id": "pr_1", "status": "completed", "reference_number": f"booking-{booking.pk}"}
         message = "".join(f"{k}{fields[k]}" for k in sorted(fields))

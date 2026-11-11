@@ -7,7 +7,7 @@ from core.relays import RelayError, RelayResult
 
 from .factories import make_condo, make_resident, make_staff, make_unit
 
-ADMIN, SECURITY = m.StaffAssignment.Role.ADMIN, m.StaffAssignment.Role.SECURITY
+ADMIN, SECURITY, STAFF = m.StaffAssignment.Role.ADMIN, m.StaffAssignment.Role.SECURITY, m.StaffAssignment.Role.STAFF
 
 
 class PeopleTests(APITestCase):
@@ -35,6 +35,25 @@ class PeopleTests(APITestCase):
         response = self.client.post("/v1/users/", {"username": "y", "staff": {"condominium": self.other.pk, "role": "admin"}}, format="json")
         self.assertEqual(response.status_code, 403)
         self.assertFalse(m.User.objects.filter(username__in=["x", "y"]).exists())
+
+    def test_staff_role_is_checked_even_next_to_a_valid_residency(self):
+        # A management-office account at alpha must not slip in a staff role (at beta, or admin at alpha)
+        # by sending it together with a residency it may create.
+        office = make_staff("office", self.condo, STAFF)
+        self.client.force_authenticate(office)
+        for staff in ({"condominium": self.other.pk, "role": "admin"}, {"condominium": self.condo.pk, "role": "admin"}):
+            response = self.client.post("/v1/users/", {"username": "sneak", "residency": {"unit": self.unit.pk}, "staff": staff},
+                                        format="json")
+            self.assertEqual(response.status_code, 403, response.data)
+        self.assertFalse(m.User.objects.filter(username="sneak").exists())
+        # The site admin may do both at their own site.
+        self.client.force_authenticate(self.admin)
+        response = self.client.post("/v1/users/", {"username": "both", "residency": {"unit": self.unit.pk},
+                                                   "staff": {"condominium": self.condo.pk, "role": "staff"}}, format="json")
+        self.assertEqual(response.status_code, 201, response.data)
+        response = self.client.post("/v1/users/", {"username": "away", "residency": {"unit": self.unit.pk},
+                                                   "staff": {"condominium": self.other.pk, "role": "staff"}}, format="json")
+        self.assertEqual(response.status_code, 403)
 
     def test_admin_sees_and_edits_only_own_people(self):
         mine = make_resident("mine", self.unit)

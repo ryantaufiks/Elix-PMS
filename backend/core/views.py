@@ -898,10 +898,13 @@ class ManagedUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixin
         user = self.request.user
         if not user.is_superuser:
             data = serializer.validated_data
+            # Each membership in the request is checked on its own: a resident at one of the caller's sites
+            # and a staff role at another site must not pass together.
+            allowed = True
             if data.get("residency"):
-                allowed = data["residency"]["unit"].condominium_id in staff_condo_ids(user, MANAGEMENT)
-            else:
-                allowed = data["staff"]["condominium"].pk in staff_condo_ids(user, (ADMIN,))
+                allowed &= data["residency"]["unit"].condominium_id in staff_condo_ids(user, MANAGEMENT)
+            if data.get("staff"):
+                allowed &= data["staff"]["condominium"].pk in staff_condo_ids(user, (ADMIN,))
             if not allowed:
                 raise PermissionDenied("You can only add residents to your own sites, and staff only to sites you administer.")
         if serializer.validated_data.get("staff"):

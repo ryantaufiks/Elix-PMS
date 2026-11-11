@@ -290,7 +290,7 @@ class HitPayWebhookView(APIView):
         signature = request.headers.get("Hitpay-Signature", "")
         signed = (payments.valid_json_webhook(settings, raw, signature) if signature
                   else payments.valid_form_webhook(settings, data))
-        if settings.hitpay_salt and not signed:
+        if not signed:  # Also when the site has no salt yet: an unsigned webhook is never acted on.
             return Response({"detail": "Invalid signature."}, status=status.HTTP_401_UNAUTHORIZED)
         bookings.refresh_payment(booking)
         return Response({"received": True})

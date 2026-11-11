@@ -36,4 +36,4 @@ EXPOSE 8000
 ENTRYPOINT ["/app/entrypoint.sh"]
 # Two processes, one per vCPU (one Python process uses a single core); WebSockets work across them
 # through the Redis channel layer. WEB_WORKERS overrides the count.
-CMD ["sh", "-c", "exec uvicorn myproject.asgi:application --host 0.0.0.0 --port 8000 --workers ${WEB_WORKERS:-2} --no-server-header --timeout-graceful-shutdown 20"]
+CMD ["sh", "-c", "exec uvicorn myproject.asgi:application --log-config myproject/uvicorn-logging.json --host 0.0.0.0 --port 8000 --workers ${WEB_WORKERS:-2} --no-server-header --timeout-graceful-shutdown 20"]
