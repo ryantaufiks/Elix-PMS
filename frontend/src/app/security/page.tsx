@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Cybersecurity policy", robots: { ind
 
 export default function SecurityPage() {
   return (
-    <LegalPage title="Cybersecurity policy" updated="11 November 2026">
+    <LegalPage title="Cybersecurity policy" updated="11 October 2026">
       <p>
         This policy sets out how {SUPPORTED_BY} protects the Elix service (the resident app, the lobby kiosk and the
         management dashboard) and the data the estates we serve entrust to us. It applies to everyone who builds,

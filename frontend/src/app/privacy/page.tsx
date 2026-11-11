@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Privacy policy", robots: { index: tr
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy policy" updated="9 November 2026">
+    <LegalPage title="Privacy policy" updated="11 October 2026">
       <p>
         Elix is a visitor management and access control service for condominiums in Singapore. It is made up of the
         Elix resident app, the lobby kiosk and the management dashboard. The service is provided by {SUPPORTED_BY} on
