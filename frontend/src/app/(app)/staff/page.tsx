@@ -3,11 +3,11 @@
 import { useState } from "react";
 import useSWR from "swr";
 
-import { ConfirmDialog, EntityModal, FormFields, initialValues, remove } from "@/components/forms";
-import { EditPerson, fieldErrorsOf, personFields, SetPassword } from "@/components/people";
+import { ConfirmDialog, EntityModal, remove } from "@/components/forms";
+import { AddStaff, EditPerson, SetPassword } from "@/components/people";
 import { Icon } from "@/components/icons";
-import { Badge, Button, Card, Empty, ErrorNote, Field, Loading, Modal, PageHeader, Select, Table, Td, Th, useToast } from "@/components/ui";
-import { api, query } from "@/lib/api";
+import { Badge, Button, Card, Empty, Loading, PageHeader, Table, Td, Th } from "@/components/ui";
+import { query } from "@/lib/api";
 import { formatDateTime, ROLE_LABEL, userName } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import type { Page, StaffRow } from "@/lib/types";
@@ -70,43 +70,5 @@ export default function StaffPage() {
         message={<><strong>{removing && userName(removing.user_detail)}</strong> loses dashboard access for {condo.name} immediately.</>}
         onConfirm={async () => { await remove(`/v1/staff-assignments/${removing!.id}/`); mutate(); }} />
     </>
-  );
-}
-
-function AddStaff({ condoId, onClose, onDone }: { condoId: number; onClose: () => void; onDone: () => void }) {
-  const toast = useToast();
-  const fields = personFields(true).map((f) => (f.name === "password" ? { ...f, required: true, hint: "At least 8 characters. Staff sign in to the dashboard with it." } : f));
-  const [values, setValues] = useState(() => initialValues(fields, null));
-  const [role, setRole] = useState("security");
-  const [error, setError] = useState<unknown>(null);
-  const [busy, setBusy] = useState(false);
-  const errors = fieldErrorsOf(error);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await api("/v1/users/", { method: "POST", body: { ...values, staff: { condominium: condoId, role } } });
-      toast("success", "Staff account created.");
-      onDone();
-    } catch (err) {
-      setError(err);
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Modal open wide onClose={onClose} title="Add staff" footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" busy={busy} type="submit" form="add-staff">Create account</Button></>}>
-      <form id="add-staff" onSubmit={submit} className="space-y-4">
-        <ErrorNote error={Object.keys(errors).length ? null : error} />
-        <Field label="Role">
-          <Select value={role} onChange={(e) => setRole(e.target.value)}>
-            {ROLE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </Select>
-        </Field>
-        <FormFields fields={fields} values={values} errors={errors} onChange={(n, v) => setValues((s) => ({ ...s, [n]: v }))} />
-      </form>
-    </Modal>
   );
 }

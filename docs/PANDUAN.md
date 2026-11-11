@@ -143,6 +143,8 @@ Pastikan perangkat lokal Anda telah terinstal:
 | **Staff** (kantor manajemen) | Site sendiri: residents & akun app-nya, dokumen resident, vehicles, invitations, bookings (batal/refund), balas feedback, plus semua tugas officer. Tidak bisa Site setup dan akun staff |
 | **Officer** (guard) | Site sendiri: buka gerbang, Visitor list, intercom, block tamu, reports; residents/vehicles hanya lihat |
 
+**Membuat site admin untuk sebuah site:** super admin membuka *Platform → Condominiums* → **Add site admin** di baris site itu (role *Site admin* sudah terpilih), atau memilih site di sidebar lalu *Community → Staff → Add staff*. Kolom *Site admins* di daftar Condominiums menunjukkan siapa admin tiap site (*None yet* bila belum ada). Akun itu hanya bisa membuka site-nya sendiri; satu orang bisa menjadi admin di beberapa site. Site admin lalu membuat akun Staff/Officer timnya sendiri (dalam batas paket).
+
 ### 8. Keamanan
 * Login dashboard, APK dan Django admin dibatasi percobaannya (per IP dan per username); webhook kamera LPR juga dibatasi dan terkunci 5 menit setelah 20 password salah.
 * Logout, ganti password atau menonaktifkan akun langsung mencabut semua sesi orang tersebut di semua perangkat.
