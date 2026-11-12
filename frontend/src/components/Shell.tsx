@@ -25,7 +25,7 @@ const NAV: { title: string; items: NavItem[] }[] = [
   {
     title: "Operations",
     items: [
-      { href: "/", label: "Dashboard", icon: "home" },
+      { href: "/dashboard/", label: "Dashboard", icon: "home" },
       { href: "/access/", label: "Access log", icon: "list" },
       { href: "/intercom/", label: "Intercom", icon: "phone", module: "intercom" },
       { href: "/visits/", label: "Visitor list", icon: "clipboard" },
@@ -106,7 +106,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     setUserOpen(false);
   }, [pathname]);
 
-  const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  const isActive = (href: string) => pathname.startsWith(href);
   const groups = NAV.map((g) => ({
     ...g,
     items: g.items.filter((i) => (!i.admin || isAdmin) && (!i.superuser || me.is_superuser)),

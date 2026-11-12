@@ -23,9 +23,9 @@ function LoginField({ id, label, icon, end, ...props }: React.ComponentProps<"in
 }
 
 function nextPath(): string {
-  const next = new URLSearchParams(window.location.search).get("next") ?? "/";
-  // Only same-site paths; never an absolute URL from the query string.
-  return next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login") ? next : "/";
+  const next = new URLSearchParams(window.location.search).get("next") ?? "/dashboard/";
+  // Only same-site paths into the dashboard; never an absolute URL from the query string, never the landing page.
+  return next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login") && next !== "/" ? next : "/dashboard/";
 }
 
 export default function LoginPage() {

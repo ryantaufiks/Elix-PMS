@@ -9,7 +9,7 @@ from core.lpr import lpr_webhook
 
 admin.site.site_header = "Elix VMS Administration"
 admin.site.site_title = "Elix VMS"
-admin.site.site_url = "/"  # "View site" opens the dashboard (served by the gateway)
+admin.site.site_url = "/dashboard/"  # "View site" opens the dashboard (served by the gateway)
 admin.site.login = rate_limited_admin_login(admin.site.login)
 
 urlpatterns = [

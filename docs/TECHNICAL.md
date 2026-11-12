@@ -26,7 +26,21 @@ docker compose exec web python manage.py test core
 The dev API listens on `127.0.0.1:8001` (`DEV_PORT`); port 8000 belongs to production. Set `DEV_BIND`
 in `.env` to the server's Tailscale IP to reach the dev API remotely.
 
+## Landing page
+
+The site root (`/`, `frontend/src/app/page.tsx` → `components/landing/`) is the public product page:
+hero, features, *How it works* (an interactive Three.js scene per journey: visitor calls a resident,
+invited guest, car at the barrier; drag to turn, tap a step, auto-plays unless the visitor prefers reduced
+motion, and falls back to the step list without WebGL), plans (modules per plan, *Contact for quote*, no
+prices), PDPA, technology and security, with links to the privacy and cybersecurity policies. *Request a
+demo* and the quote buttons open an email to services@ with a pre-filled template. Three.js is loaded only
+on this page (its own chunk). The page is indexable; the rest of the app stays `noindex`. The top bar shows
+*Open dashboard* instead of *Sign in* when this browser is already signed in.
+
 ## Dashboard (staff)
+
+The dashboard home is `/dashboard/`; signing in lands there (a `?next=` path is kept, but never `/`), and
+the Django admin's *View site* opens it.
 
 `frontend/` is a Next.js + TypeScript + Tailwind app, exported as static files and served by the
 **gateway** (nginx), which also proxies `/v1`, `/ws` and `/static` to Django. Everything runs on one

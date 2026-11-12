@@ -132,6 +132,12 @@ Pastikan perangkat lokal Anda telah terinstal:
 * Tombol **Email log** di card Email menampilkan semua email 30 hari terakhir (terkirim, gagal beserta alasannya, antre). Email yang gagal karena jaringan atau server sibuk dicoba ulang otomatis sampai 3 kali.
 * Untuk Microsoft 365 / Gmail dengan verifikasi dua langkah, gunakan *app password*.
 
+### 5c. Landing page
+* Alamat utama (`https://elixsmart.cloud/`) sekarang halaman produk: fitur, diagram alur 3D interaktif (tamu memanggil penghuni, tamu undangan, mobil di barrier; bisa diputar dan diklik per langkah), paket Basic/Standard/Premium tanpa harga (*Contact for quote*), PDPA, teknologi dan keamanan.
+* Dashboard pindah ke **`/dashboard/`**; setelah login otomatis ke sana. Kalau browser sudah login, tombol di landing berubah jadi *Open dashboard*.
+* Tombol *Request a demo* dan *Contact for quote* membuka email ke services@smartcitytechnologies.com.sg dengan template terisi (nama condo, jumlah unit, jumlah gerbang, kontak).
+* Isi paket di landing mengikuti modul paket di sistem; kalau isi paket diubah di *Platform → Plans*, teks di `frontend/src/components/landing/Landing.tsx` perlu disesuaikan juga.
+
 ### 6. Sidebar & notifikasi dashboard
 * Di tabel (Residents, Staff, Blocks & units, Condominiums) setiap baris punya satu tombol utama dan menu **⋯** untuk aksi lainnya; aksi hapus/remove ada paling bawah, berwarna merah, supaya tidak terklik tanpa sengaja. Di layar HP tabel berubah menjadi daftar kartu.
 * *Access log* punya pilihan periode cepat (*Today / 7 days / 30 days*) dan *Custom* untuk rentang tanggal sendiri; semua waktu di dashboard ditampilkan dengan satu format (`09 Nov, 17:23`, tahun hanya kalau bukan tahun ini). Grafik *Traffic today* menampilkan pesan kosong sampai ada keputusan gerbang pertama hari itu, dan tombol *Open* di kartu Gates nonaktif selama gerbang belum punya relay.
