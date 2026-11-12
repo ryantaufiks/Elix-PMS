@@ -34,7 +34,9 @@ invited guest, car at the barrier; drag to turn, tap a step, auto-plays unless t
 motion, and falls back to the step list without WebGL), plans (modules per plan, *Contact for quote*, no
 prices), PDPA, technology and security, with links to the privacy and cybersecurity policies. *Request a
 demo* and the quote buttons open an email to services@ with a pre-filled template. Three.js is loaded only
-on this page (its own chunk). The page is indexable; the rest of the app stays `noindex`. The top bar shows
+on this page (its own chunk). A band after the features shows the resident app as *Coming soon* on Google Play
+and the App Store (`components/landing/StoreBadges.tsx`: own buttons with the store logos, not the official badges,
+which the stores allow only for a live app; swap them for the official badges and links at launch). The page is indexable; the rest of the app stays `noindex`. The top bar shows
 *Open dashboard* instead of *Sign in* when this browser is already signed in.
 
 ## Dashboard (staff)

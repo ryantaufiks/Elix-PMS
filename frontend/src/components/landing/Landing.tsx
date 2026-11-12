@@ -7,6 +7,7 @@ import { Icon, type IconName } from "@/components/icons";
 import { PRIVACY_EMAIL } from "@/lib/legal";
 
 import { DEMO_MAIL, LandingNav } from "./LandingNav";
+import { StoreBadges } from "./StoreBadges";
 import { Workflow } from "./Workflow";
 
 const quote = (plan: string) => "mailto:services@smartcitytechnologies.com.sg?subject=" + encodeURIComponent(`Elix ${plan} plan: request a quote`)
@@ -116,6 +117,25 @@ export function Landing() {
         </div>
       </Section>
 
+      {/* The resident app, and where it will be available. */}
+      <section className="bg-canvas">
+        <div className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
+          <div className="brand-panel relative overflow-hidden rounded-3xl px-6 py-10 text-white sm:px-12">
+            <div className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:linear-gradient(rgb(255_255_255/0.6)_1px,transparent_1px),linear-gradient(90deg,rgb(255_255_255/0.6)_1px,transparent_1px)] [background-size:40px_40px]" />
+            <div className="relative grid items-center gap-8 lg:grid-cols-[1.3fr_1fr]">
+              <div className="flex items-start gap-5">
+                <span className="hidden h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary-500/25 text-primary-200 sm:flex"><Icon name="smartphone" className="h-7 w-7" /></span>
+                <div>
+                  <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">The Elix app for residents</h2>
+                  <p className="mt-2 text-slate-300">Open the gate, answer visitors face to face, invite guests, book facilities and keep the estate&apos;s documents at hand.</p>
+                </div>
+              </div>
+              <div className="lg:justify-self-end"><StoreBadges /></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <Section id="how" dark eyebrow="How it works" title="From the lobby to the logbook in seconds"
         intro="Pick a journey and follow it step by step. Drag the scene to look around.">
         <Workflow />
@@ -215,6 +235,7 @@ export function Landing() {
       <footer className="border-t border-line bg-canvas">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 sm:flex-row sm:px-6">
           <Credit align="left" className="text-center sm:text-left" />
+          <StoreBadges size="sm" />
           <nav className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm text-muted">
             <Link href="/privacy/" className="hover:text-ink">Privacy</Link>
             <Link href="/security/" className="hover:text-ink">Cybersecurity</Link>
