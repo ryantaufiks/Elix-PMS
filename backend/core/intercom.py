@@ -21,12 +21,14 @@ class CallError(Exception):
 
 
 def recipients(unit):
-    """Active residents of the unit who take intercom calls."""
+    """Active residents of the unit who take intercom calls (nobody for a guardhouse call)."""
+    if unit is None:
+        return Residency.objects.none()
     return Residency.objects.filter(unit=unit, is_active=True, receives_intercom_calls=True).select_related("user")
 
 
 def can_handle(user, call):
-    """Residents of the called unit, and staff of the condominium, may answer or decide."""
+    """Residents of the called unit, and staff of the condominium, may answer or decide (staff only for the guardhouse)."""
     if user.is_superuser:
         return True
     if recipients(call.unit).filter(user=user).exists():
@@ -43,17 +45,20 @@ def _notify(call):
     from .tasks import push_call_ended
 
     transaction.on_commit(lambda: broadcast_call(call))
-    if call.status != IntercomCall.Status.RINGING:
+    if call.status != IntercomCall.Status.RINGING and call.unit_id:
         transaction.on_commit(lambda: push_call_ended.delay(call.pk))
 
 
 @transaction.atomic
 def start(kiosk, unit, visitor_name="", snapshot=None, visitor=None, purpose="", company="", face_descriptor=None):
+    """Ring ``unit``, or the guardhouse (the dashboard's Intercom page) when ``unit`` is None."""
     from .tasks import end_call_room, expire_call, finish_call, push_incoming_call
 
     if not entitlements.has(kiosk.condominium, "intercom"):
         raise CallError("This site does not take calls from the kiosk.")
-    if not recipients(unit).exists():
+    if unit is None and not kiosk.condominium.kiosk_call_guardhouse:
+        raise CallError("This site does not take guardhouse calls from the kiosk.")
+    if unit is not None and not recipients(unit).exists():
         raise CallError("Nobody at this unit accepts intercom calls.")
     # A kiosk handles one visitor at a time: starting a new call cancels any still open.
     open_calls = IntercomCall.objects.select_for_update().filter(
@@ -72,7 +77,8 @@ def start(kiosk, unit, visitor_name="", snapshot=None, visitor=None, purpose="",
     call.save()
     timeout = kiosk.condominium.intercom_ring_timeout_seconds
     _notify(call)
-    transaction.on_commit(lambda: push_incoming_call.delay(call.pk))
+    if unit is not None:  # The guardhouse hears it on the dashboard, not on residents' phones.
+        transaction.on_commit(lambda: push_incoming_call.delay(call.pk))
     transaction.on_commit(lambda: expire_call.apply_async((call.pk,), countdown=timeout))
     # Safety net: close the room even if neither side hangs up.
     transaction.on_commit(lambda: finish_call.apply_async((call.pk,), countdown=config.get("INTERCOM_UNLOCK_WINDOW_SECONDS")))
@@ -110,7 +116,8 @@ def unlock(call, user):
     log = access.grant(call.gate, AccessLog.Method.INTERCOM, actor=user, unit=call.unit, intercom_call=call,
                        visitor=call.visitor,
                        reason=f"Approved by {user.get_full_name() or user.get_username()}")
-    visits.call_entry(call, log)
+    if call.unit_id:  # A guard who lets someone in from the guardhouse registers them there if needed.
+        visits.call_entry(call, log)
     _notify(call)
     return call, log
 
@@ -128,7 +135,8 @@ def reject(call, user):
     usage.call_ended(call)
     AccessLog.objects.create(condominium_id=call.condominium_id, gate=call.gate, method=AccessLog.Method.INTERCOM,
                              result=AccessLog.Result.DENIED, actor=user, unit=call.unit, intercom_call=call,
-                             visitor=call.visitor, reason="Rejected by resident")
+                             visitor=call.visitor,
+                             reason="Rejected by the guardhouse" if call.unit_id is None else "Rejected by resident")
     _notify(call)
     transaction.on_commit(lambda: end_call_room.delay(call.room_name))
     return call

@@ -26,6 +26,8 @@ export const condoFields = (opts: { superuser: boolean; creating: boolean; plans
     hint: "Visitors enter their details, pick the unit and get a printed slip with a pass number (V001, C001, …). The gate does not open: they show the slip to security, and scan its QR at the kiosk when leaving." },
   { name: "kiosk_walk_in_photo", label: "Take the walk-in visitor's photo", type: "checkbox", wide: true,
     hint: "Shown to security on the Visitor list." },
+  { name: "kiosk_call_guardhouse", label: "Offer Call the guardhouse at the kiosk", type: "checkbox", wide: true,
+    hint: "A video call that rings the Intercom page of this dashboard, for visitors who need help or have no unit to visit. Turn it off if nobody watches the dashboard at the guardhouse." },
   { name: "kiosk_checkout", label: "Offer self check-out at the kiosk", type: "checkbox", wide: true,
     hint: "Visitors scan the QR or enter the 4-digit PIN from their pass when they leave." },
   { name: "kiosk_face_checkout", label: "Allow check-out by face", type: "checkbox", wide: true,
@@ -38,5 +40,5 @@ export const condoFields = (opts: { superuser: boolean; creating: boolean; plans
 
 export const condoDefaults = {
   intercom_ring_timeout_seconds: 45, invitation_max_days: 30, visitor_data_retention_days: 90, lpr_enabled: false, plan: "standard",
-  kiosk_visitor_form: true, kiosk_photo_required: true, kiosk_walk_in: true, kiosk_walk_in_photo: true, kiosk_checkout: true,
+  kiosk_visitor_form: true, kiosk_photo_required: true, kiosk_walk_in: true, kiosk_walk_in_photo: true, kiosk_checkout: true, kiosk_call_guardhouse: true,
 };

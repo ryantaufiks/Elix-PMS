@@ -143,20 +143,25 @@ class StartCallView(KioskView):
 
     @extend_schema(request=s.StartCallSerializer, responses={201: s.CallWithConnectionSerializer})
     def post(self, request):
-        """Ring a unit. Returns the call and this kiosk's LiveKit connection; join the room straight away."""
+        """Ring a unit, or the guardhouse with ``guardhouse=true``. Returns the call and this kiosk's LiveKit
+        connection; join the room straight away."""
         body = s.StartCallSerializer(data=request.data)
         body.is_valid(raise_exception=True)
         data = body.validated_data
-        unit = data["unit"]
         condo = self.kiosk.condominium
-        name, visitor, consented = self.visitor_details(
-            data, unit, details=condo.kiosk_visitor_form, photo=condo.kiosk_photo_required,
-            method=m.AccessLog.Method.INTERCOM, blocked_reason="Blocked visitor tried to call a unit")
+        if data["guardhouse"]:
+            # Someone who needs help: ring the guards straight away, nothing to fill in and nothing kept.
+            unit, name, visitor, consented, purpose, company = None, "", None, False, "", ""
+        else:
+            unit, purpose, company = data["unit"], data["purpose"], data["company"].strip()
+            name, visitor, consented = self.visitor_details(
+                data, unit, details=condo.kiosk_visitor_form, photo=condo.kiosk_photo_required,
+                method=m.AccessLog.Method.INTERCOM, blocked_reason="Blocked visitor tried to call a unit")
         try:
             livekit.ensure_configured()  # Fail before ringing anyone.
             snapshot = data.get("snapshot") if consented else None
             call = intercom.start(self.kiosk, unit, name, snapshot, visitor=visitor,
-                                  purpose=data["purpose"], company=data["company"].strip(),
+                                  purpose=purpose, company=company,
                                   face_descriptor=face_template(condo, data, snapshot))
             connection = livekit.connection_info(call.room_name, f"kiosk-{self.kiosk.pk}", self.kiosk.name)
         except livekit.LiveKitNotConfigured:

@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
 import { type KioskAssistant, kioskApi, kioskBlob, PURPOSES } from "@/lib/kiosk";
 import type { AssistantAction } from "@/lib/types";
+import { type Lang, LANGS, useT } from "./i18n";
 
 type Phase = "starting" | "listening" | "hearing" | "thinking" | "speaking" | "idle" | "ended" | "error";
 type Line = { role: "user" | "assistant"; content: string };
@@ -91,13 +92,16 @@ function recordUtterance(stream: MediaStream, onHearing: () => void, cancel: { c
   });
 }
 
-export function AssistantPanel({ info, onAction, onClose }: {
+export function AssistantPanel({ info, lang = "en", onAction, onClose }: {
   info: KioskAssistant;
+  /** The language the visitor chose on the welcome screen: the screen text and the first greeting use it. */
+  lang?: Lang;
   /** Kiosk screens the assistant may open (walk-in, call, scan, check-out). */
   onAction: (action: AssistantAction) => void;
   onClose: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>("starting");
+  const tr = useT();
   const [mode, setMode] = useState<"pipeline" | "realtime">("pipeline");
   // Latest callbacks for the recording loop and WebRTC handlers, which outlive a render.
   const props = useRef({ onAction, onClose });
@@ -211,7 +215,10 @@ export function AssistantPanel({ info, onAction, onClose }: {
     realtime.current = { pc, dc };
     const send = (event: object) => dc.readyState === "open" && dc.send(JSON.stringify(event));
     dc.onopen = () => {
-      send({ type: "response.create", response: { instructions: `Greet the visitor in one sentence, starting with: "${info.greeting || "Hello"}"` } });
+      const language = LANGS.find((l) => l.code === lang)!.name;
+      send({ type: "response.create", response: { instructions: lang === "en"
+        ? `Greet the visitor in one sentence, starting with: "${info.greeting || "Hello"}"`
+        : `Greet the visitor in one sentence in ${language} (the language they chose on the kiosk), with the meaning of: "${info.greeting || "Hello"}". Keep speaking ${language} unless they switch.` } });
     };
     dc.onmessage = (e) => {
       let event: { type: string; [k: string]: unknown };
@@ -246,7 +253,7 @@ export function AssistantPanel({ info, onAction, onClose }: {
     if (!answer.ok) throw new Error("The assistant could not connect.");
     await pc.setRemoteDescription({ type: "answer", sdp: await answer.text() });
     setPhase("listening");
-  }, [act, info.greeting, mapIds, say, settle]);
+  }, [act, info.greeting, lang, mapIds, say, settle]);
 
   // Start: microphone, then the conversation.
   useEffect(() => {
@@ -290,8 +297,8 @@ export function AssistantPanel({ info, onAction, onClose }: {
 
   const realtimeMode = mode === "realtime";
   const label: Record<Phase, string> = {
-    starting: "Starting…", listening: "Listening… just speak", hearing: "I'm listening", thinking: "Thinking…",
-    speaking: "Speaking", idle: "Tap the microphone to talk", ended: "Goodbye", error: problem || "Something went wrong",
+    starting: tr("Starting…"), listening: tr("Listening… just speak"), hearing: tr("I'm listening"), thinking: tr("Thinking…"),
+    speaking: tr("Speaking"), idle: tr("Tap the microphone to talk"), ended: tr("Goodbye"), error: tr(problem || "Something went wrong"),
   };
   const active = phase === "hearing" || phase === "speaking";
 
@@ -312,7 +319,7 @@ export function AssistantPanel({ info, onAction, onClose }: {
         </div>
 
         <div ref={scroller} className="mt-6 max-h-[42vh] min-h-[180px] flex-1 space-y-3 overflow-y-auto rounded-3xl border border-white/10 bg-white/5 p-5">
-          {lines.length === 0 && <p className="text-lg text-slate-400">Ask about directions, facilities, parking, deliveries, or registering your visit.</p>}
+          {lines.length === 0 && <p className="text-lg text-slate-400">{tr("Ask about directions, facilities, parking, deliveries, or registering your visit.")}</p>}
           {lines.map((l, i) => (
             <div key={i} className={l.role === "user" ? "flex justify-end" : ""}>
               <div className={`max-w-[85%] rounded-3xl px-5 py-3 text-xl ${l.role === "user" ? "rounded-br-md bg-primary-600 text-white" : "rounded-bl-md bg-white/10 text-white"}`}>{l.content}</div>
@@ -322,7 +329,7 @@ export function AssistantPanel({ info, onAction, onClose }: {
 
         <div className="mt-5 flex items-center gap-3">
           {!realtimeMode && (
-            <button aria-label="Talk" onClick={() => { cancel.current = false; listen(); }} disabled={phase !== "idle" && phase !== "error"}
+            <button aria-label={tr("Talk")} onClick={() => { cancel.current = false; listen(); }} disabled={phase !== "idle" && phase !== "error"}
               className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary-500 text-white shadow-primary disabled:opacity-40">
               <Icon name="mic" className="h-7 w-7" />
             </button>
@@ -336,24 +343,24 @@ export function AssistantPanel({ info, onAction, onClose }: {
               cancel.current = true;  // Stop listening; the typed question goes instead.
               setTimeout(() => { cancel.current = false; turn({ text }); }, 150);
             }}>
-              <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Or type your question"
+              <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={tr("Or type your question")}
                 className="w-full rounded-2xl border border-white/20 bg-navy-950/60 px-5 py-4 text-xl text-white placeholder:text-slate-500 focus:border-primary-400 focus:outline-none" />
-              <button type="submit" aria-label="Send" className="rounded-2xl bg-white/10 px-5 text-white hover:bg-white/20"><Icon name="send" className="h-6 w-6" /></button>
+              <button type="submit" aria-label={tr("Send")} className="rounded-2xl bg-white/10 px-5 text-white hover:bg-white/20"><Icon name="send" className="h-6 w-6" /></button>
             </form>
           )}
-          <button onClick={() => { finish(); onClose(); }} className="ml-auto rounded-2xl border border-white/15 px-6 py-4 text-lg text-slate-300 hover:bg-white/5">Close</button>
+          <button onClick={() => { finish(); onClose(); }} className="ml-auto rounded-2xl border border-white/15 px-6 py-4 text-lg text-slate-300 hover:bg-white/5">{tr("Close")}</button>
         </div>
-        <p className="mt-3 text-sm text-slate-500">Answers come from an AI (OpenAI) and may be imperfect. Your voice is processed only to answer you; the conversation is not stored.</p>
+        <p className="mt-3 text-sm text-slate-500">{tr("Answers come from an AI (OpenAI) and may be imperfect. Your voice is processed only to answer you; the conversation is not stored.")}</p>
       </section>
 
       {map && (
         <aside className="flex flex-col overflow-hidden rounded-3xl border border-white/10 bg-white lg:w-[46%]">
           <div className="flex items-center justify-between bg-navy-950 px-5 py-3 text-white">
-            <span className="text-lg font-medium">{info.maps.find((m) => m.id === map.id)?.name ?? "Map"}</span>
-            <button onClick={() => setMap(null)} className="rounded-lg px-3 py-1 text-slate-300 hover:bg-white/10" aria-label="Hide map">✕</button>
+            <span className="text-lg font-medium">{info.maps.find((m) => m.id === map.id)?.name ?? tr("Map")}</span>
+            <button onClick={() => setMap(null)} className="rounded-lg px-3 py-1 text-slate-300 hover:bg-white/10" aria-label={tr("Hide map")}>✕</button>
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={map.url} alt="Map" className="max-h-[60vh] w-full flex-1 object-contain" />
+          <img src={map.url} alt={tr("Map")} className="max-h-[60vh] w-full flex-1 object-contain" />
         </aside>
       )}
     </div>

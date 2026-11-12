@@ -37,6 +37,11 @@ function describe(event: LiveEvent): Omit<Note, "at" | "condo"> | null {
     case "intercom_call": {
       const c = event.data;
       const visitor = join(c.visitor_name, c.kiosk_name);
+      if (c.unit === null) {
+        if (c.status === "ringing") return { key: `call:${c.id}:ringing`, title: "Visitor calling the guardhouse", body: visitor, href: "/intercom/", tone: "blue" };
+        if (c.status === "missed") return { key: `call:${c.id}:missed`, title: "Missed guardhouse call", body: visitor, href: "/intercom/", tone: "amber" };
+        return null;
+      }
       if (c.status === "ringing") return { key: `call:${c.id}:ringing`, title: `Calling ${c.unit_display}`, body: visitor, href: "/intercom/", tone: "blue" };
       if (c.status === "approved") return { key: `call:${c.id}:approved`, title: `${c.unit_display} let the visitor in`, body: visitor, href: "/intercom/", tone: "green" };
       if (c.status === "rejected") return { key: `call:${c.id}:rejected`, title: `${c.unit_display} turned the visitor away`, body: visitor, href: "/intercom/", tone: "red" };

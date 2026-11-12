@@ -92,6 +92,8 @@ export type KioskSelf = {
   checkout: boolean;
   /** The site has the video intercom, so the kiosk can call units. */
   call_resident: boolean;
+  /** The site takes video calls at the guardhouse (the dashboard's Intercom page). */
+  call_guardhouse: boolean;
   /** Modules of the site's plan. */
   modules: string[];
   /** Visitors whose photo the kiosk takes can check out by face. */

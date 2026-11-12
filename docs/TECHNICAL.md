@@ -82,7 +82,7 @@ On first sign-in with no condominium, the platform admin is guided through creat
 |---|---|---|---|
 | Operations | Dashboard | all staff | Today's KPIs, hourly traffic chart, live activity, gate health with one-click opening, entry methods |
 | | Access log | all staff | Filter by gate, method, result, plate and period (Today / 7 days / 30 days / custom dates, SGT); camera snapshots; live updates |
-| | Intercom | all staff | Ringing kiosk calls (ringtone + banner on every page), answer with video, swipe to open, reject; history |
+| | Intercom | all staff | Ringing kiosk calls (ringtone + banner on every page), including *Call to the guardhouse* from visitors who need help; answer with video, swipe to open, reject; history |
 | | Visitor list | all staff | Every visitor on site and past visits (kiosk / guardhouse walk-ins, invitations, intercom) with check-in and check-out time, photo, notes; *Register visitor* at the guardhouse (webcam photo, slip printed), *Print slip*, *Edit* notes, *Check out* one or many; a toast on every page when a kiosk walk-in registers |
 | | Open gates | all staff | Manual opening with reason (logged under the user) |
 | | Invitations | all staff (create/cancel: admin, staff) | QR code and share link, status filters |
@@ -145,7 +145,7 @@ answers (video) and **swipes to unlock**, which opens the kiosk's gate.
 | Kiosk | `GET /v1/kiosk/me/` | Config + heartbeat |
 | Kiosk | `GET /v1/kiosk/weather/` | Temperature and 2-hour outlook shown under the date |
 | Kiosk | `GET /v1/kiosk/directory/?q=05-12` | Units that take calls (no resident names) |
-| Kiosk | `POST /v1/kiosk/calls/` (`unit`, `visitor_name`, `snapshot` image) | Ring; returns LiveKit `url/room/token` |
+| Kiosk | `POST /v1/kiosk/calls/` (`unit`, `visitor_name`, `snapshot` image; or `guardhouse=true` alone) | Ring the unit, or the guardhouse (call without a unit, staff only); returns LiveKit `url/room/token` |
 | Kiosk | `GET /v1/kiosk/calls/{id}/`, `POST …/hangup/` | Poll state / cancel |
 | Resident | `POST /v1/intercom-calls/{id}/answer/` | First answer wins; returns LiveKit connection |
 | Resident | `POST /v1/intercom-calls/{id}/unlock/` | Swipe to unlock (also allowed straight from the preview) |
@@ -173,6 +173,18 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
   matching units appear as the digits are typed; "Use keyboard" for units with letters), so the tablet
   keyboard never covers the screen. Every screen after the welcome carries a coloured pill naming the
   journey and the step ("Walk in · Step 2 of 3"); on portrait tablets content starts near the top.
+- **Languages:** the welcome screen has English, 中文, Melayu and தமிழ். The choice applies to every
+  kiosk screen (strings in `frontend/src/app/kiosk/i18n.tsx`, keyed by their English text, so anything
+  missing, a message from the server or the site's privacy notice shows in English) and the AI
+  concierge greets in it. The kiosk goes back to English when a visitor's journey ends or after
+  90 seconds idle. The translations are a first draft: have a native speaker check them before launch.
+- **Call the guardhouse** (per site, Site settings → *Offer Call the guardhouse at the kiosk*, on by
+  default, needs the Intercom module): a button on the welcome screen, and on any result that did not
+  let the visitor in (declined, missed, unknown pass…). It rings the dashboard straight away: no unit,
+  no form and no photo, so nothing personal is kept. Staff see it in the ringing banner and on
+  Intercom as *Call to the guardhouse*, answer with video and swipe to open the kiosk's gate (logged as
+  an intercom entry, no visit or pass is created: register the visitor at the guardhouse if needed).
+  Residents' phones never ring for it. Turn it off at sites where nobody watches the dashboard.
 - **Visitor details before a call** (per site, Site settings → Visitor kiosk; both on by default):
   *Ask visitors for their details* (name, purpose such as parcel/food delivery with the company, and
   optionally mobile and last 4 of NRIC/FIN) and *Take the visitor's photo* (explicit photo with preview

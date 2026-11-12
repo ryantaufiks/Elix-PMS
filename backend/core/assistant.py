@@ -53,6 +53,7 @@ def instructions(condo):
     maps = m.AssistantMap.objects.filter(condominium=condo, is_active=True)
     modules = m.AssistantModule.objects.filter(condominium=condo, is_active=True)
     calls = entitlements.has(condo, "intercom")
+    guards = calls and condo.kiosk_call_guardhouse
     parts = [
         f"You are {site.name}, the voice concierge on the visitor kiosk at the entrance of {condo.name}"
         f"{f', {condo.address}' if condo.address else ''}, a residential condominium in Singapore. You help visitors, "
@@ -63,7 +64,8 @@ def instructions(condo):
         f"someone is home. If asked, {calls and 'say the visitor can call the unit from this kiosk' or 'suggest the guardhouse'}.",
         "- You cannot open gates or let anyone in. Entry is by "
         f"{calls and 'calling the unit, an invitation QR, or a walk-in pass' or 'an invitation QR or a walk-in pass; this kiosk cannot call units'}.",
-        "- Use only the knowledge below. If you do not know, say so and suggest the guardhouse or management office.",
+        "- Use only the knowledge below. If you do not know, say so and suggest the guardhouse or management office"
+        f"{guards and ' (the visitor can tap Call the guardhouse on the welcome screen)' or ''}.",
         "- This is spoken: answer in one to three short sentences, warm and clear, without lists, symbols or markdown.",
         f"- Reply in the language the visitor speaks{f' (you speak {site.languages})' if site.languages else ''}.",
         "- To register a walk-in, ask for the unit they are visiting, their name and the purpose (and the company for "

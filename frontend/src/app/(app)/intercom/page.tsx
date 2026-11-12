@@ -75,7 +75,7 @@ function ActiveCall({ call, connection, onAnswered, onDone }: {
     <Card className="overflow-hidden">
       <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
         <div>
-          <div className="text-base font-semibold text-ink">{call.unit_display}</div>
+          <div className="text-base font-semibold text-ink">{call.unit === null ? "Call to the guardhouse" : call.unit_display}</div>
           <div className="text-sm text-muted">{call.kiosk_name || "Kiosk"} · {elapsed}</div>
           <div className="mt-1 text-sm font-medium text-ink">{call.visitor_name || "Visitor"}</div>
           {visitPurpose(call.visitor_purpose, call.visitor_company) && <div className="text-sm text-body">{visitPurpose(call.visitor_purpose, call.visitor_company)}</div>}
@@ -89,7 +89,7 @@ function ActiveCall({ call, connection, onAnswered, onDone }: {
         ) : call.has_snapshot ? (
           <AuthImage path={`/v1/intercom-calls/${call.id}/snapshot/`} alt="Visitor at the kiosk" className="aspect-video w-full rounded-xl object-cover" />
         ) : (
-          <div className="flex aspect-video items-center justify-center rounded-xl bg-surface-3 text-sm text-muted">No snapshot</div>
+          <div className="flex aspect-video items-center justify-center rounded-xl bg-surface-3 text-sm text-muted">{call.unit === null ? "Answer to see who is at the kiosk" : "No snapshot"}</div>
         )}
         <SwipeToUnlock onUnlock={unlock} />
         <div className="flex flex-wrap gap-2">
@@ -140,7 +140,7 @@ function IntercomPage() {
 
   return (
     <>
-      <PageHeader title="Intercom" description="Answer kiosk calls from the guardhouse and let visitors in." />
+      <PageHeader title="Intercom" description="Answer kiosk calls from the guardhouse and let visitors in, including visitors who tap Call the guardhouse." />
       {!open.data ? (
         <Loading />
       ) : calls.length === 0 ? (

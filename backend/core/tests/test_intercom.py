@@ -50,6 +50,9 @@ class IntercomFlowTests(APITestCase):
         with self.captureOnCommitCallbacks(execute=True):
             return self.client.post(url, data or {}, HTTP_AUTHORIZATION=f"Kiosk {self.kiosk_token}", **kw)
 
+    def kiosk_get(self, url):
+        return self.client.get(url, HTTP_AUTHORIZATION=f"Kiosk {self.kiosk_token}")
+
     def as_user(self, user, url):
         self.client.force_authenticate(user)
         with self.captureOnCommitCallbacks(execute=True):
@@ -183,6 +186,31 @@ class IntercomFlowTests(APITestCase):
         self.as_user(self.alice, f"/v1/intercom-calls/{call_id}/answer/")
         self.assertEqual(self.kiosk_post(f"/v1/kiosk/calls/{call_id}/hangup/").status_code, 200)
         self.assertEqual(self.as_user(self.alice, f"/v1/intercom-calls/{call_id}/unlock/").status_code, 409)
+
+    def test_guardhouse_call_rings_staff_only(self, open_gate, push, *mocks):
+        guard = make_staff("guard", self.condo, m.StaffAssignment.Role.SECURITY)
+        response = self.kiosk_post("/v1/kiosk/calls/", {"guardhouse": "true", "visitor_name": "Kept out"})
+        self.assertEqual(response.status_code, 201, response.data)
+        call = m.IntercomCall.objects.get()
+        self.assertEqual((call.unit, call.visitor_name, response.data["call"]["unit_display"]), (None, "", "Guardhouse"))
+        push.assert_not_called()  # Nobody's phone rings; the dashboard does.
+        self.assertEqual(self.as_user(self.alice, f"/v1/intercom-calls/{call.id}/answer/").status_code, 404)
+        self.assertEqual(self.as_user(guard, f"/v1/intercom-calls/{call.id}/answer/").status_code, 200)
+        self.assertEqual(self.as_user(guard, f"/v1/intercom-calls/{call.id}/unlock/").status_code, 202)
+        call.refresh_from_db()
+        self.assertEqual(call.status, Status.APPROVED)
+        self.assertFalse(call.visits.exists())
+        self.assertEqual(self.kiosk_get(f"/v1/kiosk/calls/{call.id}/pass/").status_code, 404)
+        open_gate.assert_called_once()
+
+    def test_guardhouse_call_follows_site_setting(self, *mocks):
+        self.assertTrue(self.kiosk_get("/v1/kiosk/me/").data["call_guardhouse"])
+        self.condo.kiosk_call_guardhouse = False
+        self.condo.save()
+        self.assertFalse(self.kiosk_get("/v1/kiosk/me/").data["call_guardhouse"])
+        self.assertEqual(self.kiosk_post("/v1/kiosk/calls/", {"guardhouse": "true"}).status_code, 409)
+        # A unit is still needed for an ordinary call.
+        self.assertEqual(self.kiosk_post("/v1/kiosk/calls/", {}).status_code, 400)
 
     def test_snapshot_only_for_the_unit(self, *mocks):
         call_id = self.ring(snapshot=jpeg()).data["call"]["id"]

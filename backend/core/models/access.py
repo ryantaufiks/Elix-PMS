@@ -10,7 +10,9 @@ from .visitors import Invitation, Visitor, VisitPurpose
 
 
 class IntercomCall(TimeStampedModel):
-    """A kiosk-to-resident video call (LiveKit room). Primary visitor approval flow."""
+    """A kiosk-to-resident video call (LiveKit room). Primary visitor approval flow.
+
+    A call without a unit goes to the guardhouse: only the site's staff see it and can answer."""
 
     class Status(models.TextChoices):
         RINGING = "ringing", "Ringing"
@@ -21,7 +23,8 @@ class IntercomCall(TimeStampedModel):
         CANCELLED = "cancelled", "Cancelled by kiosk"
 
     condominium = models.ForeignKey(Condominium, on_delete=models.CASCADE, related_name="intercom_calls")
-    unit = models.ForeignKey(Unit, on_delete=models.CASCADE, related_name="intercom_calls")
+    unit = models.ForeignKey(Unit, on_delete=models.CASCADE, null=True, blank=True, related_name="intercom_calls",
+                             help_text="Empty for a call to the guardhouse.")
     kiosk = models.ForeignKey(Kiosk, on_delete=models.SET_NULL, null=True, blank=True, related_name="calls")
     gate = models.ForeignKey(AccessGate, on_delete=models.SET_NULL, null=True, blank=True, related_name="calls")
     room_name = models.CharField(max_length=100, unique=True)
@@ -52,8 +55,12 @@ class IntercomCall(TimeStampedModel):
     def is_open(self):
         return self.status in self.OPEN_STATUSES and self.ended_at is None
 
+    @property
+    def to_guardhouse(self):
+        return self.unit_id is None
+
     def __str__(self):
-        return f"Call {self.room_name} -> {self.unit} [{self.status}]"
+        return f"Call {self.room_name} -> {self.unit or 'guardhouse'} [{self.status}]"
 
 
 class AccessLog(models.Model):

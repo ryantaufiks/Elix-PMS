@@ -77,7 +77,7 @@ class CondominiumSerializer(ModelCleanSerializer):
         fields = [
             "id", "name", "code", "address", "postal_code", "timezone", "contact_phone", "is_active", "modules", "plan_name",
             "subscription_status", "subscription_ends_on", "lpr_enabled", "invitation_max_days", "intercom_ring_timeout_seconds", "face_verification_enabled",
-            "visitor_data_retention_days", "kiosk_visitor_form", "kiosk_photo_required", "kiosk_walk_in", "kiosk_walk_in_photo", "kiosk_checkout", "kiosk_face_checkout",
+            "visitor_data_retention_days", "kiosk_visitor_form", "kiosk_photo_required", "kiosk_walk_in", "kiosk_walk_in_photo", "kiosk_checkout", "kiosk_face_checkout", "kiosk_call_guardhouse",
             "visitor_privacy_notice", "plan",
             "created_at", "updated_at",
         ]
@@ -347,7 +347,7 @@ class ManualOpenSerializer(serializers.Serializer):
 
 
 class IntercomCallSerializer(serializers.ModelSerializer):
-    unit_display = serializers.CharField(source="unit.__str__", read_only=True)
+    unit_display = serializers.SerializerMethodField()
     kiosk_name = serializers.CharField(source="kiosk.name", read_only=True, default="")
     is_open = serializers.BooleanField(read_only=True)
     has_snapshot = serializers.SerializerMethodField()
@@ -361,6 +361,9 @@ class IntercomCallSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = fields
+
+    def get_unit_display(self, obj) -> str:
+        return str(obj.unit) if obj.unit_id else "Guardhouse"
 
     def get_has_snapshot(self, obj) -> bool:
         return bool(obj.visitor_snapshot)
@@ -404,7 +407,10 @@ class FaceDescriptorField(serializers.Field):
 
 
 class StartCallSerializer(serializers.Serializer):
-    unit = serializers.PrimaryKeyRelatedField(queryset=m.Unit.objects.filter(is_active=True))
+    unit = serializers.PrimaryKeyRelatedField(queryset=m.Unit.objects.filter(is_active=True), required=False, allow_null=True,
+                                              help_text="Leave out (with ``guardhouse``) to call the guardhouse.")
+    guardhouse = serializers.BooleanField(required=False, default=False,
+                                          help_text="Call the guardhouse instead of a unit. No visitor details are needed.")
     visitor_ref = serializers.CharField(required=False, allow_blank=True, default="",
                                         help_text="From /kiosk/visitors/lookup/ for a returning visitor.")
     visitor_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
@@ -419,8 +425,15 @@ class StartCallSerializer(serializers.Serializer):
     face_descriptor = FaceDescriptorField(required=False, allow_null=True, default=None,
                                           help_text="Face template of the snapshot, for face check-out (site setting).")
 
+    def validate(self, attrs):
+        if not attrs.get("guardhouse") and not attrs.get("unit"):
+            raise serializers.ValidationError({"unit": ["Choose the unit to call."]})
+        return attrs
+
 
 class WalkInRegisterSerializer(StartCallSerializer):
+    unit = serializers.PrimaryKeyRelatedField(queryset=m.Unit.objects.filter(is_active=True))
+    guardhouse = None  # A walk-in always visits a unit.
     purpose = serializers.ChoiceField(choices=m.VisitPurpose.choices)
 
 
@@ -565,16 +578,20 @@ class KioskSelfSerializer(serializers.ModelSerializer):
     walk_in_photo = serializers.BooleanField(source="condominium.kiosk_walk_in_photo")
     checkout = serializers.BooleanField(source="condominium.kiosk_checkout")
     call_resident = serializers.SerializerMethodField()
+    call_guardhouse = serializers.SerializerMethodField()
     modules = serializers.ListField(source="condominium.modules", child=serializers.CharField(), read_only=True)
     face_checkout = serializers.SerializerMethodField()
 
     class Meta:
         model = m.Kiosk
         fields = ["id", "name", "condominium", "condominium_name", "gate", "gate_name", "ring_timeout_seconds",
-                  "visitor_form", "photo_required", "privacy_notice", "walk_in", "walk_in_photo", "checkout", "call_resident", "face_checkout", "prints_slips", "modules"]
+                  "visitor_form", "photo_required", "privacy_notice", "walk_in", "walk_in_photo", "checkout", "call_resident", "call_guardhouse", "face_checkout", "prints_slips", "modules"]
 
     def get_call_resident(self, obj) -> bool:
         return entitlements.has(obj.condominium, "intercom")
+
+    def get_call_guardhouse(self, obj) -> bool:
+        return obj.condominium.kiosk_call_guardhouse and entitlements.has(obj.condominium, "intercom")
 
     def get_face_checkout(self, obj) -> bool:
         return (obj.condominium.kiosk_checkout and obj.condominium.kiosk_face_checkout

@@ -327,7 +327,9 @@ function IncomingCalls() {
         <div className="flex-1 text-sm text-ink">
           {ringing.map((call) => (
             <div key={call.id}>
-              <strong>{call.unit_display}</strong> is being called from {call.kiosk_name || "a kiosk"}
+              {call.unit === null
+                ? <><strong>A visitor is calling the guardhouse</strong> from {call.kiosk_name || "a kiosk"}</>
+                : <><strong>{call.unit_display}</strong> is being called from {call.kiosk_name || "a kiosk"}</>}
               {call.visitor_name && <> · {call.visitor_name}</>}
               {visitPurpose(call.visitor_purpose, call.visitor_company) && <> ({visitPurpose(call.visitor_purpose, call.visitor_company)})</>}
             </div>

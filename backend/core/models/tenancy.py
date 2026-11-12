@@ -60,6 +60,11 @@ class Condominium(TimeStampedModel):
         "Self check-out at the kiosk", default=True,
         help_text="Kiosks offer Check out: visitors scan the QR or enter the PIN from their pass when leaving.",
     )
+    kiosk_call_guardhouse = models.BooleanField(
+        "Call the guardhouse from the kiosk", default=True,
+        help_text="Kiosks show Call the guardhouse: a video call that rings the dashboard's Intercom page, "
+                  "for visitors who need help or have no unit to visit.",
+    )
     kiosk_face_checkout = models.BooleanField(
         "Face check-out at the kiosk", default=False,
         help_text="Visitors whose photo the kiosk took can check out by looking at the camera. The face template "

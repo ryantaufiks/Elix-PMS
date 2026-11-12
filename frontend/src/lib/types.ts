@@ -85,6 +85,7 @@ export type Condominium = {
   kiosk_photo_required: boolean;
   kiosk_walk_in: boolean;
   kiosk_walk_in_photo: boolean;
+  kiosk_call_guardhouse: boolean;
   visitor_privacy_notice: string;
 };
 
@@ -289,7 +290,8 @@ export type CallStatus = "ringing" | "answered" | "approved" | "rejected" | "mis
 export type IntercomCall = {
   id: number;
   condominium: number;
-  unit: number;
+  /** Null for a call to the guardhouse (unit_display is then "Guardhouse"). */
+  unit: number | null;
   unit_display: string;
   kiosk: number | null;
   kiosk_name: string;
