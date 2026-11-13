@@ -178,6 +178,8 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
   missing, a message from the server or the site's privacy notice shows in English) and the AI
   concierge greets in it. The kiosk goes back to English when a visitor's journey ends or after
   90 seconds idle. The translations are a first draft: have a native speaker check them before launch.
+- **Ringback**: while a kiosk call rings, the kiosk plays Singapore's ringing tone (400 Hz, 0.4 s on,
+  0.2 s off, 0.4 s on, 2 s off) with Web Audio; it stops when someone answers or the call ends.
 - **Call the guardhouse** (per site, Site settings → *Offer Call the guardhouse at the kiosk*, on by
   default, needs the Intercom module): a button on the welcome screen, and on any result that did not
   let the visitor in (declined, missed, unknown pass…). It rings the dashboard straight away: no unit,

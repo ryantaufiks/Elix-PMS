@@ -478,6 +478,41 @@ function Directory({ kiosk, walkIn, query = "", onPick, onBack }: { kiosk: Kiosk
 }
 
 /** A video call to ``unit``, or to the guardhouse when ``unit`` is null (no visitor details, no pass). */
+/** Ringback while the call rings: Singapore's 400 Hz tone, 0.4 s on, 0.2 s off, 0.4 s on, 2 s off.
+    The visitor tapped to get here, so the browser lets the kiosk play sound. */
+function useRingback(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    let ctx: AudioContext;
+    try {
+      ctx = new AudioContext();
+    } catch {
+      return;
+    }
+    const ring = () => {
+      const start = ctx.currentTime + 0.05;
+      for (const offset of [0, 0.6]) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = 400;
+        gain.gain.setValueAtTime(0.0001, start + offset);
+        gain.gain.exponentialRampToValueAtTime(0.15, start + offset + 0.02);
+        gain.gain.setValueAtTime(0.15, start + offset + 0.38);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + offset + 0.4);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(start + offset);
+        osc.stop(start + offset + 0.42);
+      }
+    };
+    ring();
+    const id = setInterval(ring, 3000);
+    return () => {
+      clearInterval(id);
+      ctx.close().catch(() => {});
+    };
+  }, [active]);
+}
+
 function Calling({ kiosk, unit, details, onDone, onPass }: {
   kiosk: KioskSelf; unit: DirectoryUnit | null; details: VisitorDetails; onDone: (o: Outcome) => void; onPass: (slip: WalkInSlip) => void;
 }) {
@@ -622,6 +657,7 @@ function Calling({ kiosk, unit, details, onDone, onPass }: {
   }
 
   const answered = call?.status === "answered";
+  useRingback(call?.status === "ringing");
   return (
     <Frame kiosk={kiosk}>
       <div className="grid w-full max-w-5xl items-center gap-8 lg:grid-cols-[1.4fr_1fr]">
