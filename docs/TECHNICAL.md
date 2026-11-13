@@ -82,7 +82,8 @@ On first sign-in with no condominium, the platform admin is guided through creat
 |---|---|---|---|
 | Operations | Dashboard | all staff | Today's KPIs, hourly traffic chart, live activity, gate health with one-click opening, entry methods |
 | | Access log | all staff | Filter by gate, method, result, plate and period (Today / 7 days / 30 days / custom dates, SGT); camera snapshots; live updates |
-| | Intercom | all staff | Ringing kiosk calls (ringtone + a pop-up on every page to answer, reject or swipe to open without leaving the page; *Later* folds it into a banner, a call answered there stays in the pop-up until it ends; browsers keep sound off until the page gets a click or key press, so the dashboard switches its AudioContext on at every gesture and the pop-up shows *Turn on sound* while it is still blocked), including *Call to the guardhouse* from visitors who need help; answer with video, swipe to open, reject; history |
+| | Intercom | all staff | Ringing kiosk calls (ringtone + a pop-up on every page to answer, reject or swipe to open without leaving the page; *Later* folds it into a banner, a call answered there stays in the pop-up until it ends; browsers keep sound off until the page gets a click or key press, so the dashboard switches its AudioContext on at every gesture and the pop-up shows *Turn on sound* while it is still blocked; an amber bar says so as soon as a page opens
+muted, before any call comes in), including *Call to the guardhouse* from visitors who need help; answer with video, swipe to open, reject; history |
 | | Visitor list | all staff | Every visitor on site and past visits (kiosk / guardhouse walk-ins, invitations, intercom) with check-in and check-out time, photo, notes; *Register visitor* at the guardhouse (webcam photo, slip printed), *Print slip*, *Edit* notes, *Check out* one or many; a toast on every page when a kiosk walk-in registers |
 | | Open gates | all staff | Manual opening with reason (logged under the user) |
 | | Invitations | all staff (create/cancel: admin, staff) | QR code and share link, status filters |
@@ -186,7 +187,9 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
   90 seconds idle; the last 20 seconds ask "Do you need more time?" and any tap keeps the visitor's place
   (WCAG 2.2.1). The translations are a first draft: have a native speaker check them before launch.
 - **Ringback**: while a kiosk call rings, the kiosk plays Singapore's ringing tone (400 Hz, 0.4 s on,
-  0.2 s off, 0.4 s on, 2 s off) with Web Audio; it stops when someone answers or the call ends.
+  0.2 s off, 0.4 s on, 2 s off) as a looping audio element (a generated WAV), not Web Audio, which some
+  tablets pause once the call's camera and microphone start. The element is primed at the first taps, so a
+  call Elixa places seconds later still rings. It stops when someone answers or the call ends.
 - **Call the guardhouse** (per site, Site settings → *Offer Call the guardhouse at the kiosk*, on by
   default, needs the Intercom module): through the AI assistant (the visitor asks for security), and a button on any result that did not
   let the visitor in (declined, missed, unknown pass…). It rings the dashboard straight away: no unit,

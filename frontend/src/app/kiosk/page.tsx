@@ -508,38 +508,60 @@ function Directory({ kiosk, walkIn, query = "", onPick, onBack }: { kiosk: Kiosk
   );
 }
 
-/** A video call to ``unit``, or to the guardhouse when ``unit`` is null (no visitor details, no pass). */
-/** Ringback while the call rings: Singapore's 400 Hz tone, 0.4 s on, 0.2 s off, 0.4 s on, 2 s off.
-    The visitor tapped to get here, so the browser lets the kiosk play sound. */
+// Ringback is a looping audio element, not Web Audio: once the call turns on the camera and microphone,
+// some tablets pause Web Audio (it rang only once). The element is primed at every tap until it has played,
+// because some kiosk browsers only allow sound right after a tap and a call Elixa places comes later.
+let ringback: HTMLAudioElement | null = null;
+let ringbackReady = false;
+
+/** One cadence of Singapore's ringing tone as a WAV: 400 Hz, 0.4 s on, 0.2 s off, 0.4 s on, 2 s off. */
+function ringbackElement() {
+  if (ringback) return ringback;
+  const rate = 8000;
+  const samples = rate * 3;
+  const wav = new DataView(new ArrayBuffer(44 + samples * 2));
+  const text = (at: number, value: string) => [...value].forEach((c, i) => wav.setUint8(at + i, c.charCodeAt(0)));
+  text(0, "RIFF"); wav.setUint32(4, 36 + samples * 2, true); text(8, "WAVE");
+  text(12, "fmt "); wav.setUint32(16, 16, true); wav.setUint16(20, 1, true); wav.setUint16(22, 1, true);
+  wav.setUint32(24, rate, true); wav.setUint32(28, rate * 2, true); wav.setUint16(32, 2, true); wav.setUint16(34, 16, true);
+  text(36, "data"); wav.setUint32(40, samples * 2, true);
+  for (let i = 0; i < samples; i++) {
+    const t = i / rate;
+    const burst = t < 0.4 ? t : t >= 0.6 && t < 1.0 ? t - 0.6 : -1;
+    const fade = burst < 0 ? 0 : Math.min(1, burst / 0.01, (0.4 - burst) / 0.01);  // No clicks at the edges.
+    wav.setInt16(44 + i * 2, Math.round(Math.sin(2 * Math.PI * 400 * t) * fade * 0.35 * 32767), true);
+  }
+  ringback = new Audio(URL.createObjectURL(new Blob([wav.buffer], { type: "audio/wav" })));
+  ringback.loop = true;
+  return ringback;
+}
+
+function unlockSound() {
+  if (ringbackReady) return;
+  try {
+    const el = ringbackElement();
+    if (!el.paused) return;
+    el.muted = true;
+    el.play().then(() => {
+      el.pause();
+      el.currentTime = 0;
+      el.muted = false;
+      ringbackReady = true;
+    }).catch(() => { el.muted = false; });
+  } catch {}
+}
+
+/** Ringback while the call rings, until it is answered or ends. */
 function useRingback(active: boolean) {
   useEffect(() => {
     if (!active) return;
-    let ctx: AudioContext;
-    try {
-      ctx = new AudioContext();
-    } catch {
-      return;
-    }
-    const ring = () => {
-      const start = ctx.currentTime + 0.05;
-      for (const offset of [0, 0.6]) {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.frequency.value = 400;
-        gain.gain.setValueAtTime(0.0001, start + offset);
-        gain.gain.exponentialRampToValueAtTime(0.15, start + offset + 0.02);
-        gain.gain.setValueAtTime(0.15, start + offset + 0.38);
-        gain.gain.exponentialRampToValueAtTime(0.0001, start + offset + 0.4);
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(start + offset);
-        osc.stop(start + offset + 0.42);
-      }
-    };
-    ring();
-    const id = setInterval(ring, 3000);
+    const el = ringbackElement();
+    el.muted = false;
+    el.currentTime = 0;
+    el.play().catch(() => {});
     return () => {
-      clearInterval(id);
-      ctx.close().catch(() => {});
+      el.pause();
+      el.currentTime = 0;
     };
   }, [active]);
 }
@@ -558,6 +580,7 @@ function StillThere({ seconds }: { seconds: number }) {
   );
 }
 
+/** A video call to ``unit``, or to the guardhouse when ``unit`` is null (no visitor details, no pass). */
 function Calling({ kiosk, unit, details, onDone, onPass }: {
   kiosk: KioskSelf; unit: DirectoryUnit | null; details: VisitorDetails; onDone: (o: Outcome) => void; onPass: (slip: WalkInSlip) => void;
 }) {
@@ -1338,6 +1361,14 @@ export default function KioskPage() {
     else if (action.type === "call_guardhouse") setScreen(kiosk.call_guardhouse ? { name: "guardhouse" } : { name: "home" });
     else home();
   }, [kiosk, home]);
+
+  // Prime the ringback at the first taps (see unlockSound).
+  useEffect(() => {
+    for (const name of ["pointerdown", "keydown"]) window.addEventListener(name, unlockSound, { capture: true, passive: true });
+    return () => {
+      for (const name of ["pointerdown", "keydown"]) window.removeEventListener(name, unlockSound, { capture: true });
+    };
+  }, []);
 
   // Return to the welcome screen when left idle (never mid-call), after a "more time?" countdown.
   const [idleLeft, setIdleLeft] = useState<number | null>(null);

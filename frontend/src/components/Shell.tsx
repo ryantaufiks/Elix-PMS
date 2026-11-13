@@ -339,6 +339,7 @@ function IncomingCalls() {
 
   const ringing = Object.values(calls).filter((c) => !held[c.id]);
   const soundBlocked = useRingtone(ringing.length > 0 && !muted);
+  const soundReady = useSoundReady(hasIntercom);
   useEffect(() => {
     if (ringing.length === 0) setMuted(false);
   }, [ringing.length]);
@@ -350,6 +351,15 @@ function IncomingCalls() {
 
   return (
     <>
+      {!soundReady && ringing.length === 0 && (
+        <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5 sm:px-8">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 text-sm text-ink">
+            <Icon name="bell" className="h-5 w-5 text-amber-600 dark:text-amber-300" />
+            <span className="flex-1">The browser has muted this page: <strong>kiosk calls will not ring</strong> until you click anywhere on it.</span>
+            <button className="rounded-md bg-amber-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-800" onClick={unlockAudio}>Turn on sound</button>
+          </div>
+        </div>
+      )}
       {folded.length > 0 && (
         <div className="border-b border-primary-500/20 bg-primary-500/10 px-4 py-3 sm:px-8">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3">
@@ -406,7 +416,7 @@ function IncomingCalls() {
 function SoundButton({ blocked, muted, onMute }: { blocked: boolean; muted: boolean; onMute: () => void }) {
   if (blocked && !muted) {
     return (
-      <button className="animate-pulse rounded-md bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600" onClick={unlockAudio}>
+      <button className="animate-pulse rounded-md bg-amber-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-800" onClick={unlockAudio}>
         Turn on sound
       </button>
     );
@@ -435,6 +445,23 @@ function unlockAudio() {
     audio ??= new AudioContext();
     if (audio.state === "suspended") void audio.resume();
   } catch {}
+}
+
+/** Whether the browser lets the dashboard play sound yet. Checked as soon as the page opens, so an officer
+    who reloaded the page sees it before a call comes in, not only when one is already ringing. */
+function useSoundReady(enabled: boolean) {
+  const [ready, setReady] = useState(true);
+  useEffect(() => {
+    if (!enabled) return;
+    unlockAudio();
+    const ctx = audio;
+    if (!ctx) return;
+    const update = () => setReady(ctx.state === "running");
+    update();
+    ctx.addEventListener("statechange", update);
+    return () => ctx.removeEventListener("statechange", update);
+  }, [enabled]);
+  return ready;
 }
 
 /** A phone-style ring (a fast two-tone trill, twice, then a pause) while ``active``.
