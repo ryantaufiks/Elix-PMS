@@ -19,7 +19,7 @@ import { PrintSlip } from "@/components/PrintSlip";
 import { describeLive, describePhoto, loadFace } from "@/lib/face";
 import type { AssistantAction } from "@/lib/types";
 import { AssistantPanel } from "./assistant";
-import { type Lang, LangContext, LANGS, localeOf, translate, useLang, useT } from "./i18n";
+import { type Lang, LangContext, LANGS, localeOf, SetLangContext, translate, useLang, useT } from "./i18n";
 
 /** ``title``/``detail`` are English and translated when shown (``vars`` fill their {placeholders}). */
 type Outcome = { tone: "good" | "bad" | "info"; title: string; detail?: string; vars?: Record<string, string> };
@@ -162,6 +162,63 @@ function GuardhouseButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+/** A security officer, for the round guardhouse button in the corner of the welcome screen. */
+function OfficerIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6.5 7.5 7.6 3.8a1 1 0 0 1 .8-.7L12 2.5l3.6.6a1 1 0 0 1 .8.7l1.1 3.7z" />
+      <path d="M5.5 7.5h13M12 4.6v1" />
+      <path d="M8.3 9.5a3.7 3.7 0 0 0 7.4 0" />
+      <path d="M4.5 21v-1.2a5.6 5.6 0 0 1 5.6-5.6h3.8a5.6 5.6 0 0 1 5.6 5.6V21" />
+      <path d="m10.5 14.2 1.5 2.3 1.5-2.3M15.5 17.5h1.6" />
+    </svg>
+  );
+}
+
+function GuardhouseCorner({ onClick }: { onClick: () => void }) {
+  const t = useT();
+  return (
+    <button onClick={onClick} aria-label={t("Call the guardhouse")} title={t("Call the guardhouse")}
+      className="fixed bottom-8 right-8 z-10 flex h-20 w-20 items-center justify-center rounded-full border border-amber-300/50 bg-amber-400/20 text-amber-100 shadow-[0_0_30px_rgba(251,191,36,0.25)] transition hover:bg-amber-400/30">
+      <OfficerIcon className="h-11 w-11" />
+    </button>
+  );
+}
+
+/** Language: a small "EN" button in the header that opens the four official languages. */
+function LanguageMenu() {
+  const lang = useLang();
+  const setLang = useContext(SetLangContext);
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  if (!setLang) return null;
+  const current = LANGS.find((l) => l.code === lang)!;
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen((o) => !o)} aria-haspopup="true" aria-expanded={open} aria-label={`${t("Language")}: ${current.label}`}
+        className="flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2.5 text-lg font-semibold transition hover:bg-white/10">
+        <Icon name="globe" className="h-6 w-6 text-primary-200" />
+        <span lang={current.locale}>{current.short}</span>
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+          <div role="radiogroup" aria-label={t("Language")} className="absolute right-0 z-30 mt-2 w-48 overflow-hidden rounded-2xl border border-white/15 bg-navy-900 py-2 shadow-2xl">
+            {LANGS.map((l) => (
+              <button key={l.code} type="button" role="radio" aria-checked={lang === l.code} lang={l.locale}
+                onClick={() => { setLang(l.code); setOpen(false); }}
+                className={`flex w-full items-center justify-between px-5 py-3 text-left text-xl transition hover:bg-white/10 ${lang === l.code ? "font-semibold text-white" : "text-slate-300"}`}>
+                {l.label}
+                {lang === l.code && <Icon name="check" className="h-5 w-5 text-primary-300" />}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // One reading shared by every screen; the server refreshes it from NEA every 5 minutes.
 let weatherCache: { at: number; data: Weather | null } | null = null;
 
@@ -190,7 +247,7 @@ const FLOW_STYLE = {
   call: { label: "Call a resident", className: "border-primary-400/50 bg-primary-500/20 text-primary-200" },
   guardhouse: { label: "Call the guardhouse", className: "border-amber-400/50 bg-amber-500/20 text-amber-200" },
   walkin: { label: "Walk in", className: "border-emerald-400/50 bg-emerald-500/20 text-emerald-200" },
-  scan: { label: "I have an invitation", className: "border-violet-400/50 bg-violet-500/20 text-violet-200" },
+  scan: { label: "Scan QR code", className: "border-violet-400/50 bg-violet-500/20 text-violet-200" },
   checkout: { label: "Check out", className: "border-slate-400/50 bg-slate-500/20 text-slate-200" },
 };
 
@@ -228,22 +285,23 @@ function Frame({ kiosk, children, onBack }: { kiosk: KioskSelf | null; children:
   }, []);
   return (
     <div className="brand-panel flex min-h-dvh flex-col text-white">
-      <header className="flex items-center justify-between px-8 py-6">
+      <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-6 px-8 py-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/elix-logo.png" alt="Elix" className="h-9 w-auto drop-shadow-[0_0_16px_rgba(47,111,255,0.5)]" />
-        <div className="text-right">
-          <div className="text-lg font-medium">{kiosk?.condominium_name}</div>
-          <div className="text-sm text-slate-400">
-            {new Intl.DateTimeFormat(localeOf(lang), { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Singapore" }).format(now)}
+        <img src="/brand/elix-logo.png" alt="Elix" className="h-9 w-auto justify-self-start drop-shadow-[0_0_16px_rgba(47,111,255,0.5)]" />
+        <div className="text-center">
+          <div className="text-2xl font-semibold tracking-tight">{kiosk?.condominium_name}</div>
+          <div className="mt-1 flex items-center justify-center gap-2 text-base text-slate-300">
+            <span>{new Intl.DateTimeFormat(localeOf(lang), { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Singapore" }).format(now)}</span>
+            {weather?.temperature != null && (
+              <span className="flex items-center gap-1.5" title={`${weather.forecast} · ${weather.station} · NEA`}>
+                <span className="opacity-50">·</span>
+                <Icon name={weatherIcon(weather.forecast)} className="h-5 w-5 text-primary-300" />
+                <span className="font-semibold text-white">{Math.round(weather.temperature)}°C</span>
+              </span>
+            )}
           </div>
-          {weather?.temperature != null && (
-            <div className="mt-1 flex items-center justify-end gap-2 text-sm text-slate-300" title={`${weather.station} · NEA`}>
-              <Icon name={weatherIcon(weather.forecast)} className="h-5 w-5 text-primary-300" />
-              <span className="text-base font-semibold text-white">{Math.round(weather.temperature)}°C</span>
-              <span>{weather.forecast}</span>
-            </div>
-          )}
         </div>
+        <div className="justify-self-end">{kiosk && <LanguageMenu />}</div>
       </header>
       <FlowPill />
       {/* Portrait tablets hang at eye level: start the content high, not in the middle of a tall screen. */}
@@ -291,24 +349,8 @@ function Setup({ onReady }: { onReady: (kiosk: KioskSelf, token: string) => void
   );
 }
 
-/** The four official languages, as chips at the top of the welcome screen. */
-function LanguagePicker({ onLang }: { onLang: (lang: Lang) => void }) {
-  const lang = useLang();
-  const t = useT();
-  return (
-    <div role="radiogroup" aria-label={t("Language")} className="mb-8 flex flex-wrap justify-center gap-2">
-      {LANGS.map((l) => (
-        <button key={l.code} type="button" role="radio" aria-checked={lang === l.code} lang={l.locale} onClick={() => onLang(l.code)}
-          className={`rounded-full border px-5 py-2 text-lg transition ${lang === l.code ? "border-primary-400 bg-primary-500/30 font-semibold text-white" : "border-white/15 bg-white/5 text-slate-300 hover:bg-white/10"}`}>
-          {l.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function Home({ kiosk, assistant, onLang, onAssistant, onCall, onGuardhouse, onWalkIn, onScan, onCheckOut, onAdmin }: {
-  kiosk: KioskSelf; assistant: KioskAssistant | null; onLang: (lang: Lang) => void; onAssistant: () => void;
+function Home({ kiosk, assistant, onAssistant, onCall, onGuardhouse, onWalkIn, onScan, onCheckOut, onAdmin }: {
+  kiosk: KioskSelf; assistant: KioskAssistant | null; onAssistant: () => void;
   onCall: () => void; onGuardhouse: () => void; onWalkIn: () => void; onScan: () => void; onCheckOut: () => void; onAdmin: () => void;
 }) {
   const t = useT();
@@ -317,7 +359,6 @@ function Home({ kiosk, assistant, onLang, onAssistant, onCall, onGuardhouse, onW
   const grid = buttons === 4 ? "max-w-6xl sm:grid-cols-2 xl:grid-cols-4" : buttons === 3 ? "max-w-5xl sm:grid-cols-3" : "max-w-3xl sm:grid-cols-2";
   return (
     <Frame kiosk={kiosk}>
-      <LanguagePicker onLang={onLang} />
       <h1 className="text-center text-4xl font-semibold tracking-tight sm:text-5xl">{t("Welcome")}</h1>
       <p className="mt-3 text-center text-lg text-slate-300">
         {kiosk.gate_name ? t("How would you like to enter through {gate}?", { gate: kiosk.gate_name }) : t("How would you like to enter?")}
@@ -345,7 +386,7 @@ function Home({ kiosk, assistant, onLang, onAssistant, onCall, onGuardhouse, onW
           <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
             <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" /></svg>
           </div>
-          <div className="text-2xl font-semibold">{t("I have an invitation")}</div>
+          <div className="text-2xl font-semibold">{t("Scan QR code")}</div>
           <div className="mt-2 text-lg text-slate-300">{t(kiosk.walk_in && !kiosk.checkout ? "Show your invitation QR, or scan your walk-in slip when you leave." : "Show the QR code from your invitation.")}</div>
         </button>
         {kiosk.checkout && (
@@ -358,19 +399,14 @@ function Home({ kiosk, assistant, onLang, onAssistant, onCall, onGuardhouse, onW
           </button>
         )}
       </div>
-      <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
       {assistant?.enabled && (
         <button onClick={onAssistant}
-          className="flex items-center gap-4 rounded-full border border-primary-300/40 bg-gradient-to-r from-primary-500/30 to-cyan-400/20 py-3 pl-3 pr-8 text-left shadow-[0_0_40px_rgba(47,140,255,0.35)] transition hover:from-primary-500/40">
+          className="mt-10 flex items-center gap-4 rounded-full border border-primary-300/40 bg-gradient-to-r from-primary-500/30 to-cyan-400/20 py-3 pl-3 pr-8 shadow-[0_0_40px_rgba(47,140,255,0.35)] transition hover:from-primary-500/40">
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-primary-400 to-cyan-400"><Icon name="mic" className="h-7 w-7 text-white" /></span>
-          <span>
-            <span className="block text-xl font-semibold">{t("Ask {name}", { name: assistant.name })}</span>
-            <span className="block text-slate-300">{t("Directions, facilities, or help registering. Just speak.")}</span>
-          </span>
+          <span className="text-xl font-semibold">{t("Ask {name}", { name: assistant.name })}</span>
         </button>
       )}
-      {kiosk.call_guardhouse && <GuardhouseButton onClick={onGuardhouse} />}
-      </div>
+      {kiosk.call_guardhouse && <GuardhouseCorner onClick={onGuardhouse} />}
       <button
         aria-label="Kiosk settings"
         className="mt-10 h-10 w-24 opacity-0"
@@ -1379,10 +1415,12 @@ export default function KioskPage() {
   }
   return (
     <LangContext.Provider value={lang}>
-      <div lang={localeOf(lang)}>
-        <FlowContext.Provider value={flowOf(screen, kiosk)}>{render(kiosk)}</FlowContext.Provider>
-        {idleLeft !== null && <StillThere seconds={idleLeft} />}
-      </div>
+      <SetLangContext.Provider value={setLang}>
+        <div lang={localeOf(lang)}>
+          <FlowContext.Provider value={flowOf(screen, kiosk)}>{render(kiosk)}</FlowContext.Provider>
+          {idleLeft !== null && <StillThere seconds={idleLeft} />}
+        </div>
+      </SetLangContext.Provider>
     </LangContext.Provider>
   );
 
@@ -1394,7 +1432,7 @@ export default function KioskPage() {
   switch (screen.name) {
     case "home":
       return (
-        <Home kiosk={kiosk} assistant={assistant} onLang={setLang}
+        <Home kiosk={kiosk} assistant={assistant}
           onGuardhouse={() => { document.documentElement.requestFullscreen?.().catch(() => {}); callGuardhouse(); }}
           onAssistant={() => { document.documentElement.requestFullscreen?.().catch(() => {}); setScreen({ name: "assistant" }); }}
           onCall={() => { document.documentElement.requestFullscreen?.().catch(() => {}); setScreen({ name: "directory", mode: "call" }); }}

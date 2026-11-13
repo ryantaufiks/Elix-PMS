@@ -6,11 +6,11 @@ import { createContext, useCallback, useContext } from "react";
 
 export type Lang = "en" | "zh" | "ms" | "ta";
 
-export const LANGS: { code: Lang; label: string; locale: string; name: string }[] = [
-  { code: "en", label: "English", locale: "en-SG", name: "English" },
-  { code: "zh", label: "中文", locale: "zh-SG", name: "Mandarin Chinese" },
-  { code: "ms", label: "Melayu", locale: "ms-SG", name: "Malay" },
-  { code: "ta", label: "தமிழ்", locale: "ta-SG", name: "Tamil" },
+export const LANGS: { code: Lang; label: string; short: string; locale: string; name: string }[] = [
+  { code: "en", label: "English", short: "EN", locale: "en-SG", name: "English" },
+  { code: "zh", label: "中文", short: "中文", locale: "zh-SG", name: "Mandarin Chinese" },
+  { code: "ms", label: "Melayu", short: "BM", locale: "ms-SG", name: "Malay" },
+  { code: "ta", label: "தமிழ்", short: "தமிழ்", locale: "ta-SG", name: "Tamil" },
 ];
 
 type Vars = Record<string, string | number>;
@@ -23,7 +23,7 @@ const STRINGS: Record<string, [string, string, string]> = {
   "Language": ["语言", "Bahasa", "மொழி"],
   "Call a resident": ["呼叫住户", "Hubungi penghuni", "குடியிருப்பாளரை அழைக்கவும்"],
   "Walk in": ["现场登记", "Daftar masuk", "நேரடிப் பதிவு"],
-  "I have an invitation": ["我有邀请", "Saya ada jemputan", "என்னிடம் அழைப்பிதழ் உள்ளது"],
+  "Scan QR code": ["扫描二维码", "Imbas kod QR", "QR குறியீட்டை ஸ்கேன் செய்யவும்"],
   "Check out": ["离开登记", "Daftar keluar", "வெளியேறுதல்"],
   "Call the guardhouse": ["呼叫保安亭", "Hubungi pondok pengawal", "காவலர் அறையை அழைக்கவும்"],
   "Step {step} of {of}": ["第 {step} 步，共 {of} 步", "Langkah {step} daripada {of}", "படி {step} / {of}"],
@@ -36,7 +36,6 @@ const STRINGS: Record<string, [string, string, string]> = {
   "Show the QR code from your invitation.": ["出示邀请中的二维码。", "Tunjukkan kod QR daripada jemputan anda.", "உங்கள் அழைப்பிதழில் உள்ள QR குறியீட்டைக் காட்டுங்கள்."],
   "Leaving? Scan your pass QR or enter its PIN.": ["要离开了？请扫描通行证二维码或输入密码。", "Mahu keluar? Imbas QR pas anda atau masukkan PINnya.", "வெளியேறுகிறீர்களா? அனுமதிச் சீட்டின் QR-ஐ ஸ்கேன் செய்யுங்கள் அல்லது PIN-ஐ உள்ளிடுங்கள்."],
   "Ask {name}": ["询问 {name}", "Tanya {name}", "{name}-இடம் கேளுங்கள்"],
-  "Directions, facilities, or help registering. Just speak.": ["路线、设施或登记帮助，直接说话即可。", "Arah, kemudahan atau bantuan pendaftaran. Bercakap sahaja.", "வழி, வசதிகள் அல்லது பதிவு செய்ய உதவி. பேசினால் போதும்."],
   "Need help? Call the guardhouse": ["需要帮助？呼叫保安亭", "Perlu bantuan? Hubungi pondok pengawal", "உதவி வேண்டுமா? காவலர் அறையை அழைக்கவும்"],
   "Security answers by video.": ["保安会通过视频接听。", "Pengawal keselamatan menjawab melalui video.", "பாதுகாவலர் வீடியோ மூலம் பதிலளிப்பார்."],
 
@@ -212,6 +211,8 @@ export function translate(lang: Lang, text: string, vars?: Vars): string {
 }
 
 export const LangContext = createContext<Lang>("en");
+/** Set by the kiosk app so the language button in every screen's header can change it. */
+export const SetLangContext = createContext<((lang: Lang) => void) | null>(null);
 
 export const useLang = () => useContext(LangContext);
 
