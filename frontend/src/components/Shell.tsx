@@ -9,9 +9,10 @@ import { query } from "@/lib/api";
 import { ROLE_LABEL, visitPurpose } from "@/lib/format";
 import { useLiveEvents, useLiveStatus } from "@/lib/live";
 import { useSession } from "@/lib/session";
-import type { IntercomCall, Page } from "@/lib/types";
+import type { IntercomCall, LiveKitConnection, Page } from "@/lib/types";
 
 import { Icon, type IconName } from "./icons";
+import { ActiveCall } from "./IntercomCall";
 import { NotificationBell } from "./Notifications";
 import { useTheme } from "@/lib/theme";
 
@@ -290,12 +291,16 @@ function WalkInAlerts() {
   return null;
 }
 
-/** Banner + ringtone while a kiosk at this condo is ringing. */
+/** Pop-up + ringtone while a kiosk at this condo is ringing, on every page: answer, reject or open the gate
+    right there. "Later" folds it into a banner; a call answered here stays in the pop-up until it ends.
+    On the Intercom page the cards are already on screen, so only the banner shows there. */
 function IncomingCalls() {
   const { condo } = useSession();
   const pathname = usePathname();
   const [calls, setCalls] = useState<Record<number, IntercomCall>>({});
+  const [held, setHeld] = useState<Record<number, { call: IntercomCall; connection: LiveKitConnection }>>({});
   const [muted, setMuted] = useState(false);
+  const [later, setLater] = useState<number[]>([]);
 
   const hasIntercom = condo.modules?.includes("intercom") ?? false;
   const { data } = useSWR<Page<IntercomCall>>(hasIntercom ? `/v1/intercom-calls/${query({ condominium: condo.id, status: "ringing" })}` : null);
@@ -305,44 +310,102 @@ function IncomingCalls() {
 
   useLiveEvents((event) => {
     if (event.type !== "intercom_call" || event.data.condominium !== condo.id) return;
+    const call = event.data;
     setCalls((current) => {
       const next = { ...current };
-      if (event.data.status === "ringing" && event.data.is_open) next[event.data.id] = event.data;
-      else delete next[event.data.id];
+      if (call.status === "ringing" && call.is_open) next[call.id] = call;
+      else delete next[call.id];
       return next;
+    });
+    setHeld((current) => {
+      if (!current[call.id]) return current;
+      const { [call.id]: mine, ...rest } = current;
+      return call.is_open ? { ...rest, [call.id]: { ...mine, call } } : rest;
     });
   });
 
-  const ringing = Object.values(calls);
+  const done = (id: number) => {
+    setCalls(({ [id]: _, ...rest }) => rest);
+    setHeld(({ [id]: _, ...rest }) => rest);
+  };
+
+  const ringing = Object.values(calls).filter((c) => !held[c.id]);
   useRingtone(ringing.length > 0 && !muted);
   useEffect(() => {
     if (ringing.length === 0) setMuted(false);
   }, [ringing.length]);
 
-  if (ringing.length === 0) return null;
+  const onIntercom = pathname.startsWith("/intercom");
+  const shown = [...Object.values(held).map((h) => h.call), ...(onIntercom ? [] : ringing.filter((c) => !later.includes(c.id)))]
+    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const folded = ringing.filter((c) => !shown.includes(c));
+
   return (
-    <div className="border-b border-primary-500/20 bg-primary-500/10 px-4 py-3 sm:px-8">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3">
-        <Icon name="bell" className="h-5 w-5 animate-pulse text-primary-600 dark:text-primary-300" />
-        <div className="flex-1 text-sm text-ink">
-          {ringing.map((call) => (
-            <div key={call.id}>
-              {call.unit === null
-                ? <><strong>A visitor is calling the guardhouse</strong> from {call.kiosk_name || "a kiosk"}</>
-                : <><strong>{call.unit_display}</strong> is being called from {call.kiosk_name || "a kiosk"}</>}
-              {call.visitor_name && <> · {call.visitor_name}</>}
-              {visitPurpose(call.visitor_purpose, call.visitor_company) && <> ({visitPurpose(call.visitor_purpose, call.visitor_company)})</>}
+    <>
+      {folded.length > 0 && (
+        <div className="border-b border-primary-500/20 bg-primary-500/10 px-4 py-3 sm:px-8">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3">
+            <Icon name="bell" className="h-5 w-5 animate-pulse text-primary-600 dark:text-primary-300" />
+            <div className="flex-1 text-sm text-ink">
+              {folded.map((call) => <div key={call.id}><CallLine call={call} /></div>)}
             </div>
-          ))}
+            <button className="text-sm text-primary-600 hover:underline dark:text-primary-300" onClick={() => setMuted(true)}>{muted ? "Muted" : "Mute"}</button>
+            {!onIntercom && (
+              <button className="rounded-md bg-primary-500 px-3 py-1.5 text-sm font-medium text-white shadow-primary hover:bg-primary-600"
+                onClick={() => setLater((ids) => ids.filter((id) => !folded.some((c) => c.id === id)))}>
+                Show call
+              </button>
+            )}
+          </div>
         </div>
-        <button className="text-sm text-primary-600 hover:underline dark:text-primary-300" onClick={() => setMuted(true)}>{muted ? "Muted" : "Mute"}</button>
-        {!pathname.startsWith("/intercom") && (
-          <Link href="/intercom/" className="rounded-md bg-primary-500 px-3 py-1.5 text-sm font-medium text-white shadow-primary hover:bg-primary-600">
-            Go to intercom
-          </Link>
-        )}
-      </div>
-    </div>
+      )}
+      {shown.length > 0 && (
+        // No close on a click outside: a ringing call should not vanish by accident.
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 sm:items-center sm:p-4">
+          <div role="dialog" aria-modal="true" aria-label="Incoming call"
+            className="max-h-[94vh] w-full overflow-y-auto rounded-t-2xl bg-surface-2 shadow-xl sm:max-w-fit sm:rounded-2xl">
+            <div className="flex items-center gap-3 border-b border-line bg-surface px-5 py-3">
+              <Icon name="bell" className={cx("h-5 w-5 text-primary-600 dark:text-primary-300", ringing.length > 0 && "animate-pulse")} />
+              <h2 className="flex-1 text-base font-semibold text-ink">{shown.length > 1 ? `${shown.length} kiosk calls` : "Kiosk call"}</h2>
+              {ringing.length > 0 && (
+                <button className="text-sm text-primary-600 hover:underline dark:text-primary-300" onClick={() => setMuted(true)}>{muted ? "Muted" : "Mute"}</button>
+              )}
+              {shown.some((c) => !held[c.id]) && (
+                <button className="rounded-md px-2 py-1 text-sm text-muted hover:bg-surface-3 hover:text-body"
+                  onClick={() => setLater((ids) => [...ids, ...shown.filter((c) => !held[c.id]).map((c) => c.id)])}>
+                  Later
+                </button>
+              )}
+            </div>
+            <div className={cx("grid gap-4 p-4", shown.length > 1 && "md:grid-cols-2")}>
+              {shown.map((call) => (
+                <div key={call.id} className="w-full sm:w-[26rem]">
+                  <ActiveCall
+                    call={call}
+                    connection={held[call.id]?.connection}
+                    onAnswered={(connection) => setHeld((all) => ({ ...all, [call.id]: { call: { ...call, status: "answered" }, connection } }))}
+                    onDone={() => done(call.id)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function CallLine({ call }: { call: IntercomCall }) {
+  const purpose = visitPurpose(call.visitor_purpose, call.visitor_company);
+  return (
+    <>
+      {call.unit === null
+        ? <><strong>A visitor is calling the guardhouse</strong> from {call.kiosk_name || "a kiosk"}</>
+        : <><strong>{call.unit_display}</strong> is being called from {call.kiosk_name || "a kiosk"}</>}
+      {call.visitor_name && <> · {call.visitor_name}</>}
+      {purpose && <> ({purpose})</>}
+    </>
   );
 }
 
