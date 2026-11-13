@@ -180,11 +180,13 @@ export function BarList({ rows }: { rows: { label: string; value: number }[] }) 
 const SERIES = ["var(--series-1)", "var(--series-2)", "var(--series-3)"];
 
 /** Stacked bars per day (up to 3 series), with legend and hover readout. ``label`` formats a date key. */
-export function DailyChart({ points, series, label, height = 240 }: {
+/** Bars per day (or any bucket keyed by ``date``): stacked series, or side by side with ``grouped``. */
+export function DailyChart({ points, series, label, height = 240, grouped = false }: {
   points: ({ date: string } & Record<string, number | string>)[];
   series: { key: string; label: string }[];
   label: (date: string) => string;
   height?: number;
+  grouped?: boolean;
 }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [active, setActive] = useState<number | null>(null);
@@ -192,7 +194,8 @@ export function DailyChart({ points, series, label, height = 240 }: {
   const innerW = Math.max(0, width - pad.left - pad.right);
   const innerH = height - pad.top - pad.bottom;
   const total = (p: Record<string, number | string>) => series.reduce((sum, s) => sum + Number(p[s.key] || 0), 0);
-  const max = niceMax(Math.max(0, ...points.map(total)));
+  const tallest = (p: Record<string, number | string>) => Math.max(0, ...series.map((s) => Number(p[s.key] || 0)));
+  const max = niceMax(Math.max(0, ...points.map(grouped ? tallest : total)));
   const band = points.length ? innerW / points.length : 0;
   const barW = Math.max(2, Math.min(28, band * 0.64));
   const y = (v: number) => pad.top + innerH - (v / max) * innerH;
@@ -220,7 +223,13 @@ export function DailyChart({ points, series, label, height = 240 }: {
               const parts = series.map((s, si) => ({ v: Number(p[s.key] || 0), fill: SERIES[si] })).filter((part) => part.v > 0);
               return (
                 <g key={p.date} opacity={active !== null && active !== i ? 0.45 : 1} style={{ transition: "opacity 120ms" }}>
-                  {parts.map((part, pi) => {
+                  {grouped && series.map((s, si) => {
+                    const v = Number(p[s.key] || 0);
+                    const w = barW / series.length;
+                    const h = (v / max) * innerH;
+                    return v > 0 && <path key={s.key} d={topRounded(x + si * w + 1, y(v), Math.max(1, w - 2), Math.max(1, h))} fill={SERIES[si]} />;
+                  })}
+                  {!grouped && parts.map((part, pi) => {
                     const h = (part.v / max) * innerH;
                     const top = y(base + part.v) - 2 * pi; // 2px gap between stacked segments
                     base += part.v;

@@ -115,6 +115,22 @@ def purge_visitor_data() -> dict:
 
 
 @shared_task
+def notify_overstays() -> int:
+    """Tell the guardhouse about visitors past their site's overstay limit (once per visit)."""
+    from . import visits
+
+    return visits.notify_overstays()
+
+
+@shared_task
+def notify_still_on_site() -> int:
+    """Evening count of visitors still inside, per site."""
+    from . import visits
+
+    return visits.notify_still_on_site()
+
+
+@shared_task
 def expire_unpaid_bookings() -> int:
     """Release facility slots held for payments that were not completed in time."""
     from . import bookings

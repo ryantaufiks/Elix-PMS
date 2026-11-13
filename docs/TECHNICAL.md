@@ -80,7 +80,7 @@ On first sign-in with no condominium, the platform admin is guided through creat
 
 | Section | Page | Who | What |
 |---|---|---|---|
-| Operations | Dashboard | all staff | Today's KPIs, hourly traffic chart, live activity, gate health with one-click opening, entry methods |
+| Operations | Dashboard | all staff | Visitors first: on site now (by purpose), arrived today vs yesterday at this time, left today, overstaying; the visitors on site (overstaying first, live time inside, check out); visitors in and out per hour; live activity; gates with one-click opening. Site admins also get *Gates & devices* (gate decisions, devices, traffic, entry methods) |
 | | Access log | all staff | Filter by gate, method, result, plate and period (Today / 7 days / 30 days / custom dates, SGT); camera snapshots; live updates |
 | | Intercom | all staff | Ringing kiosk calls (ringtone + a pop-up on every page to answer, reject or swipe to open without leaving the page; *Later* folds it into a banner, a call answered there stays in the pop-up until it ends; browsers keep sound off until the page gets a click or key press, so the dashboard switches its AudioContext on at every gesture and the pop-up shows *Turn on sound* while it is still blocked; an amber bar says so as soon as a page opens
 muted, before any call comes in), including *Call to the guardhouse* from visitors who need help; answer with video, swipe to open, reject; history |
@@ -108,6 +108,16 @@ Development with hot reload (proxies the API to the dev web service):
 ```bash
 docker compose --profile frontend up -d frontend   # http://127.0.0.1:3000
 ```
+
+### Overstay alerts
+
+Site settings → *Overstay alerts*: deliveries (parcel, food, pick-up) after **30 min**, guests and others
+after **240 min**, contractors after **18:00** local time (a contractor arriving later gets the guests'
+limit); 0 or empty turns a limit off. `core.visits.overstay_at()` gives the moment for a visit; visits
+carry `overstay_at` and `overstaying`. Celery beat runs `notify_overstays` every 5 minutes: each visit
+past its limit is broadcast once as `visit_overstay` (`Visit.overstay_notified_at`), which the dashboard
+shows as a red toast and a bell notification. `notify_still_on_site` at 22:00 sends each site's count of
+visitors still inside (`visitors_on_site`) for the night shift.
 
 ## Gate relays
 

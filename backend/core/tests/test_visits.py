@@ -416,3 +416,61 @@ class OfficerVisitTests(APITestCase):
         visit = m.Visit.objects.get()
         self.assertEqual(self.client.post(f"/v1/visits/{visit.pk}/check_out/").status_code, 403)
         self.assertEqual(self.client.patch(f"/v1/visits/{visit.pk}/", {"notes": "x"}, format="json").status_code, 403)
+
+
+@mock.patch("core.visits.broadcast")
+class OverstayTests(APITestCase):
+    def setUp(self):
+        self.condo = make_condo()
+        self.unit = make_unit(self.condo)
+        self.guard = make_staff("guard", self.condo, m.StaffAssignment.Role.SECURITY)
+        self.client.force_authenticate(self.guard)
+
+    def arrive(self, purpose, ago):
+        visit = visits.create(self.condo.pk, unit=self.unit, purpose=purpose, name=purpose, source="staff")
+        m.Visit.objects.filter(pk=visit.pk).update(created_at=timezone.now() - ago, valid_until=timezone.now() + timedelta(days=1))
+        visit.refresh_from_db()
+        return visit
+
+    def test_limits_per_purpose(self, _):
+        now = timezone.now()
+        self.assertTrue(visits.is_overstaying(self.arrive("food", timedelta(minutes=31)), now))
+        self.assertFalse(visits.is_overstaying(self.arrive("delivery", timedelta(minutes=20)), now))
+        self.assertTrue(visits.is_overstaying(self.arrive("guest", timedelta(hours=5)), now))
+        self.assertFalse(visits.is_overstaying(self.arrive("other", timedelta(hours=3)), now))
+        contractor = self.arrive("contractor", timedelta(minutes=1))
+        cutoff = visits.overstay_at(contractor)
+        if timezone.localtime(contractor.created_at).hour < 18:  # After 18:00 the guests' limit applies.
+            self.assertEqual(timezone.localtime(cutoff).strftime("%H:%M"), "18:00")
+        self.assertFalse(visits.is_overstaying(contractor, cutoff - timedelta(minutes=1)))
+        self.assertTrue(visits.is_overstaying(contractor, cutoff + timedelta(minutes=1)))
+        # 0 switches a limit off; a checked-out visitor never overstays.
+        self.condo.overstay_guest_minutes = 0
+        self.condo.save()
+        self.assertFalse(visits.is_overstaying(self.arrive("guest", timedelta(hours=9)), now))
+        left = self.arrive("food", timedelta(hours=2))
+        left.checked_out_at = now
+        self.assertFalse(visits.is_overstaying(left, now))
+
+    def test_guardhouse_is_told_once(self, broadcast):
+        late = self.arrive("food", timedelta(minutes=45))
+        self.arrive("guest", timedelta(minutes=10))
+        self.assertEqual(visits.notify_overstays(), 1)
+        self.assertEqual(broadcast.call_args.args[2], "visit_overstay")
+        self.assertEqual(broadcast.call_args.args[3]["id"], late.pk)
+        self.assertTrue(broadcast.call_args.args[3]["overstaying"])
+        self.assertEqual(visits.notify_overstays(), 0)
+        late.refresh_from_db()
+        self.assertIsNotNone(late.overstay_notified_at)
+
+    def test_dashboard_counts_visitors(self, _):
+        self.arrive("food", timedelta(minutes=45))
+        self.arrive("guest", timedelta(minutes=5))
+        gone = self.arrive("guest", timedelta(minutes=30))
+        visits.check_out(gone, self.guard)
+        data = self.client.get("/v1/dashboard/summary/", {"condominium": self.condo.pk}).data["visitors"]
+        self.assertEqual((data["on_site"], data["overstaying"], data["left_today"]), (2, 1, 1))
+        self.assertEqual(data["on_site_by_purpose"], {"food": 1, "guest": 1})
+        self.assertEqual(data["limits"], {"delivery_minutes": 30, "guest_minutes": 240, "contractor_until": "18:00"})
+        listed = self.client.get("/v1/visits/", {"condominium": self.condo.pk, "state": "on_site"}).data["results"]
+        self.assertEqual(sorted(v["overstaying"] for v in listed), [False, True])

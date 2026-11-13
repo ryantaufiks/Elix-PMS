@@ -78,6 +78,7 @@ class CondominiumSerializer(ModelCleanSerializer):
             "id", "name", "code", "address", "postal_code", "timezone", "contact_phone", "is_active", "modules", "plan_name",
             "subscription_status", "subscription_ends_on", "lpr_enabled", "invitation_max_days", "intercom_ring_timeout_seconds", "face_verification_enabled",
             "visitor_data_retention_days", "kiosk_visitor_form", "kiosk_photo_required", "kiosk_walk_in", "kiosk_walk_in_photo", "kiosk_checkout", "kiosk_face_checkout", "kiosk_call_guardhouse",
+            "overstay_delivery_minutes", "overstay_guest_minutes", "overstay_contractor_until",
             "visitor_privacy_notice", "plan",
             "created_at", "updated_at",
         ]
@@ -453,6 +454,8 @@ class VisitSerializer(ModelCleanSerializer):
     created_by_name = serializers.SerializerMethodField()
     checked_out_by_name = serializers.SerializerMethodField()
     visitor_blocked = serializers.BooleanField(source="visitor.is_blacklisted", read_only=True, default=False)
+    overstay_at = serializers.SerializerMethodField()
+    overstaying = serializers.SerializerMethodField()
 
     class Meta:
         model = m.Visit
@@ -461,11 +464,24 @@ class VisitSerializer(ModelCleanSerializer):
             "gate_name", "invitation", "intercom_call", "visitor", "visitor_name", "visitor_phone", "visitor_blocked", "purpose", "company",
             "vehicle_plate", "notes", "has_snapshot", "pass_number", "pin", "issued_on", "valid_until", "state",
             "checked_out_at", "checked_out_by", "checked_out_by_name", "created_by", "created_by_name", "created_at",
+            "overstay_at", "overstaying",
         ]
         read_only_fields = sorted(set(fields) - {"visitor_name", "company", "notes"})
 
     def get_has_snapshot(self, obj) -> bool:
         return obj.photo() is not None
+
+    @extend_schema_field(serializers.DateTimeField(allow_null=True))
+    def get_overstay_at(self, obj):
+        from . import visits
+
+        at = visits.overstay_at(obj)
+        return serializers.DateTimeField().to_representation(at) if at else None
+
+    def get_overstaying(self, obj) -> bool:
+        from . import visits
+
+        return visits.is_overstaying(obj)
 
     def get_visitor_phone(self, obj) -> str:
         return str(obj.visitor.phone) if obj.visitor and obj.visitor.phone else ""
@@ -656,6 +672,23 @@ class GateHealthSerializer(serializers.Serializer):
     relays_failing = serializers.IntegerField()
 
 
+class VisitorHourSerializer(serializers.Serializer):
+    hour = serializers.IntegerField()
+    arrived = serializers.IntegerField()
+    left = serializers.IntegerField()
+
+
+class VisitorSummarySerializer(serializers.Serializer):
+    on_site = serializers.IntegerField()
+    on_site_by_purpose = serializers.DictField(child=serializers.IntegerField())
+    overstaying = serializers.IntegerField()
+    arrived_today = serializers.IntegerField()
+    arrived_yesterday_by_now = serializers.IntegerField()
+    left_today = serializers.IntegerField()
+    hourly = VisitorHourSerializer(many=True)
+    limits = serializers.DictField()
+
+
 class DashboardSummarySerializer(serializers.Serializer):
     granted_today = serializers.IntegerField()
     denied_today = serializers.IntegerField()
@@ -672,6 +705,7 @@ class DashboardSummarySerializer(serializers.Serializer):
     hourly = HourlyTrafficSerializer(many=True)
     by_method = serializers.DictField(child=serializers.IntegerField())
     gates = GateHealthSerializer(many=True)
+    visitors = VisitorSummarySerializer()
 
 
 # --- People management -------------------------------------------------------

@@ -32,6 +32,12 @@ export const condoFields = (opts: { superuser: boolean; creating: boolean; plans
     hint: "Visitors scan the QR or enter the 4-digit PIN from their pass when they leave." },
   { name: "kiosk_face_checkout", label: "Allow check-out by face", type: "checkbox", wide: true,
     hint: "Visitors whose photo the kiosk took can check out by looking at the camera. Matching runs on the kiosk PC; only a face template is stored, compared with visitors on site, and deleted at check-out or when the pass ends. Visitors are told before the photo." },
+  { name: "overstay_delivery_minutes", label: "Deliveries overstay after (minutes)", type: "number", section: "Overstay alerts",
+    hint: "Parcel and food deliveries and pick-ups. 0 turns the alert off." },
+  { name: "overstay_guest_minutes", label: "Guests overstay after (minutes)", type: "number",
+    hint: "Guests and other visitors. 240 = 4 hours; 0 turns the alert off." },
+  { name: "overstay_contractor_until", label: "Contractors overstay after", type: "time", nullable: true,
+    hint: "Time of day contractors should have left by. Leave empty to turn the alert off." },
   { name: "visitor_data_retention_days", label: "Keep visitor data for (days)", type: "number", section: "PDPA",
     hint: "Visitor names, contact details, photos and plates are deleted automatically after this (blacklisted visitors are kept)." },
   { name: "visitor_privacy_notice", label: "Privacy notice shown to visitors", type: "textarea", wide: true,
@@ -41,4 +47,5 @@ export const condoFields = (opts: { superuser: boolean; creating: boolean; plans
 export const condoDefaults = {
   intercom_ring_timeout_seconds: 45, invitation_max_days: 30, visitor_data_retention_days: 90, lpr_enabled: false, plan: "standard",
   kiosk_visitor_form: true, kiosk_photo_required: true, kiosk_walk_in: true, kiosk_walk_in_photo: true, kiosk_checkout: true, kiosk_call_guardhouse: true,
+  overstay_delivery_minutes: 30, overstay_guest_minutes: 240, overstay_contractor_until: "18:00",
 };

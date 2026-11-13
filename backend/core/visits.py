@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 import qrcode
 from django.db import transaction
-from django.db.models import F, Max
+from django.db.models import Count, F, Max
 from django.utils import timezone
 
 from .models import Condominium, Visit, VisitPurpose
@@ -34,6 +34,66 @@ def local_day(condo, at=None):
     tz = ZoneInfo(condo.timezone or "Asia/Singapore")
     day = (at or timezone.now()).astimezone(tz).date()
     return day, datetime.combine(day + timedelta(days=1), time.min, tzinfo=tz) - timedelta(seconds=1)
+
+
+DELIVERY_PURPOSES = (VisitPurpose.DELIVERY, VisitPurpose.FOOD, VisitPurpose.PICKUP)
+
+
+def overstay_at(visit, condo=None):
+    """When a visitor still on site starts overstaying, by the site's limit for their purpose; None when
+    no limit applies. A contractor who arrives after the day's cut-off gets the guests' limit."""
+    condo = condo or visit.condominium
+    guest = condo.overstay_guest_minutes and visit.created_at + timedelta(minutes=condo.overstay_guest_minutes)
+    if visit.purpose in DELIVERY_PURPOSES:
+        return condo.overstay_delivery_minutes and visit.created_at + timedelta(minutes=condo.overstay_delivery_minutes) or None
+    if visit.purpose == VisitPurpose.CONTRACTOR and condo.overstay_contractor_until:
+        tz = ZoneInfo(condo.timezone or "Asia/Singapore")
+        cutoff = datetime.combine(visit.created_at.astimezone(tz).date(), condo.overstay_contractor_until, tzinfo=tz)
+        return cutoff if cutoff > visit.created_at else guest or None
+    if visit.purpose == VisitPurpose.CONTRACTOR:
+        return None
+    return guest or None
+
+
+def is_overstaying(visit, now=None):
+    if visit.checked_out_at or visit.valid_until < (now or timezone.now()):
+        return False
+    at = overstay_at(visit)
+    return bool(at and at <= (now or timezone.now()))
+
+
+def notify_overstays():
+    """Tell each site's guardhouse, once per visit, about visitors on site past their limit."""
+    from .serializers import VisitSerializer
+
+    now = timezone.now()
+    told = 0
+    waiting = Visit.objects.filter(checked_out_at__isnull=True, valid_until__gte=now, overstay_notified_at__isnull=True) \
+        .select_related("condominium", "unit__block", "kiosk", "gate", "visitor", "created_by")
+    for visit in waiting:
+        if not is_overstaying(visit, now):
+            continue
+        visit.overstay_notified_at = now
+        visit.save(update_fields=["overstay_notified_at", "updated_at"])
+        try:
+            broadcast(visit.condominium_id, None, "visit_overstay", VisitSerializer(visit).data)
+        except Exception:  # Redis trouble: the dashboard still shows the visit as overstaying.
+            log.exception("Failed to broadcast overstay of visit %s", visit.pk)
+        told += 1
+    return told
+
+
+def notify_still_on_site():
+    """Evening round: how many visitors each site still has inside, for the night shift."""
+    now = timezone.now()
+    rows = Visit.objects.filter(checked_out_at__isnull=True, valid_until__gte=now) \
+        .values_list("condominium_id").annotate(n=Count("id"))
+    for condo_id, count in rows:
+        try:
+            broadcast(condo_id, None, "visitors_on_site", {"condominium": condo_id, "count": count, "at": now.isoformat()})
+        except Exception:
+            log.exception("Failed to broadcast visitors on site for %s", condo_id)
+    return len(rows)
 
 
 def on_site(condominium_id):

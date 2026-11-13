@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 
 import { query } from "@/lib/api";
-import { ROLE_LABEL, visitPurpose } from "@/lib/format";
+import { formatTime, ROLE_LABEL, visitPurpose } from "@/lib/format";
 import { useLiveEvents, useLiveStatus } from "@/lib/live";
 import { useSession } from "@/lib/session";
 import type { IntercomCall, LiveKitConnection, Page } from "@/lib/types";
@@ -284,12 +284,17 @@ export function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Toast for security when a visitor registers as a walk-in at a kiosk. */
+/** Toasts for security: a visitor registered as a walk-in at a kiosk, or a visitor overstaying. */
 function WalkInAlerts() {
   const { condo } = useSession();
   const toast = useToast();
   const seen = useRef(new Set<number>());
   useLiveEvents((event) => {
+    if (event.type === "visit_overstay" && event.data.condominium === condo.id) {
+      const v = event.data;
+      toast("error", `Overstaying: ${v.visitor_name} (${v.pass_number}) at ${v.unit_display}, in since ${formatTime(v.created_at)}`);
+      return;
+    }
     if (event.type !== "visit" || event.data.source !== "kiosk" || event.data.condominium !== condo.id || event.data.checked_out_at) return;
     if (seen.current.has(event.data.id)) return;
     seen.current.add(event.data.id);

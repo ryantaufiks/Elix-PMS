@@ -180,7 +180,7 @@ export default function VisitsPage() {
                       </>
                     ) : "—"}
                   </Td>
-                  <Td><Badge tone={STATE[v.state].tone}>{STATE[v.state].label}</Badge></Td>
+                  <Td><div className="flex flex-wrap gap-1"><Badge tone={STATE[v.state].tone}>{STATE[v.state].label}</Badge>{v.overstaying && <Badge tone="red">Overstay</Badge>}</div></Td>
                   <Td className="whitespace-nowrap text-right">
                     <div className="inline-flex items-center gap-0.5">
                       <IconButton label="Print slip" onClick={() => print(v)}><Icon name="printer" className="h-[18px] w-[18px]" /></IconButton>

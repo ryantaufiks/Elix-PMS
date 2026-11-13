@@ -627,8 +627,8 @@ class VisitViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, ScopedReadO
 
     ``?state=on_site|checked_out|expired``, ``?date_from=`` / ``?date_to=`` (local dates)."""
 
-    queryset = m.Visit.objects.select_related("unit__block", "kiosk", "gate", "visitor", "created_by", "checked_out_by",
-                                              "intercom_call", "entry_log")
+    queryset = m.Visit.objects.select_related("condominium", "unit__block", "kiosk", "gate", "visitor", "created_by",
+                                              "checked_out_by", "intercom_call", "entry_log")
     serializer_class = s.VisitSerializer
     resident_unit_path = "unit"
     staff_write_roles = ALL_STAFF
@@ -827,6 +827,7 @@ class DashboardSummaryView(generics.GenericAPIView):
             "hourly": self._hourly(logs),
             "by_method": dict(logs.values_list("method").annotate(n=Count("id"))),
             "gates": self._gates(condo_id),
+            "visitors": self._visitors(condo_id, now, start_of_day),
         }
         return Response(self.get_serializer(data).data)
 
@@ -839,6 +840,39 @@ class DashboardSummaryView(generics.GenericAPIView):
         for hour, result, n in rows:
             buckets[hour][result] = n
         return buckets
+
+    @staticmethod
+    def _visitors(condo_id, now, start_of_day):
+        """Visitors on site, arrivals and departures today (with yesterday at this time to compare)."""
+        condo = m.Condominium.objects.get(pk=condo_id)
+        visits_qs = m.Visit.objects.filter(condominium_id=condo_id)
+        inside = list(visits_qs.filter(checked_out_at__isnull=True, valid_until__gte=now).select_related("condominium"))
+        by_purpose = {}
+        for v in inside:
+            by_purpose[v.purpose] = by_purpose.get(v.purpose, 0) + 1
+        yesterday = start_of_day - timedelta(days=1)
+        tz = timezone.get_current_timezone()
+        hourly = [{"hour": h, "arrived": 0, "left": 0} for h in range(24)]
+        arrived = visits_qs.filter(created_at__gte=start_of_day)
+        left = visits_qs.filter(checked_out_at__gte=start_of_day)
+        for hour, n in arrived.annotate(hour=ExtractHour("created_at", tzinfo=tz)).values_list("hour").annotate(n=Count("id")):
+            hourly[hour]["arrived"] = n
+        for hour, n in left.annotate(hour=ExtractHour("checked_out_at", tzinfo=tz)).values_list("hour").annotate(n=Count("id")):
+            hourly[hour]["left"] = n
+        return {
+            "on_site": len(inside),
+            "on_site_by_purpose": by_purpose,
+            "overstaying": sum(visits.is_overstaying(v, now) for v in inside),
+            "arrived_today": arrived.count(),
+            "arrived_yesterday_by_now": visits_qs.filter(created_at__gte=yesterday, created_at__lt=now - timedelta(days=1)).count(),
+            "left_today": left.count(),
+            "hourly": hourly,
+            "limits": {
+                "delivery_minutes": condo.overstay_delivery_minutes,
+                "guest_minutes": condo.overstay_guest_minutes,
+                "contractor_until": condo.overstay_contractor_until.strftime("%H:%M") if condo.overstay_contractor_until else None,
+            },
+        }
 
     @staticmethod
     def _gates(condo_id):

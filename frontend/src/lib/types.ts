@@ -86,6 +86,9 @@ export type Condominium = {
   kiosk_walk_in: boolean;
   kiosk_walk_in_photo: boolean;
   kiosk_call_guardhouse: boolean;
+  overstay_delivery_minutes: number;
+  overstay_guest_minutes: number;
+  overstay_contractor_until: string | null;
   visitor_privacy_notice: string;
 };
 
@@ -438,6 +441,9 @@ export type Visit = {
   created_by: number | null;
   created_by_name: string;
   created_at: string;
+  /** When the visitor passes the site's limit for their purpose (null: no limit). */
+  overstay_at: string | null;
+  overstaying: boolean;
 };
 
 export type Summary = {
@@ -456,6 +462,16 @@ export type Summary = {
   hourly: { hour: number; granted: number; denied: number; error: number }[];
   by_method: Partial<Record<AccessMethod, number>>;
   gates: { id: number; name: string; gate_type: Gate["gate_type"]; is_active: boolean; relays_total: number; relays_failing: number }[];
+  visitors: {
+    on_site: number;
+    on_site_by_purpose: Record<string, number>;
+    overstaying: number;
+    arrived_today: number;
+    arrived_yesterday_by_now: number;
+    left_today: number;
+    hourly: { hour: number; arrived: number; left: number }[];
+    limits: { delivery_minutes: number; guest_minutes: number; contractor_until: string | null };
+  };
 };
 
 export type Facility = {

@@ -227,6 +227,8 @@ class Visit(TimeStampedModel):
         help_text="Face template (128 numbers computed in the kiosk browser) for face check-out; "
                   "cleared at check-out and when the pass ends.")
     checked_out_at = models.DateTimeField(null=True, blank=True)
+    overstay_notified_at = models.DateTimeField(
+        null=True, blank=True, editable=False, help_text="When the guardhouse was told the visitor overstayed (once).")
     checked_out_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
         help_text="Staff member who checked the visitor out; empty when they scanned out or drove out.",

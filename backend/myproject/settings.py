@@ -200,6 +200,14 @@ CELERY_BEAT_SCHEDULE = {
         "task": "core.tasks.expire_invitations",
         "schedule": crontab(minute="*/10"),
     },
+    "notify-overstays": {
+        "task": "core.tasks.notify_overstays",
+        "schedule": crontab(minute="*/5"),
+    },
+    "notify-still-on-site": {
+        "task": "core.tasks.notify_still_on_site",
+        "schedule": crontab(hour=22, minute=0),
+    },
     "expire-unpaid-bookings": {
         "task": "core.tasks.expire_unpaid_bookings",
         "schedule": crontab(minute="*/5"),

@@ -12,7 +12,7 @@ type Values = Record<string, unknown>;
 export type FieldDef = {
   name: string;
   label: string;
-  type?: "text" | "number" | "email" | "tel" | "url" | "password" | "secret" | "secret-text" | "textarea" | "select" | "checkbox";
+  type?: "text" | "number" | "email" | "tel" | "url" | "password" | "secret" | "secret-text" | "textarea" | "select" | "checkbox" | "time";
   options?: Option[];
   hint?: string;
   placeholder?: string;

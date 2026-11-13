@@ -12,7 +12,9 @@ export type LiveEvent =
   | { type: "intercom_call"; data: IntercomCall }
   | { type: "visit"; data: Visit }
   | { type: "booking"; data: Booking }
-  | { type: "feedback"; data: Feedback };
+  | { type: "feedback"; data: Feedback }
+  | { type: "visit_overstay"; data: Visit }
+  | { type: "visitors_on_site"; data: { condominium: number; count: number; at: string } };
 type Listener = (event: LiveEvent) => void;
 
 const LiveContext = createContext<{ connected: boolean; listeners: Set<Listener> } | null>(null);

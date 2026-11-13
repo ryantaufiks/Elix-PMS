@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { formatDateTime, METHOD_LABEL, timeAgo } from "@/lib/format";
+import { formatDateTime, formatTime, METHOD_LABEL, timeAgo } from "@/lib/format";
 import { type LiveEvent, useLiveEvents } from "@/lib/live";
 import { useSession } from "@/lib/session";
 
@@ -53,6 +53,14 @@ function describe(event: LiveEvent): Omit<Note, "at" | "condo"> | null {
       return v.checked_out_at
         ? { key: `visit:${v.id}:out`, title: `Checked out · ${v.pass_number}`, body: join(v.visitor_name, v.unit_display), href: "/visits/", tone: "slate" }
         : { key: `visit:${v.id}:in`, title: `Visitor in · ${v.pass_number}`, body: join(v.visitor_name, v.unit_display, v.source_display), href: "/visits/", tone: "blue" };
+    }
+    case "visit_overstay": {
+      const v = event.data;
+      return { key: `visit:${v.id}:overstay`, title: `Overstaying · ${v.pass_number}`, body: join(v.visitor_name, v.unit_display, `in since ${formatTime(v.created_at)}`), href: "/dashboard/", tone: "red" };
+    }
+    case "visitors_on_site": {
+      const { count, at } = event.data;
+      return { key: `onsite:${at}`, title: `${count} visitor${count === 1 ? "" : "s"} still on site`, body: "Evening check: see who is still inside", href: "/visits/", tone: "amber" };
     }
     case "booking": {
       const b = event.data;

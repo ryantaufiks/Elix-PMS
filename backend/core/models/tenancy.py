@@ -1,3 +1,5 @@
+from datetime import time
+
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -69,6 +71,19 @@ class Condominium(TimeStampedModel):
         "Face check-out at the kiosk", default=False,
         help_text="Visitors whose photo the kiosk took can check out by looking at the camera. The face template "
                   "is matched only against visitors on site and deleted at check-out or when the pass ends.",
+    )
+    # Overstay: when a visitor still on site is flagged and the guardhouse is told.
+    overstay_delivery_minutes = models.PositiveIntegerField(
+        "Deliveries overstay after (minutes)", default=30,
+        help_text="Parcel and food deliveries and pick-ups. 0 turns the alert off.",
+    )
+    overstay_guest_minutes = models.PositiveIntegerField(
+        "Guests overstay after (minutes)", default=240,
+        help_text="Guests and other visitors. 0 turns the alert off.",
+    )
+    overstay_contractor_until = models.TimeField(
+        "Contractors overstay after", default=time(18, 0), null=True, blank=True,
+        help_text="Local time contractors should have left by. Empty turns the alert off.",
     )
     visitor_privacy_notice = models.TextField(
         blank=True, help_text="Shown at the kiosk and on visitor passes. Leave blank for the standard notice.",

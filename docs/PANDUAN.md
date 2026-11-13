@@ -145,6 +145,12 @@ Pastikan perangkat lokal Anda telah terinstal:
 * Setelah bagian Features ada pita *The Elix app for residents* dengan tombol **Coming soon on Google Play / App Store** (juga ikon kecil di footer). Ini bukan badge resmi toko (badge resmi hanya boleh dipakai kalau aplikasi sudah bisa diunduh); saat rilis, ganti di `frontend/src/components/landing/StoreBadges.tsx` dengan badge resmi + link ke toko.
 * Isi paket di landing mengikuti modul paket di sistem; kalau isi paket diubah di *Platform → Plans*, teks di `frontend/src/components/landing/Landing.tsx` perlu disesuaikan juga.
 
+### 5d. Dashboard tamu & overstay
+* **Dashboard** (semua role) dimulai dari data tamu: *On site now* (jumlah tamu di dalam, per jenis: guests / deliveries / contractors), *Arrived today* (dibanding kemarin pada jam yang sama), *Left today*, dan *Overstaying* (merah bila ada).
+* Daftar **Visitors on site**: nomor pass, nama → unit, tujuan, jam masuk, lama di dalam (berjalan), badge **Overstay** merah, tombol *Check out*. Yang overstay di paling atas. Di bawahnya grafik tamu masuk vs keluar per jam, *Live activity*, dan tombol *Open* gerbang.
+* Site admin juga melihat bagian **Gates & devices** (keputusan gerbang, perangkat online, metode masuk); Officer tidak.
+* **Batas overstay** di *Site settings → Overstay alerts*: delivery 30 menit, tamu 4 jam (240 menit), kontraktor jam 18:00; isi 0 / kosong untuk mematikan. Saat terlewati, dashboard menampilkan *toast* merah dan notifikasi di lonceng (sekali per tamu), dan di *Visitor list* muncul badge *Overstay*. Jam 22:00 ada ringkasan "X visitors still on site" untuk shift malam.
+
 ### 6. Sidebar & notifikasi dashboard
 * Di tabel (Residents, Staff, Blocks & units, Condominiums) setiap baris punya satu tombol utama dan menu **⋯** untuk aksi lainnya; aksi hapus/remove ada paling bawah, berwarna merah, supaya tidak terklik tanpa sengaja. Di layar HP tabel berubah menjadi daftar kartu.
 * *Access log* punya pilihan periode cepat (*Today / 7 days / 30 days*) dan *Custom* untuk rentang tanggal sendiri; semua waktu di dashboard ditampilkan dengan satu format (`09 Nov, 17:23`, tahun hanya kalau bukan tahun ini). Grafik *Traffic today* menampilkan pesan kosong sampai ada keputusan gerbang pertama hari itu, dan tombol *Open* di kartu Gates nonaktif selama gerbang belum punya relay.
