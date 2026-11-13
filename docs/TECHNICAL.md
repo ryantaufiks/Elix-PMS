@@ -173,8 +173,9 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
   matching units appear as the digits are typed; "Use keyboard" for units with letters), so the tablet
   keyboard never covers the screen. Every screen after the welcome carries a coloured pill naming the
   journey and the step ("Walk in · Step 2 of 3"); on portrait tablets content starts near the top.
-- **Layout:** header with the logo (left), the site name with date and weather (centre) and the language
-  button (right); the welcome screen shows the journeys (Call a resident, Walk in, Scan QR code, Check out),
+- **Layout:** header with the logo (left) and the language button (right). The welcome screen leads with
+  *Welcome to* and the site name, then the date, time and temperature, then *How would you like to enter?*;
+  other screens show the site name, date and weather small in the header centre. The welcome screen shows the journeys (Call a resident, Walk in, Scan QR code, Check out),
   a one-line *Ask {assistant name}* button, and a round officer icon in the bottom-right corner for Call the
   guardhouse.
 - **Languages:** the globe button (EN / 中文 / BM / தமிழ்) in every screen's header opens English, 中文,

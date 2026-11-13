@@ -27,6 +27,7 @@ const STRINGS: Record<string, [string, string, string]> = {
   "Check out": ["离开登记", "Daftar keluar", "வெளியேறுதல்"],
   "Call the guardhouse": ["呼叫保安亭", "Hubungi pondok pengawal", "காவலர் அறையை அழைக்கவும்"],
   "Step {step} of {of}": ["第 {step} 步，共 {of} 步", "Langkah {step} daripada {of}", "படி {step} / {of}"],
+  "Welcome to": ["欢迎来到", "Selamat datang ke", "வரவேற்கிறோம்"],
   "Welcome": ["欢迎", "Selamat datang", "நல்வரவு"],
   "How would you like to enter?": ["您想如何进入？", "Bagaimana anda mahu masuk?", "எப்படி உள்ளே செல்ல விரும்புகிறீர்கள்?"],
   "How would you like to enter through {gate}?": ["您想如何从{gate}进入？", "Bagaimana anda mahu masuk melalui {gate}?", "{gate} வழியாக எப்படி உள்ளே செல்ல விரும்புகிறீர்கள்?"],

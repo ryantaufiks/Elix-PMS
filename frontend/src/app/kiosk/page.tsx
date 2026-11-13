@@ -274,32 +274,45 @@ function FlowPill() {
   );
 }
 
-function Frame({ kiosk, children, onBack }: { kiosk: KioskSelf | null; children: React.ReactNode; onBack?: () => void }) {
+/** Date, time and the NEA temperature on one line ("Fri, 13 Nov, 23:00 · ☁ 28°C"). */
+function Moment({ kiosk, className = "" }: { kiosk: KioskSelf | null; className?: string }) {
   const [now, setNow] = useState(() => new Date());
   const weather = useWeather(!!kiosk);
-  const t = useT();
   const lang = useLang();
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 15_000);
     return () => clearInterval(id);
   }, []);
   return (
+    <div className={`flex items-center justify-center gap-2 text-slate-300 ${className}`}>
+      <span>{new Intl.DateTimeFormat(localeOf(lang), { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Singapore" }).format(now)}</span>
+      {weather?.temperature != null && (
+        <span className="flex items-center gap-1.5" title={`${weather.forecast} · ${weather.station} · NEA`}>
+          <span className="opacity-50">·</span>
+          <Icon name={weatherIcon(weather.forecast)} className="h-[1.25em] w-[1.25em] text-primary-300" />
+          <span className="font-semibold text-white">{Math.round(weather.temperature)}°C</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** ``welcome``: the welcome screen carries the site name and time itself, so the header shows only
+    the logo and the language button. */
+function Frame({ kiosk, children, onBack, welcome }: { kiosk: KioskSelf | null; children: React.ReactNode; onBack?: () => void; welcome?: boolean }) {
+  const t = useT();
+  return (
     <div className="brand-panel flex min-h-dvh flex-col text-white">
       <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-6 px-8 py-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/elix-logo.png" alt="Elix" className="h-9 w-auto justify-self-start drop-shadow-[0_0_16px_rgba(47,111,255,0.5)]" />
         <div className="text-center">
-          <div className="text-2xl font-semibold tracking-tight">{kiosk?.condominium_name}</div>
-          <div className="mt-1 flex items-center justify-center gap-2 text-base text-slate-300">
-            <span>{new Intl.DateTimeFormat(localeOf(lang), { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Singapore" }).format(now)}</span>
-            {weather?.temperature != null && (
-              <span className="flex items-center gap-1.5" title={`${weather.forecast} · ${weather.station} · NEA`}>
-                <span className="opacity-50">·</span>
-                <Icon name={weatherIcon(weather.forecast)} className="h-5 w-5 text-primary-300" />
-                <span className="font-semibold text-white">{Math.round(weather.temperature)}°C</span>
-              </span>
-            )}
-          </div>
+          {!welcome && kiosk && (
+            <>
+              <div className="text-xl font-semibold tracking-tight">{kiosk.condominium_name}</div>
+              <Moment kiosk={kiosk} className="mt-0.5 text-sm" />
+            </>
+          )}
         </div>
         <div className="justify-self-end">{kiosk && <LanguageMenu />}</div>
       </header>
@@ -358,9 +371,13 @@ function Home({ kiosk, assistant, onAssistant, onCall, onGuardhouse, onWalkIn, o
   const buttons = 1 + Number(kiosk.call_resident) + Number(kiosk.walk_in) + Number(kiosk.checkout);
   const grid = buttons === 4 ? "max-w-6xl sm:grid-cols-2 xl:grid-cols-4" : buttons === 3 ? "max-w-5xl sm:grid-cols-3" : "max-w-3xl sm:grid-cols-2";
   return (
-    <Frame kiosk={kiosk}>
-      <h1 className="text-center text-4xl font-semibold tracking-tight sm:text-5xl">{t("Welcome")}</h1>
-      <p className="mt-3 text-center text-lg text-slate-300">
+    <Frame kiosk={kiosk} welcome>
+      <h1 className="text-center">
+        <span className="block text-2xl font-medium text-primary-200 sm:text-3xl">{t("Welcome to")}</span>
+        <span className="mt-2 block text-5xl font-semibold tracking-tight sm:text-6xl">{kiosk.condominium_name}</span>
+      </h1>
+      <Moment kiosk={kiosk} className="mt-4 text-xl" />
+      <p className="mt-10 text-center text-2xl text-white">
         {kiosk.gate_name ? t("How would you like to enter through {gate}?", { gate: kiosk.gate_name }) : t("How would you like to enter?")}
       </p>
       <div className={`mt-12 grid w-full gap-6 ${grid}`}>
