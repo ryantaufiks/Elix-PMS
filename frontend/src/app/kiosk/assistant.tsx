@@ -36,6 +36,7 @@ export function parseAction(name: string, raw: string, mapIds: number[]): Assist
   }
   if (name === "call_resident" && clip(args.unit)) return { type: "call_resident", unit: clip(args.unit) };
   if (name === "open_screen" && (args.screen === "invitation" || args.screen === "checkout")) return { type: "open_screen", screen: args.screen };
+  if (name === "call_guardhouse") return { type: "call_guardhouse" };
   if (name === "end_conversation") return { type: "end_conversation" };
   return null;
 }

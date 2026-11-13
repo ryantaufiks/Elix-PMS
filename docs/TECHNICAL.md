@@ -176,8 +176,8 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
 - **Layout:** header with the logo (left) and the language button (right). The welcome screen leads with
   *Welcome to* and the site name, then the date, time and temperature, then *How would you like to enter?*;
   other screens show the site name, date and weather small in the header centre. The welcome screen shows the journeys (Call a resident, Walk in, Scan QR code, Check out),
-  a one-line *Ask {assistant name}* button, and a round officer icon in the bottom-right corner for Call the
-  guardhouse.
+  and a one-line *Ask {assistant name}* button (default name *Elixa AI Assistant*). The cards' icons line up
+  at the top whatever the length of their text.
 - **Languages:** the globe button (EN / 中文 / BM / தமிழ்) in every screen's header opens English, 中文,
   Melayu and தமிழ். The choice applies to every
   kiosk screen (strings in `frontend/src/app/kiosk/i18n.tsx`, keyed by their English text, so anything
@@ -188,7 +188,7 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
 - **Ringback**: while a kiosk call rings, the kiosk plays Singapore's ringing tone (400 Hz, 0.4 s on,
   0.2 s off, 0.4 s on, 2 s off) with Web Audio; it stops when someone answers or the call ends.
 - **Call the guardhouse** (per site, Site settings → *Offer Call the guardhouse at the kiosk*, on by
-  default, needs the Intercom module): a round officer icon in the bottom-right corner of the welcome screen, and a button on any result that did not
+  default, needs the Intercom module): through the AI assistant (the visitor asks for security), and a button on any result that did not
   let the visitor in (declined, missed, unknown pass…). It rings the dashboard straight away: no unit,
   no form and no photo, so nothing personal is kept. Staff see it in the incoming-call pop-up and on
   Intercom as *Call to the guardhouse*, answer with video and swipe to open the kiosk's gate (logged as
@@ -265,7 +265,9 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
 An **Ask <name>** button on the kiosk opens a voice concierge: directions (it can put a site map or
 floor plan on screen), facilities and hours, rules, deliveries, and help registering. It asks the unit,
 name and purpose by voice, then opens the walk-in form with them filled in (photo, consent and the
-unit are still confirmed on screen). It can also open the call, invitation-scan and check-out screens.
+unit are still confirmed on screen). It can also open the call, invitation-scan and check-out screens, and when the visitor asks for
+security or needs help it cannot give, it rings the guardhouse (`call_guardhouse`, offered only when the
+site has Call the guardhouse on). The default name is *Elixa AI Assistant*.
 It only talks about the site and never reveals or confirms anything about residents.
 
 - **Platform admin** (System settings → Kiosk AI assistant): the OpenAI API key (encrypted; `.env`

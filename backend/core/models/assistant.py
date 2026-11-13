@@ -16,7 +16,7 @@ class AssistantSettings(TimeStampedModel):
 
     condominium = models.OneToOneField(Condominium, on_delete=models.CASCADE, related_name="assistant")
     enabled = models.BooleanField(default=False, help_text="Show the assistant on this site's kiosks.")
-    name = models.CharField(max_length=60, default="Elix Assistant")
+    name = models.CharField(max_length=60, default="Elixa AI Assistant")
     greeting = models.CharField(
         max_length=300, blank=True,
         default="Hello! I can help with directions, facilities and registering your visit. How can I help?",

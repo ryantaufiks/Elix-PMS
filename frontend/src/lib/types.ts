@@ -238,6 +238,7 @@ export type AssistantAction =
   | { type: "start_walk_in"; unit: string; visitor_name: string; purpose: string; company: string }
   | { type: "call_resident"; unit: string }
   | { type: "open_screen"; screen: "invitation" | "checkout" }
+  | { type: "call_guardhouse" }
   | { type: "end_conversation" };
 
 export type Unit = {

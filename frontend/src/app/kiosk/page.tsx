@@ -162,29 +162,6 @@ function GuardhouseButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-/** A security officer, for the round guardhouse button in the corner of the welcome screen. */
-function OfficerIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M6.5 7.5 7.6 3.8a1 1 0 0 1 .8-.7L12 2.5l3.6.6a1 1 0 0 1 .8.7l1.1 3.7z" />
-      <path d="M5.5 7.5h13M12 4.6v1" />
-      <path d="M8.3 9.5a3.7 3.7 0 0 0 7.4 0" />
-      <path d="M4.5 21v-1.2a5.6 5.6 0 0 1 5.6-5.6h3.8a5.6 5.6 0 0 1 5.6 5.6V21" />
-      <path d="m10.5 14.2 1.5 2.3 1.5-2.3M15.5 17.5h1.6" />
-    </svg>
-  );
-}
-
-function GuardhouseCorner({ onClick }: { onClick: () => void }) {
-  const t = useT();
-  return (
-    <button onClick={onClick} aria-label={t("Call the guardhouse")} title={t("Call the guardhouse")}
-      className="fixed bottom-8 right-8 z-10 flex h-20 w-20 items-center justify-center rounded-full border border-amber-300/50 bg-amber-400/20 text-amber-100 shadow-[0_0_30px_rgba(251,191,36,0.25)] transition hover:bg-amber-400/30">
-      <OfficerIcon className="h-11 w-11" />
-    </button>
-  );
-}
-
 /** Language: a small "EN" button in the header that opens the four official languages. */
 function LanguageMenu() {
   const lang = useLang();
@@ -362,9 +339,9 @@ function Setup({ onReady }: { onReady: (kiosk: KioskSelf, token: string) => void
   );
 }
 
-function Home({ kiosk, assistant, onAssistant, onCall, onGuardhouse, onWalkIn, onScan, onCheckOut, onAdmin }: {
+function Home({ kiosk, assistant, onAssistant, onCall, onWalkIn, onScan, onCheckOut, onAdmin }: {
   kiosk: KioskSelf; assistant: KioskAssistant | null; onAssistant: () => void;
-  onCall: () => void; onGuardhouse: () => void; onWalkIn: () => void; onScan: () => void; onCheckOut: () => void; onAdmin: () => void;
+  onCall: () => void; onWalkIn: () => void; onScan: () => void; onCheckOut: () => void; onAdmin: () => void;
 }) {
   const t = useT();
   const taps = useRef<number[]>([]);
@@ -382,7 +359,7 @@ function Home({ kiosk, assistant, onAssistant, onCall, onGuardhouse, onWalkIn, o
       </p>
       <div className={`mt-12 grid w-full gap-6 ${grid}`}>
         {kiosk.call_resident && (
-          <button onClick={onCall} className="group rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
+          <button onClick={onCall} className="group flex flex-col items-start justify-start rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
             <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
               <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" /></svg>
             </div>
@@ -391,7 +368,7 @@ function Home({ kiosk, assistant, onAssistant, onCall, onGuardhouse, onWalkIn, o
           </button>
         )}
         {kiosk.walk_in && (
-          <button onClick={onWalkIn} className="group rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
+          <button onClick={onWalkIn} className="group flex flex-col items-start justify-start rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
             <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
               <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M9 3h6v3H9zM7 4.5H5v16.5h14V4.5h-2M8.5 11h7M8.5 15h4.5" /></svg>
             </div>
@@ -399,7 +376,7 @@ function Home({ kiosk, assistant, onAssistant, onCall, onGuardhouse, onWalkIn, o
             <div className="mt-2 text-lg text-slate-300">{t("Register your visit and get a pass slip for security.")}</div>
           </button>
         )}
-        <button onClick={onScan} className="group rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
+        <button onClick={onScan} className="group flex flex-col items-start justify-start rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
           <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
             <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" /></svg>
           </div>
@@ -407,7 +384,7 @@ function Home({ kiosk, assistant, onAssistant, onCall, onGuardhouse, onWalkIn, o
           <div className="mt-2 text-lg text-slate-300">{t(kiosk.walk_in && !kiosk.checkout ? "Show your invitation QR, or scan your walk-in slip when you leave." : "Show the QR code from your invitation.")}</div>
         </button>
         {kiosk.checkout && (
-          <button onClick={onCheckOut} className="group rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
+          <button onClick={onCheckOut} className="group flex flex-col items-start justify-start rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
             <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
               <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 8l-4 4 4 4M6 12h10" /></svg>
             </div>
@@ -423,7 +400,6 @@ function Home({ kiosk, assistant, onAssistant, onCall, onGuardhouse, onWalkIn, o
           <span className="text-xl font-semibold">{t("Ask {name}", { name: assistant.name })}</span>
         </button>
       )}
-      {kiosk.call_guardhouse && <GuardhouseCorner onClick={onGuardhouse} />}
       <button
         aria-label="Kiosk settings"
         className="mt-10 h-10 w-24 opacity-0"
@@ -1359,6 +1335,7 @@ export default function KioskPage() {
       if (kiosk.call_resident) setScreen({ name: "directory", mode: "call", query: action.unit });
     }
     else if (action.type === "open_screen") setScreen(action.screen === "checkout" && kiosk.checkout ? { name: "checkout" } : { name: "scan" });
+    else if (action.type === "call_guardhouse") setScreen(kiosk.call_guardhouse ? { name: "guardhouse" } : { name: "home" });
     else home();
   }, [kiosk, home]);
 
@@ -1450,7 +1427,6 @@ export default function KioskPage() {
     case "home":
       return (
         <Home kiosk={kiosk} assistant={assistant}
-          onGuardhouse={() => { document.documentElement.requestFullscreen?.().catch(() => {}); callGuardhouse(); }}
           onAssistant={() => { document.documentElement.requestFullscreen?.().catch(() => {}); setScreen({ name: "assistant" }); }}
           onCall={() => { document.documentElement.requestFullscreen?.().catch(() => {}); setScreen({ name: "directory", mode: "call" }); }}
           onWalkIn={() => { document.documentElement.requestFullscreen?.().catch(() => {}); setScreen({ name: "directory", mode: "walkin" }); }}

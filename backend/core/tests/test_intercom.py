@@ -8,6 +8,7 @@ from django.test import override_settings
 from PIL import Image
 from rest_framework.test import APITestCase
 
+from core import assistant
 from core import models as m
 from core.tasks import expire_call, push_call_ended, push_incoming_call
 
@@ -211,6 +212,15 @@ class IntercomFlowTests(APITestCase):
         self.assertEqual(self.kiosk_post("/v1/kiosk/calls/", {"guardhouse": "true"}).status_code, 409)
         # A unit is still needed for an ordinary call.
         self.assertEqual(self.kiosk_post("/v1/kiosk/calls/", {}).status_code, 400)
+
+    def test_assistant_can_call_the_guardhouse(self, *mocks):
+        self.assertIn("call_guardhouse", [t["name"] for t in assistant.tools(self.condo)])
+        self.assertIn("call_guardhouse", assistant.instructions(self.condo))
+        self.assertEqual(assistant.action("call_guardhouse", "{}"), {"type": "call_guardhouse"})
+        self.condo.kiosk_call_guardhouse = False
+        self.condo.save()
+        self.assertNotIn("call_guardhouse", [t["name"] for t in assistant.tools(self.condo)])
+        self.assertNotIn("call_guardhouse", assistant.instructions(self.condo))
 
     def test_snapshot_only_for_the_unit(self, *mocks):
         call_id = self.ring(snapshot=jpeg()).data["call"]["id"]

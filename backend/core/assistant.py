@@ -64,14 +64,19 @@ def instructions(condo):
         f"someone is home. If asked, {calls and 'say the visitor can call the unit from this kiosk' or 'suggest the guardhouse'}.",
         "- You cannot open gates or let anyone in. Entry is by "
         f"{calls and 'calling the unit, an invitation QR, or a walk-in pass' or 'an invitation QR or a walk-in pass; this kiosk cannot call units'}.",
-        "- Use only the knowledge below. If you do not know, say so and suggest the guardhouse or management office"
-        f"{guards and ' (the visitor can tap Call the guardhouse on the welcome screen)' or ''}.",
+        "- Use only the knowledge below. If you do not know, say so and "
+        f"{guards and 'offer to call the guardhouse for them' or 'suggest the guardhouse or management office'}.",
+        *([
+            "- When the visitor asks for security, a guard, an officer or a person to talk to, or needs help you cannot "
+            "give (lost pass, emergency, the resident does not answer), call call_guardhouse: the kiosk rings the "
+            "guardhouse by video. Say briefly that you are connecting them to security.",
+        ] if guards else []),
         "- This is spoken: answer in one to three short sentences, warm and clear, without lists, symbols or markdown.",
         f"- Reply in the language the visitor speaks{f' (you speak {site.languages})' if site.languages else ''}.",
         "- To register a walk-in, ask for the unit they are visiting, their name and the purpose (and the company for "
         "deliveries or contractors), then call start_walk_in. The kiosk then asks for the rest on screen.",
         "- When a map would help, call show_map with the best match, then describe the way in words.",
-        f"- Open at most one screen per answer: {calls and 'start_walk_in, call_resident or open_screen' or 'start_walk_in or open_screen'}, never two.",
+        f"- Open at most one screen per answer: {', '.join(screen_tools(condo))}, never two.",
     ]
     if site.instructions.strip():
         parts += ["Guidance from the management:", site.instructions.strip()]
@@ -83,6 +88,13 @@ def instructions(condo):
         for module in modules:
             parts += [f"## {module.title}", module.content.strip()]
     return "\n".join(parts)
+
+
+def screen_tools(condo):
+    """Names of the tools that open a screen on this site's kiosk."""
+    calls = entitlements.has(condo, "intercom")
+    return ["start_walk_in", *(["call_resident"] if calls else []), "open_screen",
+            *(["call_guardhouse"] if calls and condo.kiosk_call_guardhouse else [])]
 
 
 def tools(condo):
@@ -101,11 +113,13 @@ def tools(condo):
         {"name": "open_screen", "description": "Open a kiosk screen: scan an invitation QR, or check out when leaving.",
          "parameters": {"type": "object", "properties": {"screen": {"type": "string", "enum": ["invitation", "checkout"]}},
                         "required": ["screen"]}},
+        {"name": "call_guardhouse", "description": "Video call the guardhouse so a security officer can help the visitor.",
+         "parameters": {"type": "object", "properties": {}}},
         {"name": "end_conversation", "description": "Close the assistant when the visitor is done or says goodbye.",
          "parameters": {"type": "object", "properties": {}}},
     ]
-    if not entitlements.has(condo, "intercom"):
-        found = [t for t in found if t["name"] != "call_resident"]
+    screens = screen_tools(condo)
+    found = [t for t in found if t["name"] in screens or t["name"] == "end_conversation"]
     if map_ids:
         found.insert(0, {"name": "show_map", "description": "Show a map or floor plan on the kiosk screen.",
                          "parameters": {"type": "object", "properties": {"map_id": {"type": "integer", "enum": map_ids}},
@@ -132,8 +146,8 @@ def action(name, arguments):
         return found
     if name == "open_screen" and args.get("screen") in ("invitation", "checkout"):
         return {"type": "open_screen", "screen": args["screen"]}
-    if name == "end_conversation":
-        return {"type": "end_conversation"}
+    if name in ("call_guardhouse", "end_conversation"):
+        return {"type": name}
     return None
 
 
