@@ -12,7 +12,7 @@
   --color-primary-200: #bdd4ff;
   --color-primary-300: #8fb8ff;
   --color-primary-400: #5b93ff;
-  --color-primary-500: #2f6fff;
+  --color-primary-500: #2563eb;
   --color-primary-600: #1c56f0;
   --color-primary-700: #1744c4;
   --color-primary-800: #193c9b;
@@ -48,7 +48,7 @@
   --c-line: #e4e8f0;
   --c-ink: #0f172a;
   --c-body: #475569;
-  --c-muted: #7a8599;
+  --c-muted: #5f6b80;
   --c-shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 16px -4px rgb(15 23 42 / 0.06);
 
   /* Chart roles (validated: dataviz validator, light surface #ffffff) */
@@ -81,6 +81,11 @@
 
 html {
   -webkit-font-smoothing: antialiased;
+}
+
+/* Larger text (user menu), for staff who find the default small. */
+html[data-text="large"] {
+  font-size: 118.75%;
 }
 
 body {

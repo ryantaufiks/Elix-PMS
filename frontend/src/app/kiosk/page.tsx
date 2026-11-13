@@ -45,6 +45,8 @@ type Screen =
 type Prefill = Partial<Pick<VisitorDetails, "name" | "purpose" | "company">>;
 
 const IDLE_MS = 90_000;
+// The last seconds of IDLE_MS show "Do you need more time?" so a slow visitor is not sent back mid-way.
+const IDLE_WARN_S = 20;
 
 // --- Camera helpers ----------------------------------------------------------
 
@@ -511,6 +513,20 @@ function useRingback(active: boolean) {
       ctx.close().catch(() => {});
     };
   }, [active]);
+}
+
+/** Shown before an idle kiosk starts over: any tap (caught by the idle timer) keeps the visitor's place. */
+function StillThere({ seconds }: { seconds: number }) {
+  const t = useT();
+  return (
+    <div role="alertdialog" aria-modal="true" aria-labelledby="still-there" className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/80 p-6 text-white">
+      <div className="w-full max-w-xl rounded-3xl border border-white/15 bg-navy-900 p-10 text-center shadow-2xl">
+        <h2 id="still-there" className="text-4xl font-semibold">{t("Do you need more time?")}</h2>
+        <p className="mt-4 text-2xl text-slate-200" aria-live="polite">{t("Starting over in {s}s.", { s: seconds })}</p>
+        <div className="mt-10"><BigButton onClick={() => {}}>{t("Yes, I need more time")}</BigButton></div>
+      </div>
+    </div>
+  );
 }
 
 function Calling({ kiosk, unit, details, onDone, onPass }: {
@@ -1293,22 +1309,39 @@ export default function KioskPage() {
     else home();
   }, [kiosk, home]);
 
-  // Return to the welcome screen when left idle (never mid-call).
+  // Return to the welcome screen when left idle (never mid-call), after a "more time?" countdown.
+  const [idleLeft, setIdleLeft] = useState<number | null>(null);
   useEffect(() => {
     // The assistant closes itself when the conversation goes quiet.
     if (screen.name === "setup" || screen.name === "calling" || screen.name === "guardhouse" || screen.name === "assistant") return;
     if (screen.name === "home" && lang === "en") return;
-    let timer = setTimeout(restart, IDLE_MS);
-    const reset = () => {
-      clearTimeout(timer);
-      timer = setTimeout(restart, IDLE_MS);
+    let warn: ReturnType<typeof setTimeout>;
+    let tick: ReturnType<typeof setInterval>;
+    const arm = () => {
+      clearTimeout(warn);
+      clearInterval(tick);
+      setIdleLeft(null);
+      warn = setTimeout(() => {
+        let left = IDLE_WARN_S;
+        setIdleLeft(left);
+        tick = setInterval(() => {
+          left -= 1;
+          if (left > 0) return setIdleLeft(left);
+          clearInterval(tick);
+          setIdleLeft(null);
+          restart();
+        }, 1000);
+      }, IDLE_MS - IDLE_WARN_S * 1000);
     };
-    window.addEventListener("pointerdown", reset);
-    window.addEventListener("keydown", reset);
+    arm();
+    window.addEventListener("pointerdown", arm);
+    window.addEventListener("keydown", arm);
     return () => {
-      clearTimeout(timer);
-      window.removeEventListener("pointerdown", reset);
-      window.removeEventListener("keydown", reset);
+      clearTimeout(warn);
+      clearInterval(tick);
+      setIdleLeft(null);
+      window.removeEventListener("pointerdown", arm);
+      window.removeEventListener("keydown", arm);
     };
   }, [screen.name, lang, restart]);
 
@@ -1348,6 +1381,7 @@ export default function KioskPage() {
     <LangContext.Provider value={lang}>
       <div lang={localeOf(lang)}>
         <FlowContext.Provider value={flowOf(screen, kiosk)}>{render(kiosk)}</FlowContext.Provider>
+        {idleLeft !== null && <StillThere seconds={idleLeft} />}
       </div>
     </LangContext.Provider>
   );

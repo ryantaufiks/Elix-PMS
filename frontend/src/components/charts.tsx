@@ -83,7 +83,7 @@ export function TrafficChart({ data, nowHour, height = 300 }: { data: HourBucket
       ) : (
         <div ref={ref} className="relative" style={{ height }} onPointerLeave={() => setActive(null)}>
           {width > 0 && (
-            <svg width={width} height={height} role="img" aria-label="Gate decisions per hour today">
+            <svg width={width} height={height} role="group" aria-label="Gate decisions per hour today">
               {ticks.map((t) => (
                 <g key={t}>
                   <line x1={pad.left} x2={width - pad.right} y1={y(t)} y2={y(t)} stroke={t === 0 ? "var(--axis)" : "var(--grid)"} strokeWidth={1} shapeRendering="crispEdges" />
@@ -104,7 +104,7 @@ export function TrafficChart({ data, nowHour, height = 300 }: { data: HourBucket
                     {d.denied > 0 && <path d={topRounded(x, y(d.granted) - dH - gap, barW, dH)} fill="var(--series-2)" />}
                     <rect
                       x={pad.left + i * band} y={pad.top} width={band} height={innerH} fill="transparent"
-                      tabIndex={d.hour <= nowHour ? 0 : -1}
+                      tabIndex={d.hour <= nowHour ? 0 : -1} role="img"
                       aria-label={`${hourLabel(d.hour)}: ${d.granted} granted, ${d.denied} denied`}
                       onPointerEnter={() => setActive(i)} onFocus={() => setActive(i)} onBlur={() => setActive(null)}
                       className="outline-none"
@@ -207,7 +207,7 @@ export function DailyChart({ points, series, label, height = 240 }: {
       </div>
       <div ref={ref} className="relative" style={{ height }} onPointerLeave={() => setActive(null)}>
         {width > 0 && (
-          <svg width={width} height={height} role="img" aria-label="Daily trend">
+          <svg width={width} height={height} role="group" aria-label="Daily trend">
             {[0, max / 2, max].map((t) => (
               <g key={t}>
                 <line x1={pad.left} x2={width - pad.right} y1={y(t)} y2={y(t)} stroke={t === 0 ? "var(--axis)" : "var(--grid)"} strokeWidth={1} shapeRendering="crispEdges" />
@@ -228,7 +228,7 @@ export function DailyChart({ points, series, label, height = 240 }: {
                       ? <path key={pi} d={topRounded(x, top, barW, Math.max(1, h))} fill={part.fill} />
                       : <rect key={pi} x={x} y={top} width={barW} height={h} fill={part.fill} />;
                   })}
-                  <rect x={pad.left + i * band} y={pad.top} width={band} height={innerH} fill="transparent" tabIndex={0}
+                  <rect x={pad.left + i * band} y={pad.top} width={band} height={innerH} fill="transparent" tabIndex={0} role="img"
                     aria-label={`${label(p.date)}: ${series.map((s) => `${p[s.key] || 0} ${s.label}`).join(", ")}`}
                     onPointerEnter={() => setActive(i)} onFocus={() => setActive(i)} onBlur={() => setActive(null)} className="outline-none" />
                   {i % every === 0 && (

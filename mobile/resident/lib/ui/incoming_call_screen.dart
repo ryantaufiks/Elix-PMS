@@ -117,7 +117,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
                   color: const Color(0xFF13203A),
                   width: double.infinity,
                   child: call.hasSnapshot
-                      ? AuthImage('/v1/intercom-calls/${call.id}/snapshot/')
+                      ? AuthImage('/v1/intercom-calls/${call.id}/snapshot/', semanticLabel: 'Photo of the visitor at the kiosk')
                       : const Center(child: Icon(Icons.person_outline, size: 96, color: Colors.white24)),
                 ),
               ),

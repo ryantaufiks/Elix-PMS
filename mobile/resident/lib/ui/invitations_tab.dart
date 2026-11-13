@@ -123,7 +123,7 @@ class _InvitationDetailScreenState extends State<InvitationDetailScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-                  child: SizedBox(width: 220, height: 220, child: AuthImage('/v1/invitations/${_inv.id}/qr/', fit: BoxFit.contain)),
+                  child: SizedBox(width: 220, height: 220, child: AuthImage('/v1/invitations/${_inv.id}/qr/', fit: BoxFit.contain, semanticLabel: 'Invitation QR code')),
                 )
               else
                 const Padding(padding: EdgeInsets.all(24), child: Icon(Icons.qr_code_2, size: 80, color: Colors.grey)),

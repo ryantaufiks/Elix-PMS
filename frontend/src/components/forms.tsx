@@ -237,7 +237,7 @@ export function Tabs<K extends string>({ tabs, active, onChange }: { tabs: { key
           onClick={() => onChange(t.key)}
           className={cx(
             "-mb-px whitespace-nowrap border-b-2 px-4 py-3.5 text-sm font-medium transition-colors",
-            active === t.key ? "border-primary-500 text-primary-600" : "border-transparent text-muted hover:text-ink",
+            active === t.key ? "border-primary-500 text-primary-600 dark:text-primary-300" : "border-transparent text-muted hover:text-ink",
           )}
         >
           {t.label}

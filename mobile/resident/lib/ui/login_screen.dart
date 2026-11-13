@@ -48,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Image.asset('assets/elix-logo.png', height: 56),
+                  Image.asset('assets/elix-logo.png', height: 56, semanticLabel: 'Elix'),
                   const SizedBox(height: 12),
                   const Text('Engage Link Identified Experience', textAlign: TextAlign.center,
                       style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, letterSpacing: 1.6)),

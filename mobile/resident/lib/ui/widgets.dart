@@ -39,9 +39,11 @@ class Credit extends StatelessWidget {
 
 /// Image from an endpoint that needs the JWT (QR codes, visitor snapshots).
 class AuthImage extends StatefulWidget {
-  const AuthImage(this.path, {super.key, this.fit = BoxFit.cover});
+  const AuthImage(this.path, {super.key, this.fit = BoxFit.cover, this.semanticLabel});
   final String path;
   final BoxFit fit;
+  /// Read out by TalkBack / VoiceOver.
+  final String? semanticLabel;
   @override
   State<AuthImage> createState() => _AuthImageState();
 }
@@ -58,7 +60,7 @@ class _AuthImageState extends State<AuthImage> {
   Widget build(BuildContext context) => FutureBuilder(
         future: _bytes,
         builder: (context, snap) {
-          if (snap.hasData) return Image.memory(snap.data!, fit: widget.fit, gaplessPlayback: true);
+          if (snap.hasData) return Image.memory(snap.data!, fit: widget.fit, gaplessPlayback: true, semanticLabel: widget.semanticLabel);
           if (snap.hasError) return const Center(child: Icon(Icons.image_not_supported_outlined));
           return const Center(child: CircularProgressIndicator(strokeWidth: 2));
         },

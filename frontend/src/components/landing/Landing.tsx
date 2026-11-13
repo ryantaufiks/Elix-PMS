@@ -65,7 +65,7 @@ function Section({ id, eyebrow, title, intro, children, dark }: {
     <section id={id} className={dark ? "brand-panel scroll-mt-16 text-white" : "scroll-mt-16 bg-canvas"}>
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <div className={dark ? "text-sm font-semibold uppercase tracking-widest text-primary-300" : "text-sm font-semibold uppercase tracking-widest text-primary-500"}>{eyebrow}</div>
+          <div className={dark ? "text-sm font-semibold uppercase tracking-widest text-primary-300" : "text-sm font-semibold uppercase tracking-widest text-primary-500 dark:text-primary-300"}>{eyebrow}</div>
           <h2 className={dark ? "mt-3 text-3xl font-semibold tracking-tight sm:text-4xl" : "mt-3 text-3xl font-semibold tracking-tight text-ink sm:text-4xl"}>{title}</h2>
           {intro && <p className={dark ? "mt-4 text-lg text-slate-300" : "mt-4 text-lg text-muted"}>{intro}</p>}
         </div>
@@ -109,7 +109,7 @@ export function Landing() {
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f) => (
             <div key={f.title} className="rounded-2xl border border-line bg-surface p-6 shadow-card transition hover:-translate-y-0.5 hover:border-primary-400/50">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-500/10 text-primary-500"><Icon name={f.icon} className="h-6 w-6" /></span>
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-500/10 text-primary-500 dark:text-primary-300"><Icon name={f.icon} className="h-6 w-6" /></span>
               <h3 className="mt-4 text-lg font-semibold text-ink">{f.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted">{f.text}</p>
             </div>
@@ -188,7 +188,7 @@ export function Landing() {
         <div className="grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
           {TECH.map((t) => (
             <div key={t.title} className="flex gap-4">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-500/10 text-primary-500"><Icon name={t.icon} className="h-6 w-6" /></span>
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-500/10 text-primary-500 dark:text-primary-300"><Icon name={t.icon} className="h-6 w-6" /></span>
               <div>
                 <h3 className="font-semibold text-ink">{t.title}</h3>
                 <p className="mt-1 text-sm leading-relaxed text-muted">{t.text}</p>
@@ -202,17 +202,17 @@ export function Landing() {
         <div className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
           <div className="grid items-center gap-10 rounded-3xl border border-line bg-surface p-8 shadow-card sm:p-12 lg:grid-cols-[1fr_1.2fr]">
             <div>
-              <div className="text-sm font-semibold uppercase tracking-widest text-primary-500">Security</div>
+              <div className="text-sm font-semibold uppercase tracking-widest text-primary-500 dark:text-primary-300">Security</div>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight text-ink">Your residents&apos; data, kept safe</h2>
               <p className="mt-4 text-muted">Access control is a security product. We hold ourselves to the same standard.</p>
-              <Link href="/security/" className="mt-6 inline-flex items-center gap-2 font-medium text-primary-500 hover:underline">
+              <Link href="/security/" className="mt-6 inline-flex items-center gap-2 font-medium text-primary-500 dark:text-primary-300 hover:underline">
                 Read our Cybersecurity policy <Icon name="chevron" className="h-4 w-4" />
               </Link>
             </div>
             <ul className="grid gap-3 sm:grid-cols-2">
               {SECURITY.map((s) => (
                 <li key={s} className="flex items-start gap-3 rounded-xl bg-surface-2 p-4 text-sm text-body">
-                  <Icon name="lock" className="mt-0.5 h-4 w-4 shrink-0 text-primary-500" />{s}
+                  <Icon name="lock" className="mt-0.5 h-4 w-4 shrink-0 text-primary-500 dark:text-primary-300" />{s}
                 </li>
               ))}
             </ul>

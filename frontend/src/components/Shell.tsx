@@ -14,7 +14,7 @@ import type { IntercomCall, LiveKitConnection, Page } from "@/lib/types";
 import { Icon, type IconName } from "./icons";
 import { ActiveCall } from "./IntercomCall";
 import { NotificationBell } from "./Notifications";
-import { useTheme } from "@/lib/theme";
+import { useLargeText, useTheme } from "@/lib/theme";
 
 import { cx, useToast } from "./ui";
 import { Credit } from "./Credit";
@@ -99,6 +99,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const live = useLiveStatus();
   const [theme, toggleTheme] = useTheme();
+  const [largeText, toggleLargeText] = useLargeText();
   const [menuOpen, setMenuOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const [closed, setGroupClosed] = useClosedGroups();
@@ -252,6 +253,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
                       <div className="truncate text-sm font-medium text-ink">{name}</div>
                       <div className="truncate text-xs text-muted">{me.email || me.username}</div>
                     </div>
+                    <button role="menuitemcheckbox" aria-checked={largeText} onClick={toggleLargeText}
+                      className="flex w-full items-center gap-3 px-4 py-2 text-sm text-body hover:bg-surface-2">
+                      <Icon name="text" className="h-4 w-4" /> <span className="flex-1 text-left">Larger text</span>
+                      <span className={cx("relative h-5 w-9 rounded-full transition-colors", largeText ? "bg-primary-500" : "bg-surface-3 ring-1 ring-line")}>
+                        <span className={cx("absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all", largeText ? "left-[18px]" : "left-0.5")} />
+                      </span>
+                    </button>
                     {me.is_superuser && (
                       <a href="/v1/admin/" className="flex items-center gap-3 px-4 py-2 text-sm text-body hover:bg-surface-2">
                         <Icon name="external" className="h-4 w-4" /> Django admin (advanced)

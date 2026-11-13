@@ -80,7 +80,7 @@ class _FacilityList extends StatelessWidget {
               if (booked == true) onBooked();
             },
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              if (f.hasImage) SizedBox(height: 140, width: double.infinity, child: AuthImage('/v1/facilities/${f.id}/photo/')),
+              if (f.hasImage) SizedBox(height: 140, width: double.infinity, child: AuthImage('/v1/facilities/${f.id}/photo/', semanticLabel: 'Photo of ${f.name}')),
               ListTile(
                 contentPadding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
                 leading: CircleAvatar(
@@ -257,23 +257,31 @@ class _BookFacilityScreenState extends State<BookFacilityScreen> {
             itemBuilder: (context, i) {
               final d = _days[i];
               final selected = d == _date;
-              return GestureDetector(
-                onTap: () {
-                  setState(() => _date = d);
-                  _load();
-                },
-                child: Container(
-                  width: 62,
-                  decoration: BoxDecoration(
-                    color: selected ? scheme.primary : scheme.surface,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: selected ? scheme.primary : scheme.outlineVariant),
+              void pick() {
+                setState(() => _date = d);
+                _load();
+              }
+              return Semantics(
+                button: true,
+                selected: selected,
+                label: i == 0 ? 'Today, ${_dayNumber.format(d)}' : '${_day.format(d)} ${_dayNumber.format(d)}',
+                onTap: pick,
+                excludeSemantics: true,
+                child: GestureDetector(
+                  onTap: pick,
+                  child: Container(
+                    width: 62,
+                    decoration: BoxDecoration(
+                      color: selected ? scheme.primary : scheme.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: selected ? scheme.primary : scheme.outlineVariant),
+                    ),
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Text(i == 0 ? 'Today' : _day.format(d), style: TextStyle(fontSize: 12, color: selected ? scheme.onPrimary.withValues(alpha: 0.75) : outline)),
+                      const SizedBox(height: 2),
+                      Text(_dayNumber.format(d), style: TextStyle(fontWeight: FontWeight.w600, color: selected ? scheme.onPrimary : null)),
+                    ]),
                   ),
-                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Text(i == 0 ? 'Today' : _day.format(d), style: TextStyle(fontSize: 12, color: selected ? Colors.white70 : outline)),
-                    const SizedBox(height: 2),
-                    Text(_dayNumber.format(d), style: TextStyle(fontWeight: FontWeight.w600, color: selected ? Colors.white : null)),
-                  ]),
                 ),
               );
             },

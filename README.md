@@ -29,6 +29,8 @@ One platform for the guardhouse, the management office, the lobby kiosk and ever
   vehicles, see notifications and the condo's documents.
 - **A dashboard for the site team**: live activity, visitor list, bookings and payments, feedback,
   reports, and role-based access for site admins, staff and officers.
+- **Accessible**: designed to WCAG 2.1 AA (0 axe-core findings on the dashboard and landing page),
+  with a Larger text option for staff and a "more time?" prompt on the kiosk.
 - **A product page**: the site root is a landing page (features, an interactive 3D walkthrough of each
   journey, plans, PDPA, technology and security); the dashboard lives at `/dashboard/`.
 - **Built for Singapore**: PDPA-minded data retention, NEA weather, HitPay payments, multi-site.

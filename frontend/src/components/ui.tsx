@@ -23,7 +23,7 @@ export function IconButton({ label, children, className, tone = "default", ...pr
       aria-label={label}
       className={cx(
         "group/icon relative inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:cursor-not-allowed disabled:opacity-50",
-        tone === "primary" ? "text-primary-600 hover:bg-primary-500/10" : "text-muted hover:bg-surface-3 hover:text-ink",
+        tone === "primary" ? "text-primary-600 dark:text-primary-300 hover:bg-primary-500/10" : "text-muted hover:bg-surface-3 hover:text-ink",
         className,
       )}
     >
@@ -173,7 +173,7 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
 export function Checkbox({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
   return (
     <label className="flex items-center gap-2 text-sm text-ink">
-      <input type="checkbox" {...props} className="h-4 w-4 rounded border-line text-primary-700 focus:ring-primary-600" />
+      <input type="checkbox" {...props} className="h-4 w-4 rounded border-line text-primary-700 dark:text-primary-300 focus:ring-primary-600" />
       {label}
     </label>
   );
@@ -234,7 +234,8 @@ export function Pagination({ page, count, pageSize = 50, onPage }: { page: numbe
 
 export function Table({ children }: { children: React.ReactNode }) {
   return (
-    <div className="overflow-x-auto">
+    // Focusable so a wide table can be scrolled with the arrow keys.
+    <div className="overflow-x-auto rounded-sm focus-visible:outline-2 focus-visible:outline-primary-500" tabIndex={0}>
       <table className="tbl min-w-full divide-y divide-line text-sm">{children}</table>
     </div>
   );

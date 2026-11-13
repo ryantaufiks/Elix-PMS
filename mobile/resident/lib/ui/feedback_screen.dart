@@ -145,9 +145,16 @@ class _Stars extends StatelessWidget {
   final ValueChanged<int>? onChanged;
 
   @override
-  Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
-        for (var i = 1; i <= 5; i++)
-          GestureDetector(
+  Widget build(BuildContext context) {
+    final row = Row(mainAxisSize: MainAxisSize.min, children: [
+      for (var i = 1; i <= 5; i++)
+        Semantics(
+          button: onChanged != null,
+          selected: onChanged != null && i == value,
+          label: i == 1 ? '1 star' : '$i stars',
+          onTap: onChanged == null ? null : () => onChanged!(i),
+          excludeSemantics: true,
+          child: GestureDetector(
             onTap: onChanged == null ? null : () => onChanged!(i),
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: onChanged == null ? 0 : 4),
@@ -155,5 +162,9 @@ class _Stars extends StatelessWidget {
                   color: i <= value ? const Color(0xFFF59E0B) : Theme.of(context).colorScheme.outline),
             ),
           ),
-      ]);
+        ),
+    ]);
+    // A rating on a past review is read as one phrase, not five unlabelled icons.
+    return onChanged == null ? Semantics(label: '$value out of 5 stars', excludeSemantics: true, child: row) : row;
+  }
 }

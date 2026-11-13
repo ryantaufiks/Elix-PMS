@@ -57,7 +57,7 @@ export default function UnitsSetupPage() {
                 <li key={String(item.key)} className="group flex items-center gap-1">
                   <button
                     onClick={() => { setBlockFilter(item.key as typeof blockFilter); setPage(1); }}
-                    className={cx("flex-1 rounded-md px-3 py-2 text-left text-sm", blockFilter === item.key ? "bg-primary-50 font-medium text-primary-600" : "text-body hover:bg-surface-2")}
+                    className={cx("flex-1 rounded-md px-3 py-2 text-left text-sm", blockFilter === item.key ? "bg-primary-50 font-medium text-primary-600 dark:bg-primary-500/15 dark:text-primary-300" : "text-body hover:bg-surface-2")}
                   >
                     {item.label}
                   </button>
@@ -194,7 +194,7 @@ function BulkUnits({ condoId, blocks, defaultBlock, onClose, onDone }: { condoId
         <Field label="Unit numbers on each floor" hint="Ranges and lists, e.g. 01-08 or 01,02,05,07.">
           <Input value={numbers} onChange={(e) => setNumbers(e.target.value)} required />
         </Field>
-        <p className="rounded-md bg-primary-50 px-3 py-2 text-sm text-primary-700">
+        <p className="rounded-md bg-primary-50 px-3 py-2 text-sm text-primary-700 dark:bg-primary-500/15 dark:text-primary-300">
           Creates #{String(from).padStart(2, "0")}-{numbers.split(/[,-]/)[0]?.trim() || "01"} … #{String(to).padStart(2, "0")}-… ({floors} floors × {perFloor} units). Existing units are skipped.
         </p>
       </form>

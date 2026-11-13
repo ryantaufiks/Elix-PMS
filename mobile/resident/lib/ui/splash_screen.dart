@@ -49,7 +49,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 child: child,
               );
             },
-            child: Image.asset('assets/elix-logo.png', height: 64),
+            child: Image.asset('assets/elix-logo.png', height: 64, semanticLabel: 'Elix'),
           ),
         ),
       ),

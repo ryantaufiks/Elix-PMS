@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
-const brandBlue = Color(0xFF2F6FFF);
+// Dark enough for white text (5.2:1); dark mode uses brandBlueLight with navy text instead (WCAG AA).
+const brandBlue = Color(0xFF2563EB);
+const brandBlueLight = Color(0xFF8FB8FF);
 const navy = Color(0xFF0B1631);
 const navyDeep = Color(0xFF070F24);
 
 ThemeData buildTheme(Brightness brightness) {
   final dark = brightness == Brightness.dark;
-  final scheme = ColorScheme.fromSeed(seedColor: brandBlue, brightness: brightness, primary: brandBlue,
+  final scheme = ColorScheme.fromSeed(seedColor: brandBlue, brightness: brightness,
+      primary: dark ? brandBlueLight : brandBlue, onPrimary: dark ? navyDeep : Colors.white,
       surface: dark ? const Color(0xFF0F1A2E) : Colors.white);
   return ThemeData(
     useMaterial3: true,

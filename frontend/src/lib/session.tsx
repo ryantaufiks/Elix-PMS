@@ -119,7 +119,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         <p className="mt-2 text-sm text-muted">
           This dashboard is for condominium staff. Residents use the Elix mobile app.
         </p>
-        <button className="mt-6 text-sm font-medium text-primary-700 hover:underline" onClick={logout}>
+        <button className="mt-6 text-sm font-medium text-primary-700 dark:text-primary-300 hover:underline" onClick={logout}>
           Sign in with another account
         </button>
       </Centered>
@@ -133,7 +133,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       <Centered>
         <h1 className="text-lg font-semibold">Cannot reach the server</h1>
         <p className="mt-2 text-sm text-muted">{state.message}</p>
-        <button className="mt-6 text-sm font-medium text-primary-700 hover:underline" onClick={() => location.reload()}>
+        <button className="mt-6 text-sm font-medium text-primary-700 dark:text-primary-300 hover:underline" onClick={() => location.reload()}>
           Try again
         </button>
       </Centered>

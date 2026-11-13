@@ -145,7 +145,7 @@ export default function PlansPage() {
                   const on = p.modules.includes(m.key) || m.key === "core";
                   return (
                     <li key={m.key} className="flex items-center gap-2">
-                      <Icon name={!m.available ? "sparkle" : on ? "check" : "x"} className={`h-4 w-4 shrink-0 ${!m.available ? "text-primary-500" : on ? "text-emerald-500" : "text-muted"}`} />
+                      <Icon name={!m.available ? "sparkle" : on ? "check" : "x"} className={`h-4 w-4 shrink-0 ${!m.available ? "text-primary-500 dark:text-primary-300" : on ? "text-emerald-500" : "text-muted"}`} />
                       <span className={on ? "text-ink" : "text-muted line-through decoration-slate-400/60"}>{m.name}</span>
                       {!m.available && <span className="ml-auto text-xs text-muted">soon</span>}
                     </li>

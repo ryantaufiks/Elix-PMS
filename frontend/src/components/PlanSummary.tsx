@@ -51,7 +51,7 @@ export function PlanSummary({ condoId }: { condoId: number }) {
               const on = m.available && data.modules.includes(m.key);
               return (
                 <li key={m.key} className="flex items-center gap-2 text-sm">
-                  <Icon name={on ? "check" : m.available ? "lock" : "sparkle"} className={`h-4 w-4 shrink-0 ${on ? "text-emerald-500" : m.available ? "text-muted" : "text-primary-500"}`} />
+                  <Icon name={on ? "check" : m.available ? "lock" : "sparkle"} className={`h-4 w-4 shrink-0 ${on ? "text-emerald-500" : m.available ? "text-muted" : "text-primary-500 dark:text-primary-300"}`} />
                   <span className={on ? "text-ink" : "text-muted"}>{m.name}</span>
                   {!on && <span className="ml-auto text-xs text-muted">{!m.available ? "coming soon" : m.upsell_plan ? `in ${m.upsell_plan}` : "add-on"}</span>}
                 </li>

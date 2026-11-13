@@ -31,7 +31,7 @@ function PlanStrip({ condoId }: { condoId: number }) {
   return (
     <div className="mb-6 max-w-4xl">
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface px-5 py-3 shadow-card">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-500/10 text-primary-500"><Icon name="tag" className="h-5 w-5" /></span>
+        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-500/10 text-primary-500 dark:text-primary-300"><Icon name="tag" className="h-5 w-5" /></span>
         <div className="min-w-0 flex-1 text-sm">
           <span className="font-semibold text-ink">Your plan: {data.plan_name}</span>
           <span className="ml-2"><Badge tone={status.tone}>{status.label} {statusDate(data)}</Badge></span>

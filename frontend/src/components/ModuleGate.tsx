@@ -31,7 +31,7 @@ export function LockedFeature({ module }: { module: string }) {
   return (
     <Card>
       <div className="flex flex-col items-center px-6 py-14 text-center">
-        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-500/10 text-primary-500">
+        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-500/10 text-primary-500 dark:text-primary-300">
           <Icon name="lock" className="h-7 w-7" />
         </span>
         <h2 className="mt-5 text-lg font-semibold text-ink">{info?.name ?? "This feature"} is not in your plan</h2>
@@ -54,7 +54,7 @@ export function ComingSoon({ module, points }: { module: string; points?: string
   return (
     <Card>
       <div className="flex flex-col items-center px-6 py-14 text-center">
-        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-500/10 text-primary-500">
+        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-500/10 text-primary-500 dark:text-primary-300">
           <Icon name="sparkle" className="h-7 w-7" />
         </span>
         <h2 className="mt-5 text-lg font-semibold text-ink">{info?.name ?? "This feature"}</h2>
@@ -63,7 +63,7 @@ export function ComingSoon({ module, points }: { module: string; points?: string
         {points && (
           <ul className="mt-4 max-w-md space-y-1.5 text-left text-sm text-body">
             {points.map((p) => (
-              <li key={p} className="flex gap-2"><Icon name="check" className="mt-0.5 h-4 w-4 shrink-0 text-primary-500" />{p}</li>
+              <li key={p} className="flex gap-2"><Icon name="check" className="mt-0.5 h-4 w-4 shrink-0 text-primary-500 dark:text-primary-300" />{p}</li>
             ))}
           </ul>
         )}

@@ -135,7 +135,7 @@ export default function DashboardPage() {
         <Card className="xl:col-span-2">
           <CardHeader title="Gates" action={isAdmin && <Link href="/setup/devices/" className="text-sm font-medium text-primary-600 hover:underline dark:text-primary-300">Manage</Link>} />
           {!gates.data ? <Loading /> : activeGates.length === 0 ? (
-            <Empty>No active gates yet.{isAdmin && <> Add them under <Link className="font-medium text-primary-600 hover:underline" href="/setup/devices/">Gates &amp; devices</Link>.</>}</Empty>
+            <Empty>No active gates yet.{isAdmin && <> Add them under <Link className="font-medium text-primary-600 dark:text-primary-300 hover:underline" href="/setup/devices/">Gates &amp; devices</Link>.</>}</Empty>
           ) : (
             <ul className="grid gap-px bg-line sm:grid-cols-2">
               {activeGates.map((gate) => {

@@ -177,7 +177,8 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
   kiosk screen (strings in `frontend/src/app/kiosk/i18n.tsx`, keyed by their English text, so anything
   missing, a message from the server or the site's privacy notice shows in English) and the AI
   concierge greets in it. The kiosk goes back to English when a visitor's journey ends or after
-  90 seconds idle. The translations are a first draft: have a native speaker check them before launch.
+  90 seconds idle; the last 20 seconds ask "Do you need more time?" and any tap keeps the visitor's place
+  (WCAG 2.2.1). The translations are a first draft: have a native speaker check them before launch.
 - **Ringback**: while a kiosk call rings, the kiosk plays Singapore's ringing tone (400 Hz, 0.4 s on,
   0.2 s off, 0.4 s on, 2 s off) with Web Audio; it stops when someone answers or the call ends.
 - **Call the guardhouse** (per site, Site settings → *Offer Call the guardhouse at the kiosk*, on by
@@ -531,6 +532,27 @@ admins, billing contact and platform admins get an email at 80% and at 100% (onc
 overage and its amount, plus an AI cost estimate when *System settings → Cost per 1M input / output
 tokens* are set. Site admins see this month's use against their allowance under *Your plan*. To stop a
 feature for a site, switch its module off under Subscription.
+
+## Accessibility (WCAG 2.1/2.2 AA)
+
+Designed to follow WCAG 2.1 AA (Singapore's Digital Service Standards use the same level). Checked with
+axe-core 4.10 (tags wcag2a/aa, wcag21a/aa, wcag22aa) on the landing page, login, dashboard, visits,
+intercom, residents, access, settings, bookings, reports and the Register visitor form, light and dark:
+0 violations (Nov 2026). The kiosk's only finding is zoom switched off, on purpose for a fixed lobby tablet.
+
+- **Contrast**: `--c-muted` #5f6b80 (5.4:1 on white) and `primary-500` #2563eb (5.2:1 with white text);
+  blue text in dark mode uses `dark:text-primary-300`. Keep new colours at 4.5:1 or more.
+- **Larger text** (user menu, per browser, `elix.textSize`): the root font size goes to 118.75% and every
+  size is in rem, so the whole dashboard grows. Browser zoom to 200% also works without sideways scrolling.
+- **Keyboard**: browser focus rings are kept; wide tables (`Table`) are focusable so they scroll with the
+  arrow keys; chart bars are focusable `role="img"` with their numbers as the label.
+- **Kiosk**: dark high-contrast theme, large touch targets, four languages, a voice assistant, Call the
+  guardhouse for anyone who cannot finish on screen, and a "more time?" warning before an idle reset.
+- **Resident app**: follows the phone's font size; rating stars, booking dates, images (QR, visitor photo,
+  facility photo) and the swipe-to-open slider have TalkBack/VoiceOver labels; the primary blue is
+  #2563eb (light) and #8fb8ff with navy text (dark).
+- Automated checks find about a third of issues: before claiming conformance in a tender, test with a
+  screen reader (NVDA on the dashboard, TalkBack on the app) and the phone font at its largest.
 
 ## Production
 
