@@ -330,7 +330,7 @@ function IncomingCalls() {
   };
 
   const ringing = Object.values(calls).filter((c) => !held[c.id]);
-  useRingtone(ringing.length > 0 && !muted);
+  const soundBlocked = useRingtone(ringing.length > 0 && !muted);
   useEffect(() => {
     if (ringing.length === 0) setMuted(false);
   }, [ringing.length]);
@@ -349,7 +349,7 @@ function IncomingCalls() {
             <div className="flex-1 text-sm text-ink">
               {folded.map((call) => <div key={call.id}><CallLine call={call} /></div>)}
             </div>
-            <button className="text-sm text-primary-600 hover:underline dark:text-primary-300" onClick={() => setMuted(true)}>{muted ? "Muted" : "Mute"}</button>
+            <SoundButton blocked={soundBlocked} muted={muted} onMute={() => setMuted(true)} />
             {!onIntercom && (
               <button className="rounded-md bg-primary-500 px-3 py-1.5 text-sm font-medium text-white shadow-primary hover:bg-primary-600"
                 onClick={() => setLater((ids) => ids.filter((id) => !folded.some((c) => c.id === id)))}>
@@ -367,9 +367,7 @@ function IncomingCalls() {
             <div className="flex items-center gap-3 border-b border-line bg-surface px-5 py-3">
               <Icon name="bell" className={cx("h-5 w-5 text-primary-600 dark:text-primary-300", ringing.length > 0 && "animate-pulse")} />
               <h2 className="flex-1 text-base font-semibold text-ink">{shown.length > 1 ? `${shown.length} kiosk calls` : "Kiosk call"}</h2>
-              {ringing.length > 0 && (
-                <button className="text-sm text-primary-600 hover:underline dark:text-primary-300" onClick={() => setMuted(true)}>{muted ? "Muted" : "Mute"}</button>
-              )}
+              {ringing.length > 0 && <SoundButton blocked={soundBlocked} muted={muted} onMute={() => setMuted(true)} />}
               {shown.some((c) => !held[c.id]) && (
                 <button className="rounded-md px-2 py-1 text-sm text-muted hover:bg-surface-3 hover:text-body"
                   onClick={() => setLater((ids) => [...ids, ...shown.filter((c) => !held[c.id]).map((c) => c.id)])}>
@@ -396,6 +394,18 @@ function IncomingCalls() {
   );
 }
 
+/** Mute the ringtone, or switch sound on when the browser has kept it off (no click on the page yet). */
+function SoundButton({ blocked, muted, onMute }: { blocked: boolean; muted: boolean; onMute: () => void }) {
+  if (blocked && !muted) {
+    return (
+      <button className="animate-pulse rounded-md bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600" onClick={unlockAudio}>
+        Turn on sound
+      </button>
+    );
+  }
+  return <button className="text-sm text-primary-600 hover:underline dark:text-primary-300" onClick={onMute}>{muted ? "Muted" : "Mute"}</button>;
+}
+
 function CallLine({ call }: { call: IntercomCall }) {
   const purpose = visitPurpose(call.visitor_purpose, call.visitor_company);
   return (
@@ -409,29 +419,58 @@ function CallLine({ call }: { call: IntercomCall }) {
   );
 }
 
+// One AudioContext for the dashboard. Browsers keep sound off until someone clicks or types on the page,
+// so it is switched on at every gesture; a call that rings before any gesture asks for one ("Turn on sound").
+let audio: AudioContext | null = null;
+function unlockAudio() {
+  try {
+    audio ??= new AudioContext();
+    if (audio.state === "suspended") void audio.resume();
+  } catch {}
+}
+
+/** A phone-style ring (a fast two-tone trill, twice, then a pause) while ``active``.
+    Returns true while the browser is still blocking sound. */
 function useRingtone(active: boolean) {
-  const context = useRef<AudioContext | null>(null);
+  const [blocked, setBlocked] = useState(false);
   useEffect(() => {
-    if (!active) return;
-    const beep = () => {
-      try {
-        context.current ??= new AudioContext();
-        const ctx = context.current;
-        for (const offset of [0, 0.25]) {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.frequency.value = 880;
-          gain.gain.setValueAtTime(0.0001, ctx.currentTime + offset);
-          gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + offset + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + offset + 0.2);
-          osc.connect(gain).connect(ctx.destination);
-          osc.start(ctx.currentTime + offset);
-          osc.stop(ctx.currentTime + offset + 0.22);
-        }
-      } catch {}
+    const unlock = () => unlockAudio();
+    for (const name of ["pointerdown", "keydown", "touchstart"]) window.addEventListener(name, unlock, { capture: true, passive: true });
+    return () => {
+      for (const name of ["pointerdown", "keydown", "touchstart"]) window.removeEventListener(name, unlock, { capture: true });
     };
-    beep();
-    const id = setInterval(beep, 2000);
+  }, []);
+  useEffect(() => {
+    if (!active) {
+      setBlocked(false);
+      return;
+    }
+    const ring = () => {
+      unlockAudio();
+      const ctx = audio;
+      if (!ctx || ctx.state !== "running") {
+        setBlocked(true);
+        return;
+      }
+      setBlocked(false);
+      const start = ctx.currentTime + 0.05;
+      for (const burst of [0, 1.0]) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "triangle";
+        for (let i = 0; i < 16; i++) osc.frequency.setValueAtTime(i % 2 ? 1000 : 1300, start + burst + i * 0.05);
+        gain.gain.setValueAtTime(0.0001, start + burst);
+        gain.gain.exponentialRampToValueAtTime(0.45, start + burst + 0.02);
+        gain.gain.setValueAtTime(0.45, start + burst + 0.76);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + burst + 0.8);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(start + burst);
+        osc.stop(start + burst + 0.82);
+      }
+    };
+    ring();
+    const id = setInterval(ring, 3500);
     return () => clearInterval(id);
   }, [active]);
+  return blocked;
 }
