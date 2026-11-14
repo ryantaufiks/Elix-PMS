@@ -60,6 +60,53 @@ def availability(facility, day, now=None):
     return out
 
 
+# A resident may check in this long before their booking starts (and until it ends).
+CHECKIN_EARLY = timedelta(minutes=15)
+
+
+def today_schedule(facility, now=None):
+    """The rest of today's slots at ``facility`` for the kiosk: booked or free, and whether it is the current
+    one. No names or units: anyone in the lobby can read it."""
+    now = now or timezone.now()
+    slots = slots_of(facility, now.astimezone(tz(facility)).date())
+    if not slots:
+        return []
+    taken = list(holding(facility.bookings.filter(starts_at__lt=slots[-1][1], ends_at__gt=slots[0][0]), now)
+                 .values_list("starts_at", "ends_at"))
+    out = []
+    for start, end in slots:
+        if end <= now:
+            continue
+        used = sum(1 for s, e in taken if s < end and e > start)
+        out.append({"starts_at": start, "ends_at": end, "booked": used >= facility.concurrent_bookings,
+                    "left": max(0, facility.concurrent_bookings - used), "now": start <= now < end})
+    return out
+
+
+def check_in(condominium_id, code, now=None):
+    """Check a resident in with their booking QR. Returns (booking or None, problem): an empty problem means
+    welcome. Opening the facility's door is left to the caller."""
+    now = now or timezone.now()
+    code = (code or "").strip()
+    if not code.startswith(Booking.QR_PREFIX):
+        return None, "This is not a facility booking QR code."
+    booking = (Booking.objects.select_related("facility__gate", "unit__block")
+               .filter(condominium_id=condominium_id, checkin_token=code[len(Booking.QR_PREFIX):]).first())
+    if booking is None:
+        return None, "This booking was not found at this condominium."
+    if booking.status != Booking.Status.CONFIRMED:
+        return booking, f"This booking is {booking.get_status_display().lower()}."
+    if now < booking.starts_at - CHECKIN_EARLY:
+        local = booking.starts_at.astimezone(tz(booking.facility))
+        return booking, f"Too early: check in from {(local - CHECKIN_EARLY):%H:%M}" + ("" if local.date() == now.astimezone(tz(booking.facility)).date() else f" on {local:%a %d %b}") + "."
+    if now >= booking.ends_at:
+        return booking, "This booking has ended."
+    if booking.checked_in_at is None:
+        booking.checked_in_at = now
+        booking.save(update_fields=["checked_in_at", "updated_at"])
+    return booking, ""
+
+
 def bookable_days(facility, today=None):
     today = today or timezone.localdate(timezone=tz(facility))
     return today, today + timedelta(days=facility.advance_days)

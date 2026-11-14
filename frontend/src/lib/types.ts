@@ -528,6 +528,8 @@ export type Facility = {
   max_upcoming_per_unit: number;
   cancel_hours: number;
   rules: string;
+  /** Door opened when the resident checks in at the kiosk. */
+  gate: number | null;
   is_active: boolean;
 };
 
@@ -557,6 +559,7 @@ export type Booking = {
   cancelled_at: string | null;
   cancel_reason: string;
   created_at: string;
+  checked_in_at: string | null;
 };
 
 export type PaymentSettings = {

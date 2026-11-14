@@ -8,7 +8,7 @@ import { ConfirmDialog, Tabs } from "@/components/forms";
 import { Icon } from "@/components/icons";
 import { Badge, Card, Empty, Field, IconButton, Input, Loading, PageHeader, Pagination, Select, Table, Td, Th, useToast } from "@/components/ui";
 import { api, query } from "@/lib/api";
-import { formatDateTime, formatRange } from "@/lib/format";
+import { formatDateTime, formatRange, formatTime } from "@/lib/format";
 import { useLiveEvents } from "@/lib/live";
 import { useSession } from "@/lib/session";
 import type { Booking, BookingStatus, Facility, Page, PaymentStatus } from "@/lib/types";
@@ -81,7 +81,11 @@ function BookingsPage() {
                   <Td>{b.booked_by || "—"}<div className="text-xs text-muted">{formatDateTime(b.created_at)}</div></Td>
                   <Td className="whitespace-nowrap tabular-nums">{Number(b.amount) ? `${b.currency} ${b.amount}` : "Free"}{Number(b.deposit) > 0 && <div className="text-xs text-muted">incl. {b.deposit} deposit</div>}</Td>
                   <Td><Badge tone={PAYMENT[b.payment_status]}>{b.payment_status_display}</Badge>{b.paid_at && <div className="mt-1 text-xs text-muted">{formatDateTime(b.paid_at)}</div>}</Td>
-                  <Td><Badge tone={STATUS[b.status]}>{b.status_display}</Badge>{b.cancel_reason && <div className="mt-1 max-w-48 text-xs text-muted">{b.cancel_reason}</div>}</Td>
+                  <Td>
+                    <Badge tone={STATUS[b.status]}>{b.status_display}</Badge>
+                    {b.checked_in_at && <div className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">Checked in {formatTime(b.checked_in_at)}</div>}
+                    {b.cancel_reason && <div className="mt-1 max-w-48 text-xs text-muted">{b.cancel_reason}</div>}
+                  </Td>
                   <Td className="whitespace-nowrap text-right">
                     {isManager && (
                       <div className="inline-flex items-center gap-0.5">

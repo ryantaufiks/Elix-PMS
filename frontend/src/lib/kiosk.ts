@@ -94,6 +94,8 @@ export type KioskSelf = {
   call_resident: boolean;
   /** The site takes video calls at the guardhouse (the dashboard's Intercom page). */
   call_guardhouse: boolean;
+  /** Offer Facilities: today's schedule and check-in to a booking. */
+  facilities: boolean;
   /** Modules of the site's plan. */
   modules: string[];
   /** Visitors whose photo the kiosk takes can check out by face. */
@@ -122,6 +124,18 @@ export type WalkInSlip = {
 export type WalkInCheckOut = { result: "checked_out" | "already_checked_out"; walk_in: WalkInSlip };
 
 export const isWalkInCode = (code: string) => code.trim().startsWith("ELIX-WALKIN:");
+export const isBookingCode = (code: string) => code.trim().startsWith("ELIX-BOOKING:");
+
+/** A facility's remaining slots today (no names: anyone in the lobby can read it). */
+export type KioskFacility = {
+  id: number; name: string; location: string; icon: string; opens_at: string; closes_at: string; open_today: boolean;
+  slots: { starts_at: string; ends_at: string; booked: boolean; left: number; now: boolean }[];
+};
+
+export type BookingCheckIn = {
+  result: "granted" | "denied"; reason: string; facility: string; unit: string;
+  starts_at: string | null; ends_at: string | null; door_opened: boolean;
+};
 
 export type VisitorLookup = { found: boolean; blocked: boolean; ref: string; masked_name: string; company: string; purpose: string };
 

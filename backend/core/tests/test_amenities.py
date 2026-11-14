@@ -349,3 +349,56 @@ class SeasonParkingTests(APITestCase):
         message = "".join(f"{k}{fields[k]}" for k in sorted(fields))
         signed = {**fields, "hmac": hmac.new(b"salt", message.encode(), hashlib.sha256).hexdigest()}
         self.assertEqual(self.client.post("/v1/payments/hitpay/webhook/", signed).status_code, 200)
+
+
+@mock.patch("core.tasks.open_gate.delay")
+@mock.patch("core.bookings.broadcast")
+class FacilityCheckInTests(APITestCase):
+    def setUp(self):
+        self.condo = make_condo()
+        self.unit = make_unit(self.condo)
+        self.alice = make_resident("alice", self.unit)
+        self.door = m.AccessGate.objects.create(condominium=self.condo, name="Function room door")
+        self.room = m.Facility.objects.create(condominium=self.condo, name="Function room", opens_at=time(0), closes_at=time(23, 59),
+                                              slot_minutes=60, max_slots_per_booking=2, gate=self.door)
+        kiosk = m.Kiosk.objects.create(condominium=self.condo, name="Lobby kiosk")
+        self.token = kiosk.issue_token()
+        kiosk.save()
+
+    def booking(self, starts_in, status="confirmed"):
+        start = timezone.now().replace(second=0, microsecond=0) + starts_in
+        return m.Booking.objects.create(condominium=self.condo, facility=self.room, unit=self.unit, user=self.alice,
+                                        starts_at=start, ends_at=start + timedelta(hours=1), status=status)
+
+    def scan(self, code):
+        return self.client.post("/v1/kiosk/facilities/checkin/", {"code": code}, format="json", HTTP_AUTHORIZATION=f"Kiosk {self.token}")
+
+    def test_check_in_opens_the_door_within_the_booking(self, _, open_gate):
+        now_ = self.booking(timedelta(minutes=10))  # Starts in 10 minutes: 15 minutes early is fine.
+        response = self.scan(now_.qr_payload)
+        self.assertEqual((response.data["result"], response.data["door_opened"], response.data["facility"]), ("granted", True, "Function room"))
+        now_.refresh_from_db()
+        self.assertIsNotNone(now_.checked_in_at)
+        log = m.AccessLog.objects.get()
+        self.assertEqual((log.method, log.gate, log.unit), ("booking", self.door, self.unit))
+
+        later = self.booking(timedelta(hours=3))
+        self.assertIn("Too early", self.scan(later.qr_payload).data["reason"])
+        gone = self.booking(-timedelta(hours=2))
+        self.assertEqual(self.scan(gone.qr_payload).data["reason"], "This booking has ended.")
+        cancelled = self.booking(timedelta(minutes=5), status="cancelled")
+        self.assertEqual(self.scan(cancelled.qr_payload).data["reason"], "This booking is cancelled.")
+        self.assertEqual(self.scan("ELIX-WALKIN:abc").data["result"], "denied")
+        self.assertEqual(m.AccessLog.objects.filter(result="denied").count(), 3)  # Denials at the door are logged too.
+
+    def test_schedule_and_resident_qr(self, *_):
+        self.booking(timedelta(minutes=-10))
+        rows = self.client.get("/v1/kiosk/facilities/", HTTP_AUTHORIZATION=f"Kiosk {self.token}").data
+        self.assertEqual(rows[0]["name"], "Function room")
+        current = next(slot for slot in rows[0]["slots"] if slot["now"])
+        self.assertTrue(current["booked"])
+        self.assertNotIn("unit", rows[0]["slots"][0])  # Nobody's unit is shown in the lobby.
+        self.client.force_authenticate(self.alice)
+        booking = m.Booking.objects.get()
+        response = self.client.get(f"/v1/bookings/{booking.pk}/qr/")
+        self.assertEqual((response.status_code, response["Content-Type"]), (200, "image/png"))

@@ -1,3 +1,4 @@
+import secrets
 from datetime import time
 from decimal import Decimal
 
@@ -51,6 +52,9 @@ class Facility(TimeStampedModel):
     cancel_hours = models.PositiveSmallIntegerField(
         default=24, help_text="Residents can cancel up to this many hours before the start.")
     rules = models.TextField(blank=True, help_text="Shown before booking, e.g. clean-up and noise rules.")
+    gate = models.ForeignKey(
+        "core.AccessGate", on_delete=models.SET_NULL, null=True, blank=True, related_name="facilities",
+        help_text="Door opened when a resident checks in to their booking at the kiosk (optional).")
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -74,8 +78,15 @@ class Facility(TimeStampedModel):
         return self.price_per_slot > 0 or self.deposit > 0
 
 
+def generate_booking_token():
+    return secrets.token_urlsafe(24)
+
+
 class Booking(TimeStampedModel):
-    """A unit's booking of a facility. Paid bookings hold their slots while the payment is pending."""
+    """A unit's booking of a facility. Paid bookings hold their slots while the payment is pending.
+    The resident checks in with the booking's QR at the kiosk (``ELIX-BOOKING:<token>``)."""
+
+    QR_PREFIX = "ELIX-BOOKING:"
 
     class Status(models.TextChoices):
         PENDING_PAYMENT = "pending_payment", "Awaiting payment"
@@ -114,6 +125,8 @@ class Booking(TimeStampedModel):
     cancelled_at = models.DateTimeField(null=True, blank=True)
     cancelled_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     cancel_reason = models.CharField(max_length=255, blank=True)
+    checkin_token = models.CharField(max_length=64, unique=True, default=generate_booking_token, editable=False)
+    checked_in_at = models.DateTimeField(null=True, blank=True, help_text="First check-in at the kiosk.")
 
     class Meta:
         ordering = ["-starts_at"]
@@ -121,6 +134,10 @@ class Booking(TimeStampedModel):
 
     def __str__(self):
         return f"{self.facility} {self.starts_at:%Y-%m-%d %H:%M} ({self.unit})"
+
+    @property
+    def qr_payload(self):
+        return f"{self.QR_PREFIX}{self.checkin_token}"
 
 
 class PaymentSettings(TimeStampedModel):

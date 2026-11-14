@@ -358,6 +358,28 @@ class _MyBookingsState extends State<_MyBookings> {
 
   void _load() => _list.currentState?.reload();
 
+  /// The booking's QR: scanned at the kiosk's Facilities from 15 minutes before the start.
+  Future<void> _showQr(Booking b) => showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(b.facilityName),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('${DateFormat('EEE d MMM, HH:mm').format(b.startsAt)} – ${_hm.format(b.endsAt)}'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+              child: SizedBox(width: 220, height: 220,
+                  child: AuthImage('/v1/bookings/${b.id}/qr/', fit: BoxFit.contain, semanticLabel: 'Booking check-in QR code')),
+            ),
+            const SizedBox(height: 12),
+            const Text('Show this at the kiosk: Facilities → Check in to my booking. It works from 15 minutes before the start.',
+                textAlign: TextAlign.center),
+          ]),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+        ),
+      );
+
   Future<void> _pay(Booking b) async {
     try {
       final data = await Api.instance.post('/v1/bookings/${b.id}/pay/') as Map<String, dynamic>;
@@ -425,11 +447,22 @@ class _MyBookingsState extends State<_MyBookings> {
                 style: TextStyle(color: outline, fontSize: 13),
               ),
               if (b.cancelReason.isNotEmpty) Text(b.cancelReason, style: TextStyle(color: outline, fontSize: 13)),
-              if (b.awaitingPayment || b.canCancel)
+              if (b.checkedInAt != null)
+                Text('Checked in ${_hm.format(b.checkedInAt!)}', style: const TextStyle(color: Color(0xFF15803D), fontSize: 13)),
+              if (b.awaitingPayment || b.canCancel || b.hasQr)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
                     if (b.canCancel) TextButton(onPressed: () => _cancel(b), child: const Text('Cancel')),
+                    if (b.hasQr) ...[
+                      const SizedBox(width: 8),
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
+                        onPressed: () => _showQr(b),
+                        icon: const Icon(Icons.qr_code_2_rounded, size: 20),
+                        label: const Text('Check-in QR'),
+                      ),
+                    ],
                     if (b.awaitingPayment) ...[
                       const SizedBox(width: 8),
                       FilledButton(

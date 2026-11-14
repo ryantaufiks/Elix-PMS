@@ -108,6 +108,7 @@ Pastikan perangkat lokal Anda telah terinstal:
 * **Privasi:** percakapan tidak disimpan; server hanya menghitung jumlah percakapan untuk batas biaya. API key tidak pernah dikirim ke kiosk. Kiosk memberi tahu tamu bahwa suaranya diproses oleh OpenAI.
 
 ### 5. Menu APK resident: Access, Facility, Visitor, Feedback
+* **Check-in fasilitas di kiosk:** di *My bookings*, booking yang sudah dikonfirmasi punya tombol **Check-in QR**. Di kiosk, kartu **Facilities** menampilkan jadwal hari ini setiap fasilitas (*Now / Booked / Free*, tanpa nama penghuni) dan tombol *Check in to my booking*. QR bisa dipakai mulai 15 menit sebelum jam booking sampai selesai; check-in tercatat di halaman **Bookings** (*Checked in 14:03*). Bila di form fasilitas dipilih *Door to open at check-in*, pintunya langsung terbuka dan tercatat di Access log. QR booking juga diterima di *Scan QR code*.
 * Saat aplikasi dibuka muncul **splash screen**: logo ELIX di tengah latar navy dengan cahaya biru yang berdenyut, lalu masuk ke login atau Home.
 * Header Home menampilkan **nama condo** (dari pengaturan Site) sebagai pengganti logo.
 * Halaman login memakai latar cahaya biru yang bergerak, kartu login *glassmorphism* (blur transparan) dengan tombol gradasi biru, dan teks *Engage Link Identified Experience* dan "© 2026 ELIX. All rights reserved.".

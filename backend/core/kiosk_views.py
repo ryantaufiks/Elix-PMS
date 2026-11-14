@@ -12,7 +12,7 @@ from rest_framework.settings import api_settings
 from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
 
-from . import access, assistant, entitlements, intercom, livekit, visits
+from . import access, assistant, bookings, entitlements, intercom, livekit, visits
 from . import visitor_identity as identity
 from . import models as m
 from . import serializers as s
@@ -240,6 +240,51 @@ class QrCheckInView(KioskView):
         if invitation is not None:
             invitation.refresh_from_db()
         return Response({"result": log.result, "reason": log.reason, "invitation": _pass(invitation)})
+
+
+class KioskFacilitiesView(KioskView):
+    @extend_schema(responses=s.KioskFacilitySerializer(many=True))
+    def get(self, request):
+        """Today's schedule of every active facility: which of the remaining slots are booked or free."""
+        condo = self.kiosk.condominium
+        if not entitlements.has(condo, "facilities"):
+            return Response([])
+        now = timezone.now()
+        out = []
+        for facility in condo.facilities.filter(is_active=True).order_by("name"):
+            slots = bookings.today_schedule(facility, now)
+            out.append({"id": facility.pk, "name": facility.name, "location": facility.location, "icon": facility.icon,
+                        "opens_at": facility.opens_at, "closes_at": facility.closes_at,
+                        "open_today": bool(bookings.slots_of(facility, now.astimezone(bookings.tz(facility)).date())),
+                        "slots": slots})
+        return Response(s.KioskFacilitySerializer(out, many=True).data)
+
+
+class BookingCheckInView(KioskView):
+    throttle_classes = [KioskCheckInThrottle]
+
+    @extend_schema(request=s.QrCodeSerializer, responses=s.BookingCheckInResultSerializer)
+    def post(self, request):
+        """Check a resident in with their booking QR (from 15 minutes before the start until the end).
+        Opens the facility's door when it has one."""
+        body = s.QrCodeSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        booking, problem = bookings.check_in(self.kiosk.condominium_id, body.validated_data["code"])
+        gate = booking.facility.gate if booking is not None else None
+        door = False
+        if gate is not None and gate.is_active:
+            fields = {"method": m.AccessLog.Method.BOOKING, "unit": booking.unit, "reason": f"{booking.facility.name} booking"}
+            if problem:
+                access.deny(gate, reason=problem, **{k: v for k, v in fields.items() if k != "reason"})
+            else:
+                access.grant(gate, **fields)
+                door = True
+        return Response({
+            "result": "denied" if problem else "granted", "reason": problem,
+            "facility": booking.facility.name if booking else "", "unit": str(booking.unit) if booking else "",
+            "starts_at": booking.starts_at if booking else None, "ends_at": booking.ends_at if booking else None,
+            "door_opened": door,
+        })
 
 
 class VisitorLookupView(KioskView):

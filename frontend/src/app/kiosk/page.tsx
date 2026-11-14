@@ -9,7 +9,7 @@ import { Room, RoomEvent, Track, type RemoteTrack } from "livekit-client";
 import { ApiError, wsUrl } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import {
-  type CheckInResult, type DirectoryUnit, isWalkInCode, kioskApi, type KioskAssistant, type KioskSelf, kioskToken, PURPOSES, type VisitorDetails,
+  type BookingCheckIn, type CheckInResult, type DirectoryUnit, isBookingCode, isWalkInCode, kioskApi, type KioskFacility, type KioskAssistant, type KioskSelf, kioskToken, PURPOSES, type VisitorDetails,
   type VisitorLookup, type VisitorPass, type WalkInCheckOut, type WalkInSlip, type Weather, weatherIcon,
 } from "@/lib/kiosk";
 import type { IntercomCall, LiveKitConnection } from "@/lib/types";
@@ -36,6 +36,8 @@ type Screen =
   /** A video call to the guards: no unit, nothing to fill in. */
   | { name: "guardhouse" }
   | { name: "scan" }
+  | { name: "facilities" }
+  | { name: "facility_scan" }
   | { name: "checkout" }
   | { name: "pass"; slip: WalkInSlip; unit: DirectoryUnit }
   | { name: "face"; code: string; pass: VisitorPass }
@@ -218,7 +220,7 @@ function useWeather(enabled: boolean) {
 
 /** Which journey the visitor is on, shown as a coloured pill under the header so every screen says
     where they are ("Walk in · Step 2 of 3"). Set once by the app for the current screen. */
-type Flow = { kind: "call" | "guardhouse" | "walkin" | "scan" | "checkout"; step?: number; of?: number } | null;
+type Flow = { kind: "call" | "guardhouse" | "walkin" | "scan" | "checkout" | "facilities"; step?: number; of?: number } | null;
 const FlowContext = createContext<Flow>(null);
 const FLOW_STYLE = {
   call: { label: "Call a resident", className: "border-primary-400/50 bg-primary-500/20 text-primary-200" },
@@ -226,6 +228,7 @@ const FLOW_STYLE = {
   walkin: { label: "Walk in", className: "border-emerald-400/50 bg-emerald-500/20 text-emerald-200" },
   scan: { label: "Scan QR code", className: "border-violet-400/50 bg-violet-500/20 text-violet-200" },
   checkout: { label: "Check out", className: "border-slate-400/50 bg-slate-500/20 text-slate-200" },
+  facilities: { label: "Facilities", className: "border-teal-400/50 bg-teal-500/20 text-teal-200" },
 };
 
 function FlowPill() {
@@ -339,14 +342,15 @@ function Setup({ onReady }: { onReady: (kiosk: KioskSelf, token: string) => void
   );
 }
 
-function Home({ kiosk, assistant, onAssistant, onCall, onWalkIn, onScan, onCheckOut, onAdmin }: {
+function Home({ kiosk, assistant, onAssistant, onCall, onWalkIn, onScan, onCheckOut, onFacilities, onAdmin }: {
   kiosk: KioskSelf; assistant: KioskAssistant | null; onAssistant: () => void;
-  onCall: () => void; onWalkIn: () => void; onScan: () => void; onCheckOut: () => void; onAdmin: () => void;
+  onCall: () => void; onWalkIn: () => void; onScan: () => void; onCheckOut: () => void; onFacilities: () => void; onAdmin: () => void;
 }) {
   const t = useT();
   const taps = useRef<number[]>([]);
-  const buttons = 1 + Number(kiosk.call_resident) + Number(kiosk.walk_in) + Number(kiosk.checkout);
-  const grid = buttons === 4 ? "max-w-6xl sm:grid-cols-2 xl:grid-cols-4" : buttons === 3 ? "max-w-5xl sm:grid-cols-3" : "max-w-3xl sm:grid-cols-2";
+  const buttons = 1 + Number(kiosk.call_resident) + Number(kiosk.walk_in) + Number(kiosk.checkout) + Number(kiosk.facilities);
+  const grid = buttons >= 5 ? "max-w-6xl sm:grid-cols-2 lg:grid-cols-3" : buttons === 4 ? "max-w-6xl sm:grid-cols-2 xl:grid-cols-4"
+    : buttons === 3 ? "max-w-5xl sm:grid-cols-3" : "max-w-3xl sm:grid-cols-2";
   return (
     <Frame kiosk={kiosk} welcome>
       <h1 className="text-center">
@@ -390,6 +394,15 @@ function Home({ kiosk, assistant, onAssistant, onCall, onWalkIn, onScan, onCheck
             </div>
             <div className="text-2xl font-semibold">{t("Check out")}</div>
             <div className="mt-2 text-lg text-slate-300">{t("Leaving? Scan your pass QR or enter its PIN.")}</div>
+          </button>
+        )}
+        {kiosk.facilities && (
+          <button onClick={onFacilities} className="group flex flex-col items-start justify-start rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
+              <Icon name="calendar" className="h-8 w-8" />
+            </div>
+            <div className="text-2xl font-semibold">{t("Facilities")}</div>
+            <div className="mt-2 text-lg text-slate-300">{t("Today's schedule, and check in to your booking.")}</div>
           </button>
         )}
       </div>
@@ -955,18 +968,68 @@ function PhotoConsent({ kiosk, walkIn, onNext, onBack }: {
   );
 }
 
-function Scan({ kiosk, onCode, onBack }: { kiosk: KioskSelf; onCode: (code: string) => void; onBack: () => void }) {
+function Scan({ kiosk, onCode, onBack, title, hint }: {
+  kiosk: KioskSelf; onCode: (code: string) => void; onBack: () => void; title?: string; hint?: string;
+}) {
   const { video, error } = useCamera(true);
   const t = useT();
   useQrScanner(video, true, onCode);
   return (
     <Frame kiosk={kiosk} onBack={onBack}>
-      <h1 className="text-3xl font-semibold">{t(kiosk.walk_in ? "Show your invitation or slip QR code" : "Show your invitation QR code")}</h1>
-      <p className="mt-2 text-lg text-slate-300">{t(kiosk.walk_in ? "Hold your phone or your walk-in slip up to the camera." : "Hold your phone up to the camera.")}</p>
+      <h1 className="text-3xl font-semibold">{t(title ?? (kiosk.walk_in ? "Show your invitation or slip QR code" : "Show your invitation QR code"))}</h1>
+      <p className="mt-2 text-lg text-slate-300">{t(hint ?? (kiosk.walk_in ? "Hold your phone or your walk-in slip up to the camera." : "Hold your phone up to the camera."))}</p>
       <div className="relative mt-8 aspect-[4/3] w-full max-w-xl overflow-hidden rounded-3xl border border-white/10 bg-navy-950">
         <video ref={video} autoPlay playsInline muted className="h-full w-full scale-x-[-1] object-cover" />
         <div className="pointer-events-none absolute inset-[18%] rounded-2xl border-4 border-primary-400/80 shadow-[0_0_0_9999px_rgba(7,15,36,0.45)]" />
         {error && <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-rose-300">{error}</div>}
+      </div>
+    </Frame>
+  );
+}
+
+const clockOf = (iso: string, lang: Lang) =>
+  new Intl.DateTimeFormat(localeOf(lang), { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Singapore" }).format(new Date(iso));
+
+/** Today's schedule of every facility (booked or free, no names) and the way in for residents who booked. */
+function Facilities({ kiosk, onCheckIn, onBack }: { kiosk: KioskSelf; onCheckIn: () => void; onBack: () => void }) {
+  const t = useT();
+  const lang = useLang();
+  const [rows, setRows] = useState<KioskFacility[] | null>(null);
+  useEffect(() => {
+    kioskApi<KioskFacility[]>("/v1/kiosk/facilities/").then(setRows).catch(() => setRows([]));
+  }, []);
+  return (
+    <Frame kiosk={kiosk} onBack={onBack}>
+      <div className="w-full max-w-5xl">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-semibold">{t("Facilities")}</h1>
+            <p className="mt-2 text-lg text-slate-300">{t("Today")} · {t("Book in the Elix app.")}</p>
+          </div>
+          <BigButton onClick={onCheckIn}>{t("Check in to my booking")}</BigButton>
+        </div>
+        <div className="mt-8 grid gap-4 md:grid-cols-2">
+          {rows === null ? <div className="text-slate-400">…</div> : rows.map((f) => (
+            <div key={f.id} className="rounded-3xl border border-white/10 bg-white/5 p-6">
+              <div className="flex items-baseline justify-between gap-3">
+                <div className="text-2xl font-semibold">{f.name}</div>
+                <div className="shrink-0 text-slate-300">{f.opens_at.slice(0, 5)}–{f.closes_at.slice(0, 5)}</div>
+              </div>
+              {f.location && <div className="mt-1 text-slate-400">{f.location}</div>}
+              <div className="mt-4 flex flex-wrap gap-2">
+                {!f.open_today ? <span className="text-slate-400">{t("Closed today")}</span>
+                  : f.slots.length === 0 ? <span className="text-slate-400">{t("No more slots today")}</span>
+                  : f.slots.slice(0, 8).map((slot) => (
+                    <span key={slot.starts_at}
+                      className={`rounded-xl border px-3 py-2 text-base ${slot.booked ? "border-white/10 bg-white/5 text-slate-400" : "border-emerald-400/40 bg-emerald-500/15 text-emerald-100"} ${slot.now ? "ring-2 ring-primary-300" : ""}`}>
+                      <span className="font-semibold tabular-nums">{clockOf(slot.starts_at, lang)}</span>{" "}
+                      {slot.now ? `${t("Now")} · ` : ""}{t(slot.booked ? "Booked" : "Free")}
+                    </span>
+                  ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </Frame>
   );
@@ -1292,6 +1355,7 @@ function flowOf(screen: Screen, kiosk: KioskSelf): Flow {
     case "walkin": return { kind: "walkin" };
     case "scan": case "face": return { kind: "scan" };
     case "checkout": return { kind: "checkout" };
+    case "facilities": case "facility_scan": return { kind: "facilities" };
     default: return null;
   }
 }
@@ -1406,7 +1470,21 @@ export default function KioskPage() {
     };
   }, [screen.name, lang, restart]);
 
+  const facilityCheckIn = useCallback(async (code: string) => {
+    try {
+      const r = await kioskApi<BookingCheckIn>("/v1/kiosk/facilities/checkin/", { method: "POST", body: { code } });
+      const time = r.starts_at && r.ends_at ? `${clockOf(r.starts_at, "en")}–${clockOf(r.ends_at, "en")}` : "";
+      setScreen({ name: "result", outcome: r.result === "granted"
+        ? { tone: "good", title: "Enjoy {facility}!", vars: { facility: r.facility, time },
+            detail: r.door_opened ? "The door is opening. Your booking: {time}." : "You are checked in. Your booking: {time}." }
+        : { tone: "bad", title: "Cannot check in", detail: r.reason } });
+    } catch (err) {
+      setScreen({ name: "result", outcome: { tone: "bad", title: "Something went wrong", detail: (err as Error).message } });
+    }
+  }, []);
+
   const checkIn = useCallback(async (code: string, photo?: Blob) => {
+    if (isBookingCode(code)) return facilityCheckIn(code);  // A booking QR shown at Scan QR code works too.
     if (isWalkInCode(code)) {
       setScreen({ name: "result", outcome: await checkOut({ code }) });
       return;
@@ -1427,7 +1505,7 @@ export default function KioskPage() {
     } catch (err) {
       setScreen({ name: "result", outcome: { tone: "bad", title: "Something went wrong", detail: (err as Error).message } });
     }
-  }, [kiosk?.face_checkout]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [kiosk?.face_checkout, facilityCheckIn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load the face models in the background so face check-out answers quickly.
   useEffect(() => {
@@ -1463,6 +1541,7 @@ export default function KioskPage() {
           onWalkIn={() => { document.documentElement.requestFullscreen?.().catch(() => {}); setScreen({ name: "directory", mode: "walkin" }); }}
           onScan={() => { document.documentElement.requestFullscreen?.().catch(() => {}); setScreen({ name: "scan" }); }}
           onCheckOut={() => { document.documentElement.requestFullscreen?.().catch(() => {}); setScreen({ name: "checkout" }); }}
+          onFacilities={() => { document.documentElement.requestFullscreen?.().catch(() => {}); setScreen({ name: "facilities" }); }}
           onAdmin={() => { if (window.confirm("Sign this kiosk out?")) { kioskToken.clear(); setKiosk(null); setScreen({ name: "setup" }); } }} />
       );
     case "assistant":
@@ -1509,6 +1588,11 @@ export default function KioskPage() {
       return <WalkIn kiosk={kiosk} unit={screen.unit} details={screen.details} onDone={restart} onFail={(outcome) => setScreen({ name: "result", outcome })} />;
     case "scan":
       return <Scan kiosk={kiosk} onBack={home} onCode={(code) => checkIn(code)} />;
+    case "facilities":
+      return <Facilities kiosk={kiosk} onBack={home} onCheckIn={() => setScreen({ name: "facility_scan" })} />;
+    case "facility_scan":
+      return <Scan kiosk={kiosk} onBack={() => setScreen({ name: "facilities" })} onCode={(code) => facilityCheckIn(code)}
+        title="Show your booking QR code" hint="Open My bookings in the Elix app and hold the QR up to the camera." />;
     case "face":
       return <Face kiosk={kiosk} pass={screen.pass} onBack={home} onCapture={(photo) => checkIn(screen.code, photo)} />;
     case "result":

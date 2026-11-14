@@ -626,16 +626,21 @@ class KioskSelfSerializer(serializers.ModelSerializer):
     checkout = serializers.BooleanField(source="condominium.kiosk_checkout")
     call_resident = serializers.SerializerMethodField()
     call_guardhouse = serializers.SerializerMethodField()
+    facilities = serializers.SerializerMethodField()
     modules = serializers.ListField(source="condominium.modules", child=serializers.CharField(), read_only=True)
     face_checkout = serializers.SerializerMethodField()
 
     class Meta:
         model = m.Kiosk
         fields = ["id", "name", "condominium", "condominium_name", "gate", "gate_name", "ring_timeout_seconds",
-                  "visitor_form", "photo_required", "privacy_notice", "walk_in", "walk_in_photo", "checkout", "call_resident", "call_guardhouse", "face_checkout", "prints_slips", "modules"]
+                  "visitor_form", "photo_required", "privacy_notice", "walk_in", "walk_in_photo", "checkout", "call_resident", "call_guardhouse", "face_checkout", "facilities", "prints_slips", "modules"]
 
     def get_call_resident(self, obj) -> bool:
         return entitlements.has(obj.condominium, "intercom")
+
+    def get_facilities(self, obj) -> bool:
+        """Offer Facilities (today's schedule, check in to a booking) when the site books facilities."""
+        return entitlements.has(obj.condominium, "facilities") and obj.condominium.facilities.filter(is_active=True).exists()
 
     def get_call_guardhouse(self, obj) -> bool:
         return obj.condominium.kiosk_call_guardhouse and entitlements.has(obj.condominium, "intercom")
@@ -994,7 +999,7 @@ class FacilitySerializer(ModelCleanSerializer):
             "id", "condominium", "name", "description", "location", "icon", "image", "has_image", "capacity",
             "opens_at", "closes_at", "open_days", "slot_minutes", "max_slots_per_booking", "concurrent_bookings",
             "price_per_slot", "deposit", "is_paid", "advance_days", "max_upcoming_per_unit", "cancel_hours", "rules",
-            "is_active", "created_at",
+            "gate", "is_active", "created_at",
         ]
         extra_kwargs = {"image": {"write_only": True, "required": False}}
 
@@ -1032,7 +1037,7 @@ class BookingSerializer(serializers.ModelSerializer):
             "id", "condominium", "facility", "facility_name", "facility_icon", "unit", "unit_display", "booked_by",
             "starts_at", "ends_at", "slots", "guests", "notes", "status", "status_display", "amount", "deposit",
             "currency", "payment_status", "payment_status_display", "payment_url", "payment_expires_at", "paid_at",
-            "cancelled_at", "cancel_reason", "can_cancel", "created_at",
+            "cancelled_at", "cancel_reason", "can_cancel", "checked_in_at", "created_at",
         ]
         read_only_fields = fields
 
@@ -1043,6 +1048,35 @@ class BookingSerializer(serializers.ModelSerializer):
         """Whether the resident can still cancel it themselves."""
         return (obj.status in m.Booking.ACTIVE_STATUSES
                 and obj.starts_at - timezone.now() >= timedelta(hours=obj.facility.cancel_hours))
+
+
+class KioskSlotSerializer(serializers.Serializer):
+    starts_at = serializers.DateTimeField()
+    ends_at = serializers.DateTimeField()
+    booked = serializers.BooleanField(help_text="Every booking of this slot is taken")
+    left = serializers.IntegerField()
+    now = serializers.BooleanField(help_text="The slot under way")
+
+
+class KioskFacilitySerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    location = serializers.CharField()
+    icon = serializers.CharField()
+    opens_at = serializers.TimeField()
+    closes_at = serializers.TimeField()
+    open_today = serializers.BooleanField()
+    slots = KioskSlotSerializer(many=True)
+
+
+class BookingCheckInResultSerializer(serializers.Serializer):
+    result = serializers.ChoiceField(choices=["granted", "denied"])
+    reason = serializers.CharField(allow_blank=True)
+    facility = serializers.CharField(allow_blank=True)
+    unit = serializers.CharField(allow_blank=True)
+    starts_at = serializers.DateTimeField(allow_null=True)
+    ends_at = serializers.DateTimeField(allow_null=True)
+    door_opened = serializers.BooleanField()
 
 
 class BookingCreateSerializer(serializers.Serializer):

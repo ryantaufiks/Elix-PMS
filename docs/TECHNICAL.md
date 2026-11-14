@@ -247,6 +247,13 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
   security, and checks out under *Check out* when leaving (or a guard checks them out on the Visitor
   list). A visitor counts as on site until they check out, overnight too (the dashboard shows the date
   of arrival and they overstay as usual); a pass nobody closed lapses 24 hours after arrival (`PASS_HOURS`).
+- **Facilities** (sites with the Facilities module and an active facility): today's remaining slots of
+  every facility, booked or free, never with a name or unit (`/v1/kiosk/facilities/`). *Check in to my
+  booking* scans the booking's QR from the app (`ELIX-BOOKING:<token>`, also accepted at *Scan QR code*;
+  `/v1/kiosk/facilities/checkin/`): a confirmed booking checks in from 15 minutes before its start until it
+  ends (`Booking.checked_in_at`, shown on Bookings), and the facility's door opens when one is set
+  (Facilities → *Door to open at check-in*), logged as a *Facility booking* access. Booking for
+  non-residents is left out on purpose: most condo by-laws keep facilities for residents and their guests.
 - **Check out** (per site, Site settings → *Offer self check-out at the kiosk*, on by default): the
   kiosk's fourth button. The visitor scans the QR on their slip or screenshot, or types the PIN on the
   keypad. Every visit gets a PIN unique among the visitors on site; a PIN only works while the visitor

@@ -185,6 +185,9 @@ class Booking {
   bool get canCancel => json['can_cancel'] as bool? ?? false;
   bool get awaitingPayment => status == 'pending_payment';
   bool get upcoming => endsAt.isAfter(DateTime.now()) && (status == 'confirmed' || status == 'pending_payment');
+  DateTime? get checkedInAt => DateTime.tryParse(json['checked_in_at'] as String? ?? '')?.toLocal();
+  /// A confirmed booking not over yet: its QR checks the resident in at the kiosk.
+  bool get hasQr => status == 'confirmed' && endsAt.isAfter(DateTime.now());
 }
 
 class Visit {

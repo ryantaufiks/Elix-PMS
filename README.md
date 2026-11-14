@@ -23,7 +23,7 @@ One platform for the guardhouse, the management office, the lobby kiosk and ever
 - **Gates that know who's coming**: licence-plate recognition, QR invitations, video intercom with
   swipe-to-open, and remote opening from the resident app.
 - **A friendly lobby kiosk** in English, 中文, Melayu and தமிழ்: visitors call a unit or the guardhouse,
-  register as a walk-in with a printed pass, scan an invitation, or check out, and can simply *ask*
+  register as a walk-in with a printed pass, scan an invitation, check in to a facility booking, or check out, and can simply *ask*
   the AI concierge for directions or help.
 - **A resident app**: open the gate, answer visitors, invite guests, book facilities, register
   vehicles, see notifications and the condo's documents.

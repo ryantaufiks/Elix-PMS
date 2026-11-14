@@ -73,6 +73,7 @@ class AccessLog(models.Model):
         APP = "app", "Resident app"
         MANUAL = "manual", "Manual (staff)"
         WALK_IN = "walk_in", "Walk-in registration"
+        BOOKING = "booking", "Facility booking"
 
     class Result(models.TextChoices):
         GRANTED = "granted", "Granted"

@@ -1,7 +1,9 @@
 """Resident services: facilities and bookings (with HitPay payment), feedback, and remote gate opening."""
 import logging
 from datetime import timedelta
+from io import BytesIO
 
+import qrcode
 from django.db.models import Avg, Count, Q
 from django.http import FileResponse, HttpResponse
 from django.utils import timezone
@@ -176,6 +178,17 @@ class BookingViewSet(mixins.CreateModelMixin, ScopedReadOnlyViewSet):
         if not staff and booking.unit_id not in resident_unit_ids(user):
             raise PermissionDenied()
         return staff
+
+    @extend_schema(responses={(200, "image/png"): OpenApiResponse(description="QR code PNG")})
+    @action(detail=True, methods=["get"])
+    def qr(self, request, pk=None):
+        """The booking's check-in QR (PNG), shown in the app and scanned at the kiosk's Facilities."""
+        booking = self.get_object()
+        buffer = BytesIO()
+        qrcode.make(booking.qr_payload, box_size=10, border=2).save(buffer)
+        response = HttpResponse(buffer.getvalue(), content_type="image/png")
+        response["Cache-Control"] = "private, no-store"
+        return response
 
     @extend_schema(request=None, responses=s.BookingCreatedSerializer)
     @action(detail=True, methods=["post"])
