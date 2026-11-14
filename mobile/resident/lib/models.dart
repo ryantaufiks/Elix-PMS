@@ -58,6 +58,11 @@ class Vehicle {
   String get plate => json['plate_number'] as String;
   String get unitDisplay => json['unit_display'] as String? ?? '';
   String get description => [json['colour'], json['make'], json['model']].where((v) => v != null && '$v'.isNotEmpty).join(' ');
+  String get kind => json['kind'] as String? ?? 'resident';
+  String get kindDisplay => json['kind_display'] as String? ?? 'Resident';
+  /// active, expiring (within 7 days), expired, upcoming or inactive.
+  String get status => json['status'] as String? ?? 'active';
+  DateTime? get validUntil => DateTime.tryParse(json['valid_until'] as String? ?? '');
 }
 
 class AccessEntry {

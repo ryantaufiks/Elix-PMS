@@ -152,6 +152,13 @@ Pastikan perangkat lokal Anda telah terinstal:
 * Site admin juga melihat bagian **Gates & devices** (keputusan gerbang, perangkat online, metode masuk); Officer tidak.
 * **Batas overstay** di *Site settings → Overstay alerts*: delivery 30 menit, tamu 4 jam (240 menit), kontraktor jam 18:00; isi 0 / kosong untuk mematikan. Saat terlewati, dashboard menampilkan *toast* merah dan notifikasi di lonceng (sekali per tamu), dan di *Visitor list* muncul badge *Overstay*. Jam 22:00 ada ringkasan "X visitors still on site" untuk shift malam.
 
+### 5e. Kendaraan: resident, season parking, temporary
+* Menu **Vehicles**: setiap plat punya **Type** (*Resident*, *Season parking*, *Temporary*), **Holder name** (mis. tamu pemegang season parking atau kontraktor renovasi), **Valid from** dan **Valid until**. Season parking dan Temporary wajib punya tanggal akhir.
+* Kamera LPR hanya membuka gerbang di antara tanggal itu (hari terakhir masih bisa masuk). Di luar tanggal, gerbang tidak terbuka dan log akses mencatat alasannya (*Vehicle pass ended on …*).
+* Tab *Ending in 7 days* dan *Expired* untuk memantau perpanjangan; dashboard Site admin/Staff menampilkan bar oranye bila ada pass yang habis dalam 7 hari.
+* Resident menambah mobilnya sendiri dari APK (selalu tipe *Resident*); tipe dan tanggal hanya diatur management. Di APK, penghuni melihat masa berlaku dan mendapat notifikasi 7 hari sebelum habis dan saat sudah habis.
+* Kartu *On site now* di dashboard juga menghitung tamu yang datang dengan mobil (plat diketik officer saat registrasi atau terbaca kamera).
+
 ### 6. Sidebar & notifikasi dashboard
 * Di tabel (Residents, Staff, Blocks & units, Condominiums) setiap baris punya satu tombol utama dan menu **⋯** untuk aksi lainnya; aksi hapus/remove ada paling bawah, berwarna merah, supaya tidak terklik tanpa sengaja. Di layar HP tabel berubah menjadi daftar kartu.
 * *Access log* punya pilihan periode cepat (*Today / 7 days / 30 days*) dan *Custom* untuk rentang tanggal sendiri; semua waktu di dashboard ditampilkan dengan satu format (`09 Nov, 17:23`, tahun hanya kalau bukan tahun ini). Grafik *Traffic today* menampilkan pesan kosong sampai ada keputusan gerbang pertama hari itu, dan tombol *Open* di kartu Gates nonaktif selama gerbang belum punya relay.

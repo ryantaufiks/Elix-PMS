@@ -10,6 +10,7 @@ from rest_framework import serializers
 
 from . import entitlements
 from . import models as m
+from .scoping import MANAGEMENT, staff_condo_ids
 
 
 class ModelCleanSerializer(serializers.ModelSerializer):
@@ -207,13 +208,42 @@ class MeSerializer(serializers.ModelSerializer):
 
 
 class VehicleSerializer(ModelCleanSerializer):
+    """Residents register their own cars; the pass type, holder and dates are set by the management."""
+
+    MANAGED = ("kind", "holder_name", "valid_from", "valid_until")
     derived_fields = {"condominium"}
     unit_display = serializers.CharField(source="unit.__str__", read_only=True)
+    kind_display = serializers.CharField(source="get_kind_display", read_only=True)
+    status = serializers.SerializerMethodField(help_text="active, expiring (within 7 days), expired, upcoming or inactive")
 
     class Meta:
         model = m.Vehicle
-        fields = ["id", "condominium", "unit", "unit_display", "plate_number", "make", "model", "colour", "is_active", "notes"]
+        fields = ["id", "condominium", "unit", "unit_display", "plate_number", "make", "model", "colour", "is_active", "notes",
+                  "kind", "kind_display", "holder_name", "valid_from", "valid_until", "status"]
         read_only_fields = ["condominium"]
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        unit = attrs.get("unit") or getattr(self.instance, "unit", None)
+        if request and not request.user.is_superuser and (
+                unit is None or unit.condominium_id not in staff_condo_ids(request.user, MANAGEMENT)):
+            for name in self.MANAGED:
+                attrs.pop(name, None)
+        return super().validate(attrs)
+
+    def get_status(self, obj) -> str:
+        from . import visits
+
+        if not obj.is_active:
+            return "inactive"
+        today = visits.local_day(obj.condominium)[0]
+        if obj.valid_from and today < obj.valid_from:
+            return "upcoming"
+        if obj.valid_until and obj.valid_until < today:
+            return "expired"
+        if obj.valid_until and (obj.valid_until - today).days <= 7:
+            return "expiring"
+        return "active"
 
 
 # --- Devices -----------------------------------------------------------------
@@ -681,6 +711,8 @@ class VisitorHourSerializer(serializers.Serializer):
 class VisitorSummarySerializer(serializers.Serializer):
     on_site = serializers.IntegerField()
     on_site_by_purpose = serializers.DictField(child=serializers.IntegerField())
+    cars_on_site = serializers.IntegerField(help_text="Visitors on site who came by car (plate entered or read)")
+    vehicle_passes_expiring = serializers.IntegerField(help_text="Active vehicle passes ending within 7 days")
     overstaying = serializers.IntegerField()
     arrived_today = serializers.IntegerField()
     arrived_yesterday_by_now = serializers.IntegerField()
@@ -1093,7 +1125,7 @@ class FeedbackSummarySerializer(serializers.Serializer):
 class NotificationSerializer(serializers.Serializer):
     id = serializers.CharField()
     kind = serializers.CharField(help_text="visit_in, visit_out, gate_open, gate_denied, call_missed, booking_confirmed, "
-                                           "booking_cancelled, booking_expired or feedback_reply")
+                                           "booking_cancelled, booking_expired, feedback_reply, vehicle_expiring or vehicle_expired")
     title = serializers.CharField()
     body = serializers.CharField()
     at = serializers.DateTimeField()

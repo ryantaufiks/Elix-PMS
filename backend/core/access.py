@@ -49,6 +49,14 @@ def handle_plate(camera, plate, payload):
     vehicle = (Vehicle.objects.select_related("unit")
                .filter(condominium_id=gate.condominium_id, plate_number=plate, is_active=True, unit__is_active=True)
                .first())
+    lapsed = None
+    today = visits.local_day(gate.condominium)[0]
+    if vehicle and not vehicle.valid_on(today):
+        # Outside its dates: an invitation may still let it in, otherwise say why it was refused.
+        lapsed = (f"Vehicle pass ended on {vehicle.valid_until:%d %b %Y}" if vehicle.valid_until and vehicle.valid_until < today
+                  else f"Vehicle pass starts on {vehicle.valid_from:%d %b %Y}")
+        fields.update(vehicle=vehicle, unit=vehicle.unit)
+        vehicle = None
     if vehicle:
         fields.update(vehicle=vehicle, unit=vehicle.unit)
         if not gate.lpr_auto_open_residents:
@@ -64,7 +72,7 @@ def handle_plate(camera, plate, payload):
                    .order_by("valid_until"))
     invitation = next((i for i in invitations if _admits_gate(i, gate)), None)
     if invitation is None:
-        return deny(gate, reason="Unregistered plate", **fields)
+        return deny(gate, reason=lapsed or "Unregistered plate", **fields)
 
     fields.update(invitation=invitation, unit=invitation.unit, visitor=invitation.visitor)
     if invitation.needs_face:

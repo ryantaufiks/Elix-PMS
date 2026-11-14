@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../api.dart';
 import '../models.dart';
@@ -58,7 +59,19 @@ class _VehiclesTabState extends State<VehiclesTab> {
               child: ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.directions_car)),
                 title: Text(v.plate, style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 1)),
-                subtitle: Text([v.description, v.unitDisplay].where((s) => s.isNotEmpty).join(' · ')),
+                subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text([v.description, v.unitDisplay].where((s) => s.isNotEmpty).join(' · ')),
+                  if (v.kind != 'resident' || v.validUntil != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Wrap(spacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                        Text([v.kind == 'resident' ? '' : v.kindDisplay,
+                              if (v.validUntil != null) 'until ${DateFormat('d MMM y').format(v.validUntil!)}'].where((s) => s.isNotEmpty).join(' · ')),
+                        if (v.status == 'expiring') const StatusChip('Ends soon', color: Color(0xFFB45309)),
+                        if (v.status == 'expired') const StatusChip('Expired', color: Color(0xFFDC2626)),
+                      ]),
+                    ),
+                ]),
                 trailing: IconButton(icon: const Icon(Icons.delete_outline), tooltip: 'Remove', onPressed: () => _remove(v)),
               ),
             );

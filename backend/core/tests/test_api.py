@@ -66,6 +66,24 @@ class TenantScopingTests(APITestCase):
         response = self.client.post("/v1/vehicles/", {"unit": self.alpha_unit2.id, "plate_number": "SGX9999C"})
         self.assertEqual(response.status_code, 403)
 
+    def test_only_management_sets_vehicle_passes(self):
+        today = timezone.localdate()
+        self.client.force_authenticate(self.resident)
+        response = self.client.post("/v1/vehicles/", {"unit": self.alpha_unit.id, "plate_number": "SGX1B", "kind": "season",
+                                                      "valid_until": str(today + timedelta(days=400))}, format="json")
+        self.assertEqual((response.data["kind"], response.data["valid_until"]), ("resident", None))
+        self.client.force_authenticate(self.admin)
+        response = self.client.post("/v1/vehicles/", {"unit": self.alpha_unit.id, "plate_number": "SGX2C", "kind": "season"}, format="json")
+        self.assertIn("valid_until", response.data)  # A season pass needs an end date.
+        response = self.client.post("/v1/vehicles/", {"unit": self.alpha_unit.id, "plate_number": "SGX2C", "kind": "season",
+                                                      "holder_name": "Mr Lee", "valid_until": str(today + timedelta(days=5))}, format="json")
+        self.assertEqual((response.status_code, response.data["status"]), (201, "expiring"))
+        self.assertEqual(self.client.get("/v1/vehicles/", {"status": "expiring"}).data["count"], 1)
+        # The unit's resident is reminded in the app's notifications.
+        self.client.force_authenticate(self.resident)
+        kinds = [n["kind"] for n in self.client.get("/v1/notifications/").data["results"]]
+        self.assertIn("vehicle_expiring", kinds)
+
     def test_integration_secrets_are_write_only(self):
         self.client.force_authenticate(self.admin)
         payload = {

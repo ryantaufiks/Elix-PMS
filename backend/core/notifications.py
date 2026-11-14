@@ -3,8 +3,9 @@
 One event is one notification: a visitor's arrival is the visit, not also the gate opening and the call
 that let them in, so gate entries linked to a call or an invitation are left out.
 """
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
+from django.db.models import DateField, ExpressionWrapper, F
 from django.utils import timezone
 
 from . import models as m
@@ -50,10 +51,29 @@ def _sources(user, since):
         kind, title = BOOKING[b.status]
         return kind, title, f"{b.facility.name} · {timezone.localtime(b.starts_at):%a %d %b, %H:%M}", b.updated_at
 
+    def morning(day):
+        return datetime.combine(day, time(9, 0), tzinfo=timezone.get_current_timezone())
+
+    def expiring(v):
+        return ("vehicle_expiring", f"{v.plate_number}: {v.get_kind_display().lower()} ends {v.valid_until:%a %d %b}",
+                "Ask the management office to renew it, or the barrier will stop opening for this car.", morning(v.remind_on))
+
+    def expired(v):
+        return ("vehicle_expired", f"{v.plate_number}: {v.get_kind_display().lower()} has ended",
+                f"Ended on {v.valid_until:%d %b}. The barrier no longer opens for this car.", morning(v.remind_on))
+
     def replied(f):
         return "feedback_reply", "The management replied to your feedback", f.reply[:140], f.replied_at
 
+    today = timezone.localdate()
+    vehicles = m.Vehicle.objects.filter(unit__in=units, is_active=True, valid_until__isnull=False)
+    reminders = vehicles.annotate(remind_on=ExpressionWrapper(F("valid_until") - timedelta(days=7), output_field=DateField())) \
+        .filter(valid_until__gte=today, remind_on__lte=today)
+    ended = vehicles.annotate(remind_on=ExpressionWrapper(F("valid_until") + timedelta(days=1), output_field=DateField())) \
+        .filter(valid_until__lt=today, valid_until__gte=since.date())
     return [
+        ("vehicle_expiring", reminders, "remind_on", expiring),
+        ("vehicle_expired", ended, "remind_on", expired),
         ("visit_in", visits.filter(created_at__gte=since), "created_at", arrived),
         ("visit_out", visits.filter(checked_out_at__gte=since), "checked_out_at", left),
         ("gate", gates.filter(occurred_at__gte=since), "occurred_at", gate),

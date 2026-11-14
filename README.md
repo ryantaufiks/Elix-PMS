@@ -28,7 +28,7 @@ One platform for the guardhouse, the management office, the lobby kiosk and ever
 - **A resident app**: open the gate, answer visitors, invite guests, book facilities, register
   vehicles, see notifications and the condo's documents.
 - **A dashboard for the site team**: who is on site now, arrivals vs yesterday, overstay alerts per
-  visitor type, live activity, visitor list, bookings and payments, feedback,
+  visitor type, vehicle passes (resident, season parking, temporary) with start and end dates, live activity, visitor list, bookings and payments, feedback,
   reports, and role-based access for site admins, staff and officers.
 - **Accessible**: designed to WCAG 2.1 AA (0 axe-core findings on the dashboard and landing page),
   with a Larger text option for staff and a "more time?" prompt on the kiosk.

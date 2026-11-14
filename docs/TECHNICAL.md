@@ -90,7 +90,7 @@ muted, before any call comes in), including *Call to the guardhouse* from visito
 | | Bookings | all staff (cancel, record refunds: admin, staff) | Facility bookings from the resident app with payment status; upcoming / all, filters |
 | | Reports | all staff (several sites: superusers) | Report Center: consolidated summary, visitor, access, vehicle, intercom and invitation reports with period presets, filters and smart search; *Print / PDF* (A4) and *Excel* / *CSV* export |
 | Community | Residents | all staff (manage: admin, staff) | Add residents with their app login, unit role, intercom on/off, password reset, move out, documents (ownership, tenancy; admin and staff only) |
-| | Vehicles | all staff (edit: admin, staff) | Resident plates used by LPR auto-open |
+| | Vehicles | all staff (edit: admin, staff) | Plates used by LPR auto-open: *Resident*, *Season parking* or *Temporary*, with holder name and valid from / until dates (season and temporary need an end date); tabs for each type, *Ending in 7 days* and *Expired* |
 | | Feedback | all staff (reply: admin, staff) | Residents' 1–5 star ratings by category, average and distribution, reply and status shown in the app |
 | | Staff | admin | Create officer / staff / site-admin accounts, change role, reset password, remove |
 | Site setup | Site settings | admin | One card per section (Condominium, Access policy, Visitor kiosk, PDPA) with a save bar that stays in view and shows unsaved changes; the plan is a one-line strip that opens the full summary |
@@ -108,6 +108,17 @@ Development with hot reload (proxies the API to the dev web service):
 ```bash
 docker compose --profile frontend up -d frontend   # http://127.0.0.1:3000
 ```
+
+### Vehicle passes
+
+A vehicle opens LPR gates only from `valid_from` to `valid_until` (local dates, both days included;
+empty means no bound). Outside its dates the camera read is denied with the reason (*Vehicle pass ended
+on 13 Nov 2026* / *starts on …*) unless an invitation for the plate lets it in. Residents add their own
+cars from the app as *Resident*; the type, holder and dates are set only by site admins and staff (the
+API ignores them from residents). The unit's residents see *ends soon* (7 days before) and *has ended*
+in the app's notifications and on their vehicle list; the dashboard shows managers a bar when passes
+end within 7 days, and counts the visitors on site who came by car (plate typed by the officer or read
+by a camera). Paid season parking (HitPay) builds on these passes later.
 
 ### Overstay alerts
 

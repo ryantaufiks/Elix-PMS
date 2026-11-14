@@ -347,13 +347,29 @@ class ResidentDocumentViewSet(ScopedModelViewSet):
 
 
 class VehicleViewSet(ScopedModelViewSet):
-    queryset = m.Vehicle.objects.all()
+    """Vehicles whose plates open LPR gates. ``?status=expiring`` (ends within 7 days) or ``expired``."""
+
+    queryset = m.Vehicle.objects.select_related("condominium", "unit__block")
     serializer_class = s.VehicleSerializer
     staff_write_roles = MANAGEMENT
     resident_unit_path = "unit"
     resident_writable = True
-    filterset_fields = ["condominium", "unit", "is_active"]
-    search_fields = ["plate_number", "make", "model"]
+    filterset_fields = ["condominium", "unit", "is_active", "kind"]
+    search_fields = ["plate_number", "make", "model", "holder_name"]
+
+    @extend_schema(parameters=[OpenApiParameter("status", enum=["expiring", "expired"])])
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        status_ = self.request.query_params.get("status")
+        today = timezone.localdate()
+        if status_ == "expiring":
+            qs = qs.filter(is_active=True, valid_until__gte=today, valid_until__lte=today + timedelta(days=7))
+        elif status_ == "expired":
+            qs = qs.filter(is_active=True, valid_until__lt=today)
+        return qs
 
 
 # --- Devices (site admins only) ----------------------------------------------
@@ -862,6 +878,10 @@ class DashboardSummaryView(generics.GenericAPIView):
         return {
             "on_site": len(inside),
             "on_site_by_purpose": by_purpose,
+            "cars_on_site": sum(bool(v.vehicle_plate) for v in inside),
+            "vehicle_passes_expiring": m.Vehicle.objects.filter(
+                condominium_id=condo_id, is_active=True, valid_until__gte=timezone.localdate(),
+                valid_until__lte=timezone.localdate() + timedelta(days=7)).count(),
             "overstaying": sum(visits.is_overstaying(v, now) for v in inside),
             "arrived_today": arrived.count(),
             "arrived_yesterday_by_now": visits_qs.filter(created_at__gte=yesterday, created_at__lt=now - timedelta(days=1)).count(),

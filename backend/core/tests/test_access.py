@@ -54,6 +54,21 @@ class LprWebhookTests(TestCase):
         self.assertEqual((log.vehicle, log.unit, log.camera), (vehicle, self.unit, self.camera))
         delay.assert_called_once_with(log.pk)
 
+    def test_vehicle_pass_dates(self, delay):
+        today = timezone.localdate()
+        vehicle = m.Vehicle.objects.create(unit=self.unit, plate_number="SBA1234A", kind="season",
+                                           valid_from=today - timedelta(days=30), valid_until=today - timedelta(days=1))
+        self.assertEqual(self.post(DAHUA_PAYLOAD).json()["reason"], f"Vehicle pass ended on {vehicle.valid_until:%d %b %Y}")
+        m.AccessLog.objects.all().delete()
+        vehicle.valid_from, vehicle.valid_until = today + timedelta(days=2), today + timedelta(days=30)
+        vehicle.save()
+        self.assertEqual(self.post(DAHUA_PAYLOAD).json()["reason"], f"Vehicle pass starts on {vehicle.valid_from:%d %b %Y}")
+        m.AccessLog.objects.all().delete()
+        vehicle.valid_from = today  # The last day still opens.
+        vehicle.valid_until = today
+        vehicle.save()
+        self.assertEqual(self.post(DAHUA_PAYLOAD).json()["status"], "granted")
+
     def test_repeat_reads_are_debounced(self, delay):
         m.Vehicle.objects.create(unit=self.unit, plate_number="SBA1234A")
         self.post(DAHUA_PAYLOAD)

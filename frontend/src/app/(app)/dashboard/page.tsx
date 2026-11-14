@@ -129,7 +129,7 @@ function OnSite({ visits, onCheckOut }: { visits: Visit[]; onCheckOut: (v: Visit
 }
 
 export default function DashboardPage() {
-  const { condo, isAdmin, me } = useSession();
+  const { condo, isAdmin, isManager, me } = useSession();
   const [opening, setOpening] = useState<Gate | null>(null);
   const summary = useSWR<Summary>(`/v1/dashboard/summary/${query({ condominium: condo.id })}`, { refreshInterval: 60_000 });
   const logs = useSWR<Page<AccessLog>>(`/v1/access-logs/${query({ condominium: condo.id, page_size: 7 })}`);
@@ -182,10 +182,18 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {isManager && !!v?.vehicle_passes_expiring && (
+        <Link href="/vehicles/" className="mb-5 flex items-center gap-3 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 hover:bg-amber-500/15 dark:text-amber-200">
+          <Icon name="car" className="h-4 w-4 shrink-0" />
+          <span className="flex-1"><strong>{v.vehicle_passes_expiring} vehicle pass{v.vehicle_passes_expiring === 1 ? "" : "es"}</strong> end within 7 days. Renew them, or the barrier stops opening for those cars.</span>
+          <span className="font-medium underline">Review</span>
+        </Link>
+      )}
+
       {/* Visitors first: what the guardhouse needs. Four compact tiles on a phone (2x2). */}
       <div className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
         <Kpi label="On site now" value={v?.on_site ?? "–"} icon="users" href="/visits/"
-          footer={v && (v.on_site ? onSiteBreakdown : "Nobody inside")} />
+          footer={v && (v.on_site ? [onSiteBreakdown, v.cars_on_site ? `${v.cars_on_site} by car` : ""].filter(Boolean).join(" · ") : "Nobody inside")} />
         <Kpi label="Arrived today" value={v?.arrived_today ?? "–"} icon="arrowUp" href="/visits/"
           footer={v && compareYesterday} />
         <Kpi label="Left today" value={v?.left_today ?? "–"} icon="checkout" href="/visits/"

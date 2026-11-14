@@ -353,6 +353,12 @@ export type Vehicle = {
   colour: string;
   is_active: boolean;
   notes: string;
+  kind: "resident" | "season" | "temporary";
+  kind_display: string;
+  holder_name: string;
+  valid_from: string | null;
+  valid_until: string | null;
+  status: "active" | "expiring" | "expired" | "upcoming" | "inactive";
 };
 
 export type Relay = {
@@ -465,6 +471,8 @@ export type Summary = {
   visitors: {
     on_site: number;
     on_site_by_purpose: Record<string, number>;
+    cars_on_site: number;
+    vehicle_passes_expiring: number;
     overstaying: number;
     arrived_today: number;
     arrived_yesterday_by_now: number;
