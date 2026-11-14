@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 
 import { BarList, DailyChart, Heatmap } from "@/components/charts";
-import { Icon, type IconName } from "@/components/icons";
+import { Tabs } from "@/components/forms";
+import { Icon } from "@/components/icons";
 import { upsellText, useModule, useModuleCatalogue } from "@/components/ModuleGate";
 import { ReportPrint } from "@/components/ReportPrint";
 import {
@@ -77,6 +78,11 @@ function SitePicker({ catalog, value, onChange }: { catalog: ReportCatalog; valu
     </div>
   );
 }
+
+/** Short tab labels; the full title still heads the printout. */
+const TAB_LABEL: Record<string, string> = {
+  summary: "Summary", visits: "Visitors", access: "Access", vehicles: "Vehicles", intercom: "Intercom", invitations: "Invitations",
+};
 
 export default function ReportsPage() {
   const { condo } = useSession();
@@ -192,28 +198,11 @@ export default function ReportsPage() {
         )}
       />
 
-      {/* Report types */}
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {catalog.reports.map((r) => {
-          const active = r.key === report.key;
-          return (
-            <button key={r.key} type="button" onClick={() => choose(r.key)} aria-pressed={active} title={r.description}
-              className={cx("flex h-full items-start gap-3 rounded-xl border p-4 text-left transition-colors",
-                active ? "border-primary-500 bg-primary-500/5 ring-1 ring-primary-500/40" : "border-line bg-surface hover:border-primary-400/50 hover:bg-surface-2")}>
-              <span className={cx("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", active ? "bg-primary-500 text-white" : "bg-surface-3 text-body")}>
-                <Icon name={r.icon as IconName} className="h-[18px] w-[18px]" />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-ink">{r.title}</span>
-                <span className="mt-0.5 line-clamp-2 block text-xs text-muted">{r.description}</span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Filters */}
+      {/* Report types as one row of tabs, then the chosen report's filters. */}
       <Card className="mb-5">
+        <Tabs active={report.key} onChange={choose}
+          tabs={catalog.reports.map((r) => ({ key: r.key, label: TAB_LABEL[r.key] ?? r.title }))} />
+        <p className="px-4 pt-3 text-sm text-muted">{report.description}</p>
         <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label={catalog.can_combine ? "Sites" : "Site"}><SitePicker catalog={catalog} value={sites} onChange={setSites} /></Field>
           <Field label="Period">
