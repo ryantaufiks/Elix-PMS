@@ -57,6 +57,7 @@ SITE_TABLES = [
     ("access_logs", m.AccessLog, "condominium"),
     ("facilities", m.Facility, "condominium"),
     ("bookings", m.Booking, "condominium"),
+    ("parking_permits", m.ParkingPermit, "condominium"),
     ("payment_settings", m.PaymentSettings, "condominium"),
     ("feedback", m.Feedback, "condominium"),
 ]
