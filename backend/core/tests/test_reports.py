@@ -9,7 +9,7 @@ from rest_framework.test import APITestCase
 from core import models as m
 from core import reports, visits
 
-from .factories import make_condo, make_invitation, make_resident, make_staff, make_unit, make_user
+from .factories import make_condo, make_invitation, make_resident, make_staff, make_unit, make_user, set_plan
 
 
 @mock.patch("core.visits.broadcast")
@@ -63,6 +63,12 @@ class ReportTests(APITestCase):
         self.assertEqual((len(insights["heatmap"]), sum(map(sum, insights["heatmap"]))), (7, 2))
         self.assertEqual([(r["key"], r["minutes"], r["visits"]) for r in insights["stay_by_purpose"]], [("contractors", 30, 1)])
         trend = insights["purpose_trend"]
+        # Insights are part of Advanced reports.
+        set_plan(self.condo, "basic")
+        summary = self.get("visits").data["summary"]
+        self.assertNotIn("insights", summary)
+        self.assertTrue(summary["insights_locked"])
+        set_plan(self.condo, "full")
         self.assertEqual([x["key"] for x in trend["series"]], ["guests", "deliveries", "contractors"])
         self.assertEqual(sum(p["guests"] + p["contractors"] for p in trend["points"]), 2)
 

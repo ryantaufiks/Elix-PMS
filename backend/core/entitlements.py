@@ -22,18 +22,22 @@ class Module:
 
 
 MODULES = {m.key: m for m in (
-    Module("core", "Core", "Dashboard, visitor list, access log, staff invitations, open gates, residents, vehicles, "
-           "kiosk walk-in, invitation QR and check-out, cloud relays, basic reports.", keeps_access=True),
+    Module("core", "Core", "Visitor dashboard with overstay alerts, visitor list, access log, staff invitations, open "
+           "gates, residents, vehicle passes with start and end dates, kiosk in four languages (walk-in, invitation "
+           "QR, check-out), cloud relays, on-screen reports.", keeps_access=True),
     Module("resident_app", "Resident app", "Android app: invitations, vehicles, activity, notifications, swipe to "
            "open, documents, feedback."),
-    Module("intercom", "Video intercom", "Visitors video call a unit from the kiosk; residents open the gate from "
-           "the call.", requires=("resident_app",)),
-    Module("facilities", "Facilities & payments", "Facility booking with HitPay payments.", requires=("resident_app",)),
+    Module("intercom", "Video intercom", "Visitors video call a unit, or the guardhouse, from the kiosk; residents and "
+           "guards open the gate from the call.", requires=("resident_app",)),
+    Module("facilities", "Facilities & payments", "Facility booking and season parking paid with HitPay; kiosk "
+           "check-in with the booking QR, today's schedule and no-shows.", requires=("resident_app",)),
     Module("lpr", "LPR", "Licence-plate cameras: residents' and invited vehicles enter automatically.",
            keeps_access=True),
     Module("face_kiosk", "Face check (kiosk)", "Face verification for invitations and face check-out at the kiosk."),
-    Module("ai_concierge", "AI concierge", "Voice assistant on the kiosk."),
-    Module("advanced_reports", "Advanced reports", "Report export to Excel and CSV, and print / PDF."),
+    Module("ai_concierge", "AI concierge", "Voice assistant on the kiosk (Elixa): directions, help registering, and "
+           "calling the guardhouse."),
+    Module("advanced_reports", "Advanced reports", "Insights (busiest times, visits and stay by category), export to "
+           "Excel and CSV, and print / PDF."),
     Module("local_devices", "On-site devices", "Secure link to devices at the site; local Shelly and eWeLink.",
            available=False, keeps_access=True),
     Module("lpr_camera_list", "LPR whitelist on camera", "Plates synced to the cameras: gates work while offline.",

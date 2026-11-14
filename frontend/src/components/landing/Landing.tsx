@@ -26,9 +26,9 @@ const FEATURES: { icon: IconName; title: string; text: string }[] = [
 ];
 
 const PLANS = [
-  { name: "Basic", tagline: "Kiosk and management dashboard", features: ["Lobby kiosk: walk-ins and QR check-in", "Visitor list, access log and gate control", "Staff and guardhouse accounts", "On-screen reports"] },
-  { name: "Standard", tagline: "Adds the residents", highlight: true, features: ["Everything in Basic", "Resident app (Android)", "Video intercom with swipe-to-open", "Facility booking and online payment", "Report export: PDF, Excel and CSV"] },
-  { name: "Premium", tagline: "The full estate experience", features: ["Everything in Standard", "Licence-plate recognition", "Face check at the kiosk", "AI voice concierge"] },
+  { name: "Basic", tagline: "Kiosk and management dashboard", features: ["Lobby kiosk in four languages: walk-ins and QR check-in", "Visitor dashboard with overstay alerts", "Visitor list, access log and gate control", "Vehicle passes with start and end dates", "Staff and guardhouse accounts", "On-screen reports"] },
+  { name: "Standard", tagline: "Adds the residents", highlight: true, features: ["Everything in Basic", "Resident app (Android)", "Video intercom, also to the guardhouse", "Facility booking, kiosk check-in and no-shows", "Season parking paid in the app", "Report insights and export: PDF, Excel and CSV"] },
+  { name: "Premium", tagline: "The full estate experience", features: ["Everything in Standard", "Licence-plate recognition", "Face check at the kiosk", "AI voice concierge that can call the guardhouse"] },
 ];
 
 const PDPA = [

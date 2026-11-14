@@ -49,7 +49,7 @@ function PlanStrip({ condoId }: { condoId: number }) {
 export default function SiteSettingsPage() {
   const { condo, isAdmin, me, reload } = useSession();
   const toast = useToast();
-  const fields = condoFields({ superuser: me.is_superuser, creating: false });
+  const fields = condoFields({ superuser: me.is_superuser, creating: false, modules: condo.modules });
   const sections = useMemo(() => groups(fields), [me.is_superuser]); // eslint-disable-line react-hooks/exhaustive-deps
   const [values, setValues] = useState(() => initialValues(fields, condo));
   const [error, setError] = useState<unknown>(null);

@@ -571,6 +571,13 @@ dashboard keeps locked menus visible with a padlock and shows what the feature d
 includes it (`GET /v1/modules/`); site admins see their plan, modules and usage under *Site settings →
 Your plan* (`GET /v1/subscriptions/<site>/`, without internal notes).
 
+What each module covers today: **core**: visitor dashboard and overstay alerts, vehicle passes with dates,
+the kiosk in four languages, on-screen reports; **intercom**: calls to a unit and to the guardhouse;
+**facilities**: bookings, season parking (Site settings shows it only with this module; `core.parking`
+refuses without it), kiosk Facilities check-in and no-shows; **ai_concierge**: Elixa, which can also ring the
+guardhouse when intercom is on; **advanced_reports**: report insights (without it the Visitor report answers
+`insights_locked` and the page offers the module), export and print / PDF.
+
 **Lifecycle** (`core/subscriptions.py`, daily at 08:05 SGT, `core.tasks.subscription_lifecycle`): a trial
 that ends goes to *active* if a paid-until date is still ahead, otherwise to *grace* for 14 days; an
 active site whose paid-until date has passed goes to *grace*; when the grace end date passes the site is

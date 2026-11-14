@@ -319,6 +319,15 @@ export default function ReportsPage() {
             </div>
           </div>
 
+          {data.summary.insights_locked && (
+            <Card className="flex flex-wrap items-center gap-3 p-5">
+              <Icon name="lock" className="h-5 w-5 text-muted" />
+              <div className="min-w-0 flex-1 text-sm">
+                <div className="font-medium text-ink">Busiest times, visits per day by category and average stay</div>
+                <div className="text-muted">Part of Advanced reports · {upsellText(advancedInfo)}</div>
+              </div>
+            </Card>
+          )}
           {data.summary.insights && (
             <>
               <Card>

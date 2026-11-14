@@ -11,7 +11,7 @@ from rest_framework.test import APITestCase
 from core import bookings
 from core import models as m
 
-from .factories import make_condo, make_resident, make_staff, make_unit
+from .factories import make_condo, make_resident, make_staff, make_unit, set_plan
 
 SG = ZoneInfo("Asia/Singapore")
 
@@ -339,6 +339,11 @@ class SeasonParkingTests(APITestCase):
         self.condo.season_parking_enabled = False
         self.condo.save()
         self.assertFalse(self.client.get("/v1/parking-permits/offer/", {"condominium": self.condo.pk}).data["enabled"])
+
+    def test_needs_the_facilities_module(self, post, _):
+        set_plan(self.condo, "standard", disabled_modules=["facilities"])
+        self.assertFalse(self.client.get("/v1/parking-permits/offer/", {"condominium": self.condo.pk}).data["enabled"])
+        self.assertIn("not sold online", self.buy().data["detail"])
 
     def test_return_page_and_webhook(self, post, _):
         permit = self.buy().data["permit"]

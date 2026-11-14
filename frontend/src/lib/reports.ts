@@ -38,6 +38,8 @@ export type ReportData = {
     kpis: Kpi[];
     breakdowns: Breakdown[];
     trend: { series: { key: string; label: string }[]; points: TrendPoint[] };
+    /** Visitor report only, without Advanced reports. */
+    insights_locked?: boolean;
     /** Visitor report only. */
     insights?: {
       /** Arrivals: 7 rows (Monday first) of 24 local hours. */

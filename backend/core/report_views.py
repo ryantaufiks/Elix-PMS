@@ -103,6 +103,9 @@ class ReportView(APIView):
             "filters": reports.described_filters(report, params),
         }
         count = len(rows) if isinstance(rows, list) else rows.count()
+        if "insights" in summary and not all(entitlements.has(site, "advanced_reports") for site in sites):
+            summary.pop("insights")  # Insights are Advanced reports; the page offers them instead.
+            summary["insights_locked"] = True
 
         export = params.get("export")
         if export in CONTENT_TYPES or params.get("page_size") == "print":

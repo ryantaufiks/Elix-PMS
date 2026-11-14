@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from django.db import transaction
 from django.utils import timezone
 
-from . import payments
+from . import entitlements, payments
 from .models import Condominium, ParkingPermit, PaymentSettings, Vehicle
 from .realtime import broadcast
 from .validators import normalize_plate
@@ -50,7 +50,8 @@ def lots_left(condo, plate=""):
 def offer(condo):
     settings = PaymentSettings.objects.filter(condominium=condo).first()
     return {
-        "enabled": condo.season_parking_enabled and condo.season_parking_fee > 0 and bool(settings and settings.ready),
+        "enabled": (entitlements.has(condo, "facilities") and condo.season_parking_enabled and condo.season_parking_fee > 0
+                    and bool(settings and settings.ready)),
         "monthly_fee": condo.season_parking_fee,
         "currency": settings.currency if settings else "SGD",
         "months": list(MONTHS),
@@ -72,7 +73,7 @@ def buy(unit, user, plate, months, holder_name=""):
     """Start a purchase for ``plate`` (call ``start_payment`` next)."""
     condo = Condominium.objects.select_for_update().get(pk=unit.condominium_id)  # Serialises the lot count.
     plate = normalize_plate(plate)
-    if not condo.season_parking_enabled or condo.season_parking_fee <= 0:
+    if not entitlements.has(condo, "facilities") or not condo.season_parking_enabled or condo.season_parking_fee <= 0:
         raise ParkingError("Season parking is not sold online at this condominium. Please contact the management office.")
     settings = PaymentSettings.objects.filter(condominium=condo).first()
     if settings is None or not settings.ready:
