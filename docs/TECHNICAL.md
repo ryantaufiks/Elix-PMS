@@ -223,7 +223,8 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
   restart daily per site, one series per purpose: **V**001 visitor, **D** parcel, **F** food, **C**
   contractor, **P** pick-up, **O** other. The gate does **not** open: the visitor shows the slip to
   security, and checks out under *Check out* when leaving (or a guard checks them out on the Visitor
-  list). Passes are valid until the end of the day.
+  list). A visitor counts as on site until they check out, overnight too (the dashboard shows the date
+  of arrival and they overstay as usual); a pass nobody closed lapses 24 hours after arrival (`PASS_HOURS`).
 - **Check out** (per site, Site settings → *Offer self check-out at the kiosk*, on by default): the
   kiosk's fourth button. The visitor scans the QR on their slip or screenshot, or types the PIN on the
   keypad. Every visit gets a PIN unique among the visitors on site; a PIN only works while the visitor

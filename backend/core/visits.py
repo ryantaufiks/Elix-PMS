@@ -36,6 +36,9 @@ def local_day(condo, at=None):
     return day, datetime.combine(day + timedelta(days=1), time.min, tzinfo=tz) - timedelta(seconds=1)
 
 
+# A visitor counts as on site until they check out, overnight too; a pass nobody closed lapses after this.
+PASS_HOURS = 24
+
 DELIVERY_PURPOSES = (VisitPurpose.DELIVERY, VisitPurpose.FOOD, VisitPurpose.PICKUP)
 
 
@@ -115,13 +118,14 @@ def new_pin(condominium_id):
 def create(condominium_id, *, unit, purpose, name, source, snapshot=None, **fields):
     """Record a visitor arriving, with the next pass number of the day for their purpose."""
     condo = Condominium.objects.select_for_update().get(pk=condominium_id)  # Serialises numbering.
-    day, end = local_day(condo)
+    day, _ = local_day(condo)
     purpose = purpose if purpose in Visit.PREFIXES else VisitPurpose.GUEST
     prefix = Visit.PREFIXES[purpose]
     last = (Visit.objects.filter(condominium=condo, issued_on=day, pass_number__startswith=prefix)
             .aggregate(n=Max("sequence"))["n"] or 0)
     visit = Visit(condominium=condo, unit=unit, purpose=purpose, visitor_name=name or "Visitor", source=source,
-                  issued_on=day, sequence=last + 1, pass_number=f"{prefix}{last + 1:03d}", valid_until=end,
+                  issued_on=day, sequence=last + 1, pass_number=f"{prefix}{last + 1:03d}",
+                  valid_until=timezone.now() + timedelta(hours=PASS_HOURS),
                   pin=new_pin(condo.pk), **fields)
     if snapshot is not None:
         visit.visitor_snapshot.save(f"visit-{condo.pk}.jpg", snapshot, save=False)

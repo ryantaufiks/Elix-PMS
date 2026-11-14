@@ -148,6 +148,7 @@ Pastikan perangkat lokal Anda telah terinstal:
 ### 5d. Dashboard tamu & overstay
 * **Dashboard** (semua role) dimulai dari data tamu: *On site now* (jumlah tamu di dalam, per jenis: guests / deliveries / contractors), *Arrived today* (dibanding kemarin pada jam yang sama), *Left today*, dan *Overstaying* (merah bila ada).
 * Daftar **Visitors on site**: nomor pass, nama → unit, tujuan, jam masuk, lama di dalam (berjalan), badge **Overstay** merah, tombol *Check out*. Yang overstay di paling atas. Di bawahnya grafik tamu masuk vs keluar per jam, *Live activity*, dan tombol *Open* gerbang.
+* Tamu tetap dihitung *on site* sampai check out, termasuk lewat tengah malam (jam masuk ditampilkan dengan tanggal, dan tetap kena overstay). Pass yang tidak pernah ditutup gugur otomatis 24 jam setelah tamu masuk.
 * Site admin juga melihat bagian **Gates & devices** (keputusan gerbang, perangkat online, metode masuk); Officer tidak.
 * **Batas overstay** di *Site settings → Overstay alerts*: delivery 30 menit, tamu 4 jam (240 menit), kontraktor jam 18:00; isi 0 / kosong untuk mematikan. Saat terlewati, dashboard menampilkan *toast* merah dan notifikasi di lonceng (sekali per tamu), dan di *Visitor list* muncul badge *Overstay*. Jam 22:00 ada ringkasan "X visitors still on site" untuk shift malam.
 

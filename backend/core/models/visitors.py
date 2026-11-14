@@ -217,7 +217,7 @@ class Visit(TimeStampedModel):
     issued_on = models.DateField(help_text="Local date at the condominium; the pass number series restarts daily.")
     sequence = models.PositiveIntegerField()
     pass_number = models.CharField(max_length=12)
-    valid_until = models.DateTimeField(help_text="End of the day it was issued.")
+    valid_until = models.DateTimeField(help_text="24 hours after arrival: on site until checked out, overnight too.")
     token = models.CharField(max_length=64, unique=True, default=generate_invitation_token, editable=False)
     pin = models.CharField(
         max_length=4, blank=True, editable=False,

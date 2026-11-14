@@ -115,14 +115,16 @@ class WalkInTests(APITestCase):
         client.force_authenticate(outsider)
         self.assertEqual(client.get("/v1/visits/").data["count"], 0)
 
-    def test_pass_expires_at_end_of_local_day(self, _):
+    def test_pass_stays_on_site_overnight_for_a_day(self, _):
         self.register()
         walk_in = m.Visit.objects.get()
-        day, end = visits.local_day(self.condo)
+        day, midnight = visits.local_day(self.condo)
         self.assertEqual(walk_in.issued_on, day)
-        self.assertEqual(walk_in.valid_until, end)
-        self.assertEqual(walk_in.state, "on_site")
-        with mock.patch("core.models.visitors.timezone.now", return_value=end + timedelta(seconds=2)):
+        end = walk_in.created_at + timedelta(hours=visits.PASS_HOURS)
+        self.assertAlmostEqual(walk_in.valid_until, end, delta=timedelta(seconds=5))
+        with mock.patch("core.models.visitors.timezone.now", return_value=midnight + timedelta(minutes=1)):
+            self.assertEqual(walk_in.state, "on_site")  # Past midnight: still inside until checked out.
+        with mock.patch("core.models.visitors.timezone.now", return_value=walk_in.valid_until + timedelta(seconds=2)):
             self.assertEqual(walk_in.state, "expired")
 
     def test_pdpa_purge_and_erasure(self, _):

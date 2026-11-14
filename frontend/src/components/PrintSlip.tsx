@@ -6,9 +6,6 @@ import { createPortal } from "react-dom";
 
 import type { WalkInSlip } from "@/lib/kiosk";
 
-const clock = (iso: string) =>
-  new Intl.DateTimeFormat("en-SG", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Singapore" }).format(new Date(iso));
-
 const fullDate = (iso: string) =>
   new Intl.DateTimeFormat("en-SG", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Singapore" }).format(new Date(iso));
 
@@ -42,7 +39,7 @@ export function PrintSlip({ slip, onReady }: { slip: WalkInSlip; onReady: () => 
       {slip.vehicle_plate && <div style={row}><span>Vehicle</span><b style={{ textAlign: "right" }}>{slip.vehicle_plate}</b></div>}
       <div style={row}><span>Visiting</span><b style={{ textAlign: "right" }}>{slip.unit_display}</b></div>
       <div style={row}><span>Time in</span><b style={{ textAlign: "right" }}>{fullDate(slip.created_at)}</b></div>
-      <div style={row}><span>Valid until</span><b style={{ textAlign: "right" }}>Today {clock(slip.valid_until)}</b></div>
+      <div style={row}><span>Valid until</span><b style={{ textAlign: "right" }}>{fullDate(slip.valid_until)}</b></div>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={slip.qr} alt="" onLoad={onReady} style={{ display: "block", width: "34mm", height: "34mm", margin: "3mm auto 0" }} />
       {slip.pin && (
