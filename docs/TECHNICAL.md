@@ -64,7 +64,7 @@ shows an empty state until the first gate decision of the day, and a gate's *Ope
 no relay is wired to it.
 The top bar carries a quiet breadcrumb ("Operations › Invitations"), the page heading is the only title.
 Empty lists use `Empty` with an icon, a title, a one-line hint and, where the viewer may add the first
-record, the matching button. Report types on Reports are a 3-column grid of equal cards.
+record, the matching button. Report types on Reports are one row of tabs above the filters.
 Selects are drawn like the inputs beside them (own chevron, no browser chrome); the sidebar shows a fade with a
 chevron while more menu lies below the fold (short tablet screens); a long site name wraps to two lines in
 the picker; on Gates & devices the "N need attention" count opens the kind of device concerned; the login page
