@@ -197,7 +197,7 @@ Pastikan perangkat lokal Anda telah terinstal:
 
 ### 9. Report Center
 * Menu **Operations → Reports** untuk semua staff (Site admin, Staff dan Officer). Officer hanya melihat site/kondo masing-masing; super admin bisa memilih beberapa site atau *All sites* untuk laporan gabungan (konsolidasi).
-* Jenis laporan dipilih lewat satu baris tab di atas filter (*Summary · Visitors · Access · Vehicles · Intercom · Invitations*), dengan keterangan singkat laporan yang aktif di bawahnya.
+* Jenis laporan dipilih lewat satu baris tab di atas filter (*Summary · Visitors · Access · Vehicles · Intercom · Invitations*), dengan keterangan singkat laporan yang aktif di bawahnya. Di bawahnya hanya *Period*, *Smart search* dan tombol **Filters**; panel filter (Sites, tanggal From/To, filter per laporan, bantuan *Search by*) tertutup secara default dan diingat per browser. Filter yang aktif tetap tampil sebagai chip yang bisa dihapus dengan satu klik, dan angka di tombol Filters menunjukkan jumlahnya.
 * Jenis laporan: *Consolidated summary* (per site per hari), *Visitor*, *Access*, *Vehicle* (LPR), *Intercom*, *Invitation*. Masing-masing punya angka kunci, grafik tren harian, breakdown, dan tabel detail.
 * **Visitor report** juga menampilkan analisis untuk management: *Busiest times* (heatmap kedatangan per hari dan jam, untuk mengatur jumlah petugas per shift), *Visits per day by category* (tamu / delivery / kontraktor per hari) dan *Average stay by category* (rata-rata lama kunjungan).
 * Filter periode (Today, Yesterday, 7/30 hari, bulan ini/lalu, tahun ini, custom maks. 366 hari), filter per laporan, dan **smart search**: kata bebas mencari di semua kolom teks, token `key:value` untuk satu kolom, contoh `unit:05-12 plate:SGX1234 status:denied "Ace Aircon"`.

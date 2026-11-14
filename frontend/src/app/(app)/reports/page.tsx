@@ -12,6 +12,7 @@ import {
   Badge, Button, Card, CardHeader, cx, Empty, ErrorNote, Field, Input, Loading, PageHeader, Pagination, Select, Table, Td, Th, useToast,
 } from "@/components/ui";
 import { api, ApiError, query } from "@/lib/api";
+import { formatDate } from "@/lib/format";
 import {
   badgeTone, dayLabel, formatCell, formatKpi, parseSearch, type Preset, PRESETS, presetRange, type ReportCatalog, type ReportData,
 } from "@/lib/reports";
@@ -19,6 +20,7 @@ import { useSession } from "@/lib/session";
 
 const PAGE_SIZE = 50;
 const REPORT_KEY = "elix.report";
+const FILTERS_KEY = "elix.reportFilters";  // "open" keeps the filter panel open in this browser.
 
 function useDebounced<T>(value: T, ms = 400) {
   const [debounced, setDebounced] = useState(value);
@@ -99,6 +101,7 @@ export default function ReportsPage() {
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState<"" | "print" | "csv" | "xlsx">("");
   const [printData, setPrintData] = useState<ReportData | null>(null);
+  const [panel, setPanel] = useState(false);
   const searchBox = useRef<HTMLInputElement>(null);
   const q = useDebounced(search);
 
@@ -106,8 +109,13 @@ export default function ReportsPage() {
     try {
       const saved = localStorage.getItem(REPORT_KEY);
       if (saved) setReportKey(saved);
+      setPanel(localStorage.getItem(FILTERS_KEY) === "open");
     } catch {}
   }, []);
+  const togglePanel = (open = !panel) => {
+    setPanel(open);
+    try { localStorage.setItem(FILTERS_KEY, open ? "open" : "closed"); } catch {}
+  };
   useEffect(() => setSites([condo.id]), [condo.id]);
 
   const report = catalog?.reports.find((r) => r.key === reportKey) ?? catalog?.reports[0];
@@ -132,6 +140,7 @@ export default function ReportsPage() {
     setPreset(p);
     const r = presetRange(p);
     if (r) setRange(r);
+    else togglePanel(true);  // Custom range: show the From / To dates.
   }
 
   async function download(kind: "csv" | "xlsx") {
@@ -175,6 +184,18 @@ export default function ReportsPage() {
     setTimeout(() => searchBox.current?.focus(), 0);
   };
 
+  // What narrows the report beyond the period and search, shown as removable chips while the panel is closed.
+  const active = [
+    ...(sites === "all" || sites.length !== 1 || sites[0] !== condo.id
+      ? [{ key: "sites", text: `Sites: ${sites === "all" ? "All sites" : sites.length === 1 ? catalog?.sites.find((x) => x.id === sites[0])?.name ?? "1 site" : `${sites.length} sites`}`,
+           clear: () => setSites([condo.id]) }] : []),
+    ...(preset === "custom" ? [{ key: "range", text: `${formatDate(range.from)} – ${formatDate(range.to)}`, clear: () => pickPreset("7d") }] : []),
+    ...(report?.filters ?? []).filter((f) => filters[f.name]).map((f) => ({
+      key: f.name, text: `${f.label}: ${f.options.find((o) => o.value === filters[f.name])?.label ?? filters[f.name]}`,
+      clear: () => setFilters((v) => ({ ...v, [f.name]: "" })),
+    })),
+  ];
+
   if (catalogError) return <><PageHeader title="Reports" /><ErrorNote error={catalogError} /></>;
   if (!catalog || !report) return <Loading />;
 
@@ -203,35 +224,32 @@ export default function ReportsPage() {
         <Tabs active={report.key} onChange={choose}
           tabs={catalog.reports.map((r) => ({ key: r.key, label: TAB_LABEL[r.key] ?? r.title }))} />
         <p className="px-4 pt-3 text-sm text-muted">{report.description}</p>
-        <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label={catalog.can_combine ? "Sites" : "Site"}><SitePicker catalog={catalog} value={sites} onChange={setSites} /></Field>
-          <Field label="Period">
-            <Select value={preset} onChange={(e) => pickPreset(e.target.value as Preset)}>
-              {PRESETS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-            </Select>
-          </Field>
-          <Field label="From">
-            <Input type="date" value={range.from} max={range.to} onChange={(e) => { setPreset("custom"); setRange((r) => ({ ...r, from: e.target.value })); }} />
-          </Field>
-          <Field label="To">
-            <Input type="date" value={range.to} min={range.from} onChange={(e) => { setPreset("custom"); setRange((r) => ({ ...r, to: e.target.value })); }} />
-          </Field>
-          {report.filters.map((f) => (
-            <Field key={f.name} label={f.label}>
-              <Select value={filters[f.name] ?? ""} onChange={(e) => setFilters((v) => ({ ...v, [f.name]: e.target.value }))}>
-                <option value="">All</option>
-                {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </Select>
-            </Field>
-          ))}
-        </div>
-        <div className="border-t border-line p-4">
-          <div className="relative">
+        {/* Always visible: period, smart search and the Filters button. */}
+        <div className="flex flex-wrap items-center gap-2 p-4">
+          <Select value={preset} onChange={(e) => pickPreset(e.target.value as Preset)} aria-label="Period" className="w-full sm:w-44">
+            {PRESETS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+          </Select>
+          <div className="relative min-w-0 flex-1 basis-56">
             <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
             <Input ref={searchBox} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9"
               placeholder={`Smart search: any words, or ${report.tokens.slice(0, 3).map((t) => `${t.key}:…`).join(" ")}`} aria-label="Smart search" />
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
+          <Button onClick={() => togglePanel()} aria-expanded={panel} aria-controls="report-filters">
+            <Icon name="sliders" className="h-4 w-4" /> Filters
+            {active.length > 0 && <span className="rounded-full bg-primary-500/15 px-1.5 text-xs font-semibold text-primary-700 dark:text-primary-300">{active.length}</span>}
+            <Icon name="chevron" className={cx("h-4 w-4 transition-transform", panel ? "-rotate-90" : "rotate-90")} />
+          </Button>
+        </div>
+
+        {/* Active filters and search tokens, removable with one click. */}
+        {(active.length > 0 || parsed.tokens.length > 0 || parsed.words.length > 0) && (
+          <div className="-mt-1 flex flex-wrap items-center gap-1.5 px-4 pb-4 text-xs">
+            {active.map((c) => (
+              <button key={c.key} type="button" onClick={c.clear} title="Remove"
+                className="inline-flex items-center gap-1 rounded-full bg-surface-3 px-2.5 py-1 font-medium text-body ring-1 ring-inset ring-line hover:text-ink">
+                {c.text} <Icon name="x" className="h-3 w-3" />
+              </button>
+            ))}
             {parsed.tokens.map((t) => (
               <button key={t.raw} type="button" onClick={() => removeToken(t.raw)} title="Remove"
                 className={cx("inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-medium ring-1 ring-inset",
@@ -240,14 +258,37 @@ export default function ReportsPage() {
               </button>
             ))}
             {parsed.words.map((w, i) => <span key={`${w}-${i}`} className="rounded-full bg-surface-3 px-2.5 py-1 text-body">“{w}”</span>)}
-            {(parsed.tokens.length > 0 || parsed.words.length > 0) && <span className="mx-1 h-4 w-px bg-line" />}
-            <span className="text-muted">Search by:</span>
-            {report.tokens.map((t) => (
-              <button key={t.key} type="button" onClick={() => addToken(t.key)} title={t.help}
-                className="rounded-full border border-line px-2.5 py-1 font-mono text-body hover:border-primary-400 hover:text-ink">{t.key}:</button>
-            ))}
           </div>
-        </div>
+        )}
+
+        {panel && (
+          <div id="report-filters" className="border-t border-line p-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Field label={catalog.can_combine ? "Sites" : "Site"}><SitePicker catalog={catalog} value={sites} onChange={setSites} /></Field>
+              <Field label="From">
+                <Input type="date" value={range.from} max={range.to} onChange={(e) => { setPreset("custom"); setRange((r) => ({ ...r, from: e.target.value })); }} />
+              </Field>
+              <Field label="To">
+                <Input type="date" value={range.to} min={range.from} onChange={(e) => { setPreset("custom"); setRange((r) => ({ ...r, to: e.target.value })); }} />
+              </Field>
+              {report.filters.map((f) => (
+                <Field key={f.name} label={f.label}>
+                  <Select value={filters[f.name] ?? ""} onChange={(e) => setFilters((v) => ({ ...v, [f.name]: e.target.value }))}>
+                    <option value="">All</option>
+                    {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </Select>
+                </Field>
+              ))}
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="text-muted">Search by:</span>
+              {report.tokens.map((t) => (
+                <button key={t.key} type="button" onClick={() => addToken(t.key)} title={t.help}
+                  className="rounded-full border border-line px-2.5 py-1 font-mono text-body hover:border-primary-400 hover:text-ink">{t.key}:</button>
+              ))}
+            </div>
+          </div>
+        )}
       </Card>
 
       {error && <div className="mb-5"><ErrorNote error={error} /></div>}
