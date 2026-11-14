@@ -342,6 +342,17 @@ function Setup({ onReady }: { onReady: (kiosk: KioskSelf, token: string) => void
   );
 }
 
+/** One way in on the welcome screen: icon, name and a line on what it does. */
+function JourneyCard({ onClick, icon, title, detail }: { onClick: () => void; icon: React.ReactNode; title: string; detail: string }) {
+  return (
+    <button onClick={onClick} className="group flex flex-col items-start justify-start rounded-3xl border border-white/10 bg-white/5 p-6 text-left transition hover:border-primary-400/60 hover:bg-white/10">
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">{icon}</div>
+      <div className="text-xl font-semibold leading-tight">{title}</div>
+      <div className="mt-2 text-base text-slate-300">{detail}</div>
+    </button>
+  );
+}
+
 function Home({ kiosk, assistant, onAssistant, onCall, onWalkIn, onScan, onCheckOut, onFacilities, onAdmin }: {
   kiosk: KioskSelf; assistant: KioskAssistant | null; onAssistant: () => void;
   onCall: () => void; onWalkIn: () => void; onScan: () => void; onCheckOut: () => void; onFacilities: () => void; onAdmin: () => void;
@@ -349,7 +360,8 @@ function Home({ kiosk, assistant, onAssistant, onCall, onWalkIn, onScan, onCheck
   const t = useT();
   const taps = useRef<number[]>([]);
   const buttons = 1 + Number(kiosk.call_resident) + Number(kiosk.walk_in) + Number(kiosk.checkout) + Number(kiosk.facilities);
-  const grid = buttons >= 5 ? "max-w-6xl sm:grid-cols-2 lg:grid-cols-3" : buttons === 4 ? "max-w-6xl sm:grid-cols-2 xl:grid-cols-4"
+  // Landscape tablets show every journey in one row; portrait ones two per row.
+  const grid = buttons >= 5 ? "max-w-7xl sm:grid-cols-2 landscape:md:grid-cols-5" : buttons === 4 ? "max-w-6xl sm:grid-cols-2 landscape:md:grid-cols-4"
     : buttons === 3 ? "max-w-5xl sm:grid-cols-3" : "max-w-3xl sm:grid-cols-2";
   return (
     <Frame kiosk={kiosk} welcome>
@@ -361,49 +373,25 @@ function Home({ kiosk, assistant, onAssistant, onCall, onWalkIn, onScan, onCheck
       <p className="mt-10 text-center text-2xl text-white">
         {kiosk.gate_name ? t("How would you like to enter through {gate}?", { gate: kiosk.gate_name }) : t("How would you like to enter?")}
       </p>
-      <div className={`mt-12 grid w-full gap-6 ${grid}`}>
+      <div className={`mt-10 grid w-full gap-4 ${grid}`}>
         {kiosk.call_resident && (
-          <button onClick={onCall} className="group flex flex-col items-start justify-start rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
-              <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" /></svg>
-            </div>
-            <div className="text-2xl font-semibold">{t("Call a resident")}</div>
-            <div className="mt-2 text-lg text-slate-300">{t("Video call the unit you are visiting.")}</div>
-          </button>
+          <JourneyCard onClick={onCall} title={t("Call a resident")} detail={t("Video call the unit you are visiting.")}
+            icon={<svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" /></svg>} />
         )}
         {kiosk.walk_in && (
-          <button onClick={onWalkIn} className="group flex flex-col items-start justify-start rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
-              <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M9 3h6v3H9zM7 4.5H5v16.5h14V4.5h-2M8.5 11h7M8.5 15h4.5" /></svg>
-            </div>
-            <div className="text-2xl font-semibold">{t("Walk in")}</div>
-            <div className="mt-2 text-lg text-slate-300">{t("Register your visit and get a pass slip for security.")}</div>
-          </button>
+          <JourneyCard onClick={onWalkIn} title={t("Walk in")} detail={t("Register your visit and get a pass slip for security.")}
+            icon={<svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M9 3h6v3H9zM7 4.5H5v16.5h14V4.5h-2M8.5 11h7M8.5 15h4.5" /></svg>} />
         )}
-        <button onClick={onScan} className="group flex flex-col items-start justify-start rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
-          <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
-            <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" /></svg>
-          </div>
-          <div className="text-2xl font-semibold">{t("Scan QR code")}</div>
-          <div className="mt-2 text-lg text-slate-300">{t(kiosk.walk_in && !kiosk.checkout ? "Show your invitation QR, or scan your walk-in slip when you leave." : "Show the QR code from your invitation.")}</div>
-        </button>
+        <JourneyCard onClick={onScan} title={t("Scan QR code")}
+          detail={t(kiosk.walk_in && !kiosk.checkout ? "Show your invitation QR, or scan your walk-in slip when you leave." : "Show the QR code from your invitation.")}
+          icon={<svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" /></svg>} />
         {kiosk.checkout && (
-          <button onClick={onCheckOut} className="group flex flex-col items-start justify-start rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
-              <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 8l-4 4 4 4M6 12h10" /></svg>
-            </div>
-            <div className="text-2xl font-semibold">{t("Check out")}</div>
-            <div className="mt-2 text-lg text-slate-300">{t("Leaving? Scan your pass QR or enter its PIN.")}</div>
-          </button>
+          <JourneyCard onClick={onCheckOut} title={t("Check out")} detail={t("Leaving? Scan your pass QR or enter its PIN.")}
+            icon={<svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 8l-4 4 4 4M6 12h10" /></svg>} />
         )}
         {kiosk.facilities && (
-          <button onClick={onFacilities} className="group flex flex-col items-start justify-start rounded-3xl border border-white/10 bg-white/5 p-8 text-left transition hover:border-primary-400/60 hover:bg-white/10">
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
-              <Icon name="calendar" className="h-8 w-8" />
-            </div>
-            <div className="text-2xl font-semibold">{t("Facilities")}</div>
-            <div className="mt-2 text-lg text-slate-300">{t("Today's schedule, and check in to your booking.")}</div>
-          </button>
+          <JourneyCard onClick={onFacilities} title={t("Facilities")} detail={t("Today's schedule, and check in to your booking.")}
+            icon={<Icon name="calendar" className="h-7 w-7" />} />
         )}
       </div>
       {assistant?.enabled && (
@@ -415,7 +403,7 @@ function Home({ kiosk, assistant, onAssistant, onCall, onWalkIn, onScan, onCheck
       )}
       <button
         aria-label="Kiosk settings"
-        className="mt-10 h-10 w-24 opacity-0"
+        className="mt-6 h-8 w-24 opacity-0"
         onClick={() => {
           const now = Date.now();
           taps.current = [...taps.current.filter((t) => now - t < 3000), now];

@@ -209,8 +209,9 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
 - **Layout:** header with the logo (left) and the language button (right). The welcome screen leads with
   *Welcome to* and the site name, then the date, time and temperature, then *How would you like to enter?*;
   other screens show the site name, date and weather small in the header centre. The welcome screen shows the journeys (Call a resident, Walk in, Scan QR code, Check out),
-  and a one-line *Ask {assistant name}* button (default name *Elixa AI Assistant*). The cards' icons line up
-  at the top whatever the length of their text.
+  and a one-line *Ask {assistant name}* button (default name *Elixa AI Assistant*). The journey cards are
+  compact and sit in one row on a landscape tablet (up to five), two per row in portrait; their icons line
+  up at the top whatever the length of their text.
 - **Languages:** the globe button (EN / 中文 / BM / தமிழ்) in every screen's header opens English, 中文,
   Melayu and தமிழ். The choice applies to every
   kiosk screen (strings in `frontend/src/app/kiosk/i18n.tsx`, keyed by their English text, so anything
