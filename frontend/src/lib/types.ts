@@ -528,6 +528,9 @@ export type Facility = {
   max_upcoming_per_unit: number;
   cancel_hours: number;
   rules: string;
+  /** Minutes after the start without a kiosk check-in before a booking is a no-show (0 = off). */
+  no_show_minutes: number;
+  release_no_shows: boolean;
   /** Door opened when the resident checks in at the kiosk. */
   gate: number | null;
   is_active: boolean;
@@ -560,6 +563,7 @@ export type Booking = {
   cancel_reason: string;
   created_at: string;
   checked_in_at: string | null;
+  no_show_at: string | null;
 };
 
 export type PaymentSettings = {

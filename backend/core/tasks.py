@@ -115,6 +115,14 @@ def purge_visitor_data() -> dict:
 
 
 @shared_task
+def mark_no_shows() -> int:
+    """Flag (and, where the facility says so, release) bookings nobody checked in to in time."""
+    from . import bookings
+
+    return bookings.mark_no_shows()
+
+
+@shared_task
 def notify_overstays() -> int:
     """Tell the guardhouse about visitors past their site's overstay limit (once per visit)."""
     from . import visits

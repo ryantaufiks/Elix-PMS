@@ -253,7 +253,11 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
   booking* scans the booking's QR from the app (`ELIX-BOOKING:<token>`, also accepted at *Scan QR code*;
   `/v1/kiosk/facilities/checkin/`): a confirmed booking checks in from 15 minutes before its start until it
   ends (`Booking.checked_in_at`, shown on Bookings), and the facility's door opens when one is set
-  (Facilities → *Door to open at check-in*), logged as a *Facility booking* access. Booking for
+  (Facilities → *Door to open at check-in*), logged as a *Facility booking* access. **No-show** (per
+  facility, off by default: *No-show after (minutes)*): every 5 minutes `mark_no_shows` flags confirmed
+  bookings nobody checked in to that long after the start (`Booking.no_show_at`; the resident gets a
+  *Missed booking* notification); with *Release no-shows* the booking is cancelled so the rest of the slot
+  can be booked (no automatic refund). A late check-in clears the flag. Bookings → status *No-show* lists them. Booking for
   non-residents is left out on purpose: most condo by-laws keep facilities for residents and their guests.
 - **Check out** (per site, Site settings → *Offer self check-out at the kiosk*, on by default): the
   kiosk's fourth button. The visitor scans the QR on their slip or screenshot, or types the PIN on the

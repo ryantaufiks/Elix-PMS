@@ -43,6 +43,7 @@ const _looks = <String, (IconData, Color)>{
   'booking_confirmed': (Icons.event_available_rounded, Color(0xFF2F6FFF)),
   'booking_cancelled': (Icons.event_busy_rounded, Color(0xFF64748B)),
   'booking_expired': (Icons.timer_off_rounded, Color(0xFFD97706)),
+  'booking_no_show': (Icons.event_busy_rounded, Color(0xFFDC2626)),
   'feedback_reply': (Icons.forum_rounded, Color(0xFFF59E0B)),
   'vehicle_expiring': (Icons.directions_car_rounded, Color(0xFFD97706)),
   'vehicle_expired': (Icons.no_crash_rounded, Color(0xFFDC2626)),

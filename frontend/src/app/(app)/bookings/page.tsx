@@ -36,7 +36,7 @@ function BookingsPage() {
   const [refunding, setRefunding] = useState<Booking | null>(null);
   const { data: facilities } = useSWR<Page<Facility>>(`/v1/facilities/?condominium=${condo.id}&page_size=100`);
   const { data, mutate } = useSWR<Page<Booking>>(`/v1/bookings/${query({
-    condominium: condo.id, facility, status, search, page,
+    condominium: condo.id, facility, search, page, ...(status === "no_show" ? { no_show: 1 } : { status }),
     ...(tab === "upcoming" ? { upcoming: 1 } : { ordering: "-starts_at", date_from: from, date_to: to }),
   })}`, { keepPreviousData: true });
   useLiveEvents((event) => { if (event.type === "booking") mutate(); });
@@ -61,6 +61,7 @@ function BookingsPage() {
             <option value="pending_payment">Awaiting payment</option>
             <option value="cancelled">Cancelled</option>
             <option value="expired">Payment expired</option>
+            <option value="no_show">No-show</option>
           </Select>
           {tab === "all" && (
             <>
@@ -83,6 +84,7 @@ function BookingsPage() {
                   <Td><Badge tone={PAYMENT[b.payment_status]}>{b.payment_status_display}</Badge>{b.paid_at && <div className="mt-1 text-xs text-muted">{formatDateTime(b.paid_at)}</div>}</Td>
                   <Td>
                     <Badge tone={STATUS[b.status]}>{b.status_display}</Badge>
+                    {b.no_show_at && <span className="ml-1"><Badge tone="red">No-show</Badge></span>}
                     {b.checked_in_at && <div className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">Checked in {formatTime(b.checked_in_at)}</div>}
                     {b.cancel_reason && <div className="mt-1 max-w-48 text-xs text-muted">{b.cancel_reason}</div>}
                   </Td>

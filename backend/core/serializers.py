@@ -999,7 +999,7 @@ class FacilitySerializer(ModelCleanSerializer):
             "id", "condominium", "name", "description", "location", "icon", "image", "has_image", "capacity",
             "opens_at", "closes_at", "open_days", "slot_minutes", "max_slots_per_booking", "concurrent_bookings",
             "price_per_slot", "deposit", "is_paid", "advance_days", "max_upcoming_per_unit", "cancel_hours", "rules",
-            "gate", "is_active", "created_at",
+            "no_show_minutes", "release_no_shows", "gate", "is_active", "created_at",
         ]
         extra_kwargs = {"image": {"write_only": True, "required": False}}
 
@@ -1037,7 +1037,7 @@ class BookingSerializer(serializers.ModelSerializer):
             "id", "condominium", "facility", "facility_name", "facility_icon", "unit", "unit_display", "booked_by",
             "starts_at", "ends_at", "slots", "guests", "notes", "status", "status_display", "amount", "deposit",
             "currency", "payment_status", "payment_status_display", "payment_url", "payment_expires_at", "paid_at",
-            "cancelled_at", "cancel_reason", "can_cancel", "checked_in_at", "created_at",
+            "cancelled_at", "cancel_reason", "can_cancel", "checked_in_at", "no_show_at", "created_at",
         ]
         read_only_fields = fields
 
@@ -1197,7 +1197,7 @@ class FeedbackSummarySerializer(serializers.Serializer):
 class NotificationSerializer(serializers.Serializer):
     id = serializers.CharField()
     kind = serializers.CharField(help_text="visit_in, visit_out, gate_open, gate_denied, call_missed, booking_confirmed, "
-                                           "booking_cancelled, booking_expired, feedback_reply, vehicle_expiring or vehicle_expired")
+                                           "booking_cancelled, booking_expired, booking_no_show, feedback_reply, vehicle_expiring or vehicle_expired")
     title = serializers.CharField()
     body = serializers.CharField()
     at = serializers.DateTimeField()

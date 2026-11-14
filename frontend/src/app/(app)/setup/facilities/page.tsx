@@ -31,7 +31,7 @@ type Form = Omit<Facility, "id" | "condominium" | "has_image" | "is_paid">;
 const blank: Form = {
   name: "", description: "", location: "", icon: "event", capacity: 10, opens_at: "08:00", closes_at: "22:00",
   open_days: [0, 1, 2, 3, 4, 5, 6], slot_minutes: 60, max_slots_per_booking: 2, concurrent_bookings: 1, price_per_slot: "0.00",
-  deposit: "0.00", advance_days: 14, max_upcoming_per_unit: 2, cancel_hours: 24, rules: "", gate: null, is_active: true,
+  deposit: "0.00", advance_days: 14, max_upcoming_per_unit: 2, cancel_hours: 24, rules: "", no_show_minutes: 0, release_no_shows: false, gate: null, is_active: true,
 };
 
 function FacilityModal({ condoId, facility, onClose, onSaved }: { condoId: number; facility: Facility | null; onClose: () => void; onSaved: () => void }) {
@@ -135,6 +135,13 @@ function FacilityModal({ condoId, facility, onClose, onSaved }: { condoId: numbe
             <Input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
           </Field>
           <div className="pt-6"><Checkbox label="Residents can book it" checked={form.is_active} onChange={(e) => set("is_active", e.target.checked)} /></div>
+          <Field label="No-show after (minutes)" hint="Nobody checked in at the kiosk this long after the start: the booking is marked no-show and the resident is told. 0 = off (use it only if residents check in at the kiosk).">
+            <Input type="number" min={0} value={form.no_show_minutes} onChange={(e) => set("no_show_minutes", Number(e.target.value))} />
+          </Field>
+          <div className="pt-6">
+            <Checkbox label="Release no-shows (cancel so others can book the rest of the slot; no automatic refund)"
+              checked={form.release_no_shows} disabled={!form.no_show_minutes} onChange={(e) => set("release_no_shows", e.target.checked)} />
+          </div>
           <Field label="Door to open at check-in (optional)" hint="Residents check in with their booking QR at the kiosk's Facilities; this door opens for them from 15 minutes before the start until the end.">
             <Select value={form.gate ?? ""} onChange={(e) => set("gate", e.target.value ? Number(e.target.value) : null)}>
               <option value="">No door: check-in is only recorded</option>

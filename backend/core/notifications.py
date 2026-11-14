@@ -62,6 +62,11 @@ def _sources(user, since):
         return ("vehicle_expired", f"{v.plate_number}: {v.get_kind_display().lower()} has ended",
                 f"Ended on {v.valid_until:%d %b}. The barrier no longer opens for this car.", morning(v.remind_on))
 
+    def no_show(b):
+        return ("booking_no_show", f"Missed booking: {b.facility.name}",
+                f"{timezone.localtime(b.starts_at):%a %d %b, %H:%M}: nobody checked in at the kiosk"
+                f"{' and the slot was released' if b.status == m.Booking.Status.CANCELLED else ''}.", b.no_show_at)
+
     def replied(f):
         return "feedback_reply", "The management replied to your feedback", f.reply[:140], f.replied_at
 
@@ -79,7 +84,9 @@ def _sources(user, since):
         ("gate", gates.filter(occurred_at__gte=since), "occurred_at", gate),
         ("call", m.IntercomCall.objects.filter(unit__in=units, status=m.IntercomCall.Status.MISSED, created_at__gte=since)
          .select_related("kiosk"), "created_at", missed),
-        ("booking", bookings.filter(status__in=BOOKING, updated_at__gte=since), "updated_at", booking),
+        ("booking", bookings.filter(status__in=BOOKING, updated_at__gte=since).exclude(no_show_at__isnull=False, status=m.Booking.Status.CANCELLED),
+         "updated_at", booking),
+        ("no_show", bookings.filter(no_show_at__gte=since), "no_show_at", no_show),
         ("feedback", m.Feedback.objects.filter(user=user, replied_at__gte=since), "replied_at", replied),
     ]
 

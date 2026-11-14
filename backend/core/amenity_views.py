@@ -124,6 +124,7 @@ class BookingViewSet(mixins.CreateModelMixin, ScopedReadOnlyViewSet):
 
     @extend_schema(parameters=[
         OpenApiParameter("upcoming", bool), OpenApiParameter("date_from", str), OpenApiParameter("date_to", str),
+        OpenApiParameter("no_show", bool),
     ])
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
@@ -137,6 +138,8 @@ class BookingViewSet(mixins.CreateModelMixin, ScopedReadOnlyViewSet):
             qs = qs.filter(starts_at__date__gte=params["date_from"])
         if params.get("date_to"):
             qs = qs.filter(starts_at__date__lte=params["date_to"])
+        if params.get("no_show") in ("1", "true"):
+            qs = qs.filter(no_show_at__isnull=False)
         return qs
 
     def _urls(self, booking):

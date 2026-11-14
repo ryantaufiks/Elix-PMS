@@ -200,6 +200,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "core.tasks.expire_invitations",
         "schedule": crontab(minute="*/10"),
     },
+    "mark-no-shows": {
+        "task": "core.tasks.mark_no_shows",
+        "schedule": crontab(minute="*/5"),
+    },
     "notify-overstays": {
         "task": "core.tasks.notify_overstays",
         "schedule": crontab(minute="*/5"),

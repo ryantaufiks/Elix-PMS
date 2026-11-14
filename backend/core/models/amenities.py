@@ -52,6 +52,11 @@ class Facility(TimeStampedModel):
     cancel_hours = models.PositiveSmallIntegerField(
         default=24, help_text="Residents can cancel up to this many hours before the start.")
     rules = models.TextField(blank=True, help_text="Shown before booking, e.g. clean-up and noise rules.")
+    no_show_minutes = models.PositiveSmallIntegerField(
+        default=0, help_text="Mark a booking no-show when nobody checks in at the kiosk this long after the start. "
+                             "0 = off (for sites that do not check in at the kiosk).")
+    release_no_shows = models.BooleanField(
+        default=False, help_text="Cancel a no-show booking so others can book the rest of the slot (no automatic refund).")
     gate = models.ForeignKey(
         "core.AccessGate", on_delete=models.SET_NULL, null=True, blank=True, related_name="facilities",
         help_text="Door opened when a resident checks in to their booking at the kiosk (optional).")
@@ -127,6 +132,8 @@ class Booking(TimeStampedModel):
     cancel_reason = models.CharField(max_length=255, blank=True)
     checkin_token = models.CharField(max_length=64, unique=True, default=generate_booking_token, editable=False)
     checked_in_at = models.DateTimeField(null=True, blank=True, help_text="First check-in at the kiosk.")
+    no_show_at = models.DateTimeField(
+        null=True, blank=True, help_text="When nobody had checked in by the facility's no-show time (cleared if they come later).")
 
     class Meta:
         ordering = ["-starts_at"]

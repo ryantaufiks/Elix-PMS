@@ -449,6 +449,8 @@ class _MyBookingsState extends State<_MyBookings> {
               if (b.cancelReason.isNotEmpty) Text(b.cancelReason, style: TextStyle(color: outline, fontSize: 13)),
               if (b.checkedInAt != null)
                 Text('Checked in ${_hm.format(b.checkedInAt!)}', style: const TextStyle(color: Color(0xFF15803D), fontSize: 13)),
+              if (b.noShow)
+                const Text('No-show: nobody checked in at the kiosk', style: TextStyle(color: Color(0xFFB91C1C), fontSize: 13)),
               if (b.awaitingPayment || b.canCancel || b.hasQr)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),

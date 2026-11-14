@@ -102,9 +102,31 @@ def check_in(condominium_id, code, now=None):
     if now >= booking.ends_at:
         return booking, "This booking has ended."
     if booking.checked_in_at is None:
-        booking.checked_in_at = now
-        booking.save(update_fields=["checked_in_at", "updated_at"])
+        booking.checked_in_at, booking.no_show_at = now, None  # Late, but here: no longer a no-show.
+        booking.save(update_fields=["checked_in_at", "no_show_at", "updated_at"])
+        notify(booking)
     return booking, ""
+
+
+def mark_no_shows(now=None):
+    """Flag confirmed bookings nobody checked in to within their facility's no-show time; facilities set to
+    release no-shows cancel them so the rest of the slot can be booked. Returns how many were flagged."""
+    now = now or timezone.now()
+    due = (Booking.objects.select_related("facility")
+           .filter(status=Booking.Status.CONFIRMED, checked_in_at__isnull=True, no_show_at__isnull=True,
+                   facility__no_show_minutes__gt=0, starts_at__lte=now, ends_at__gt=now - timedelta(days=1)))
+    count = 0
+    for booking in due:
+        if booking.starts_at + timedelta(minutes=booking.facility.no_show_minutes) > now:
+            continue
+        booking.no_show_at = now
+        if booking.facility.release_no_shows and booking.ends_at > now:
+            booking.status, booking.cancelled_at = Booking.Status.CANCELLED, now
+            booking.cancel_reason = f"No-show: nobody checked in within {booking.facility.no_show_minutes} minutes."
+        booking.save()
+        notify(booking)
+        count += 1
+    return count
 
 
 def bookable_days(facility, today=None):

@@ -402,3 +402,57 @@ class FacilityCheckInTests(APITestCase):
         booking = m.Booking.objects.get()
         response = self.client.get(f"/v1/bookings/{booking.pk}/qr/")
         self.assertEqual((response.status_code, response["Content-Type"]), (200, "image/png"))
+
+
+@mock.patch("core.bookings.broadcast")
+class NoShowTests(APITestCase):
+    def setUp(self):
+        self.condo = make_condo()
+        self.unit = make_unit(self.condo)
+        self.alice = make_resident("alice", self.unit)
+        self.room = m.Facility.objects.create(condominium=self.condo, name="Function room", opens_at=time(0), closes_at=time(23, 59),
+                                              slot_minutes=60, no_show_minutes=15)
+
+    def booking(self, started_ago):
+        start = timezone.now() - started_ago
+        return m.Booking.objects.create(condominium=self.condo, facility=self.room, unit=self.unit, user=self.alice,
+                                        starts_at=start, ends_at=start + timedelta(hours=1), status="confirmed")
+
+    def test_flags_late_bookings_only_where_on(self, _):
+        late = self.booking(timedelta(minutes=20))
+        early = self.booking(timedelta(minutes=5))
+        came = self.booking(timedelta(minutes=30))
+        m.Booking.objects.filter(pk=came.pk).update(checked_in_at=timezone.now())
+        self.assertEqual(bookings.mark_no_shows(), 1)
+        late.refresh_from_db()
+        self.assertIsNotNone(late.no_show_at)
+        self.assertEqual(late.status, "confirmed")  # Kept: the facility does not release no-shows.
+        self.assertEqual(bookings.mark_no_shows(), 0)  # Once only.
+        # Coming late still checks in, and is no longer a no-show.
+        booking, problem = bookings.check_in(self.condo.pk, late.qr_payload)
+        self.assertEqual(problem, "")
+        late.refresh_from_db()
+        self.assertIsNone(late.no_show_at)
+
+        self.room.no_show_minutes = 0  # Off: nothing is flagged.
+        self.room.save()
+        self.booking(timedelta(minutes=40))
+        self.assertEqual(bookings.mark_no_shows(), 0)
+        self.assertIsNone(m.Booking.objects.get(pk=early.pk).no_show_at)
+
+    def test_release_and_resident_notice(self, _):
+        self.room.release_no_shows = True
+        self.room.save()
+        late = self.booking(timedelta(minutes=20))
+        bookings.mark_no_shows()
+        late.refresh_from_db()
+        self.assertEqual(late.status, "cancelled")
+        self.assertIn("No-show", late.cancel_reason)
+        self.assertEqual(bookings.check_in(self.condo.pk, late.qr_payload)[1], "This booking is cancelled.")
+        self.client.force_authenticate(self.alice)
+        kinds = [n["kind"] for n in self.client.get("/v1/notifications/").data["results"]]
+        self.assertIn("booking_no_show", kinds)
+        self.assertNotIn("booking_cancelled", kinds)  # One notice, not two.
+        admin = make_staff("admin", self.condo, m.StaffAssignment.Role.ADMIN)
+        self.client.force_authenticate(admin)
+        self.assertEqual(self.client.get("/v1/bookings/", {"condominium": self.condo.pk, "no_show": 1}).data["count"], 1)
