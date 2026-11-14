@@ -1,4 +1,4 @@
-"""HitPay online payments for facility bookings (each condominium uses its own HitPay account).
+"""HitPay online payments for facility bookings and season parking (each condominium uses its own HitPay account).
 
 Flow: the booking creates a HitPay payment request and the resident pays on HitPay's page (PayNow,
 cards…). HitPay then redirects back to ``/v1/payments/hitpay/return/`` and calls the webhook. Neither
@@ -30,14 +30,14 @@ def _headers(settings):
     return {"X-BUSINESS-API-KEY": settings.hitpay_api_key, "X-Requested-With": "XMLHttpRequest"}
 
 
-def create_request(settings, booking, *, redirect_url, webhook_url):
-    """Create the HitPay payment request for ``booking``; returns (payment request id, checkout url)."""
-    user = booking.user
+def create_request(settings, *, amount, currency, reference, purpose, user, redirect_url, webhook_url):
+    """Create a HitPay payment request; returns (payment request id, checkout url). ``reference`` is ours
+    (``booking-12``, ``parking-3``) and comes back in the webhook."""
     data = {
-        "amount": f"{booking.amount:.2f}",
-        "currency": booking.currency,
-        "reference_number": f"booking-{booking.pk}",
-        "purpose": f"{booking.facility.name} {booking.starts_at:%d %b %Y %H:%M} ({booking.unit})"[:255],
+        "amount": f"{amount:.2f}",
+        "currency": currency,
+        "reference_number": reference,
+        "purpose": purpose[:255],
         "redirect_url": redirect_url,
         "webhook": webhook_url,
         "name": (user.get_full_name() or user.get_username()) if user else "",
@@ -50,7 +50,7 @@ def create_request(settings, booking, *, redirect_url, webhook_url):
     except requests.RequestException as exc:
         raise PaymentError(f"Could not reach HitPay: {exc}") from exc
     if response.status_code >= 400:
-        log.warning("HitPay refused a payment request for booking %s: %s %s", booking.pk, response.status_code, response.text[:500])
+        log.warning("HitPay refused payment request %s: %s %s", reference, response.status_code, response.text[:500])
         raise PaymentError("The payment provider refused the request. Please contact the management office.")
     body = response.json()
     return body["id"], body["url"]

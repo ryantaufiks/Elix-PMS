@@ -72,6 +72,19 @@ class Condominium(TimeStampedModel):
         help_text="Visitors whose photo the kiosk took can check out by looking at the camera. The face template "
                   "is matched only against visitors on site and deleted at check-out or when the pass ends.",
     )
+    # Season parking bought online (HitPay, the same account as facility bookings).
+    season_parking_enabled = models.BooleanField(
+        "Sell season parking in the app", default=False,
+        help_text="Residents buy season parking for a plate (a visitor's, tenant's or second car) by the month.",
+    )
+    season_parking_fee = models.DecimalField(
+        "Season parking per month", max_digits=8, decimal_places=2, default=0,
+        help_text="In the payment account's currency.",
+    )
+    season_parking_quota = models.PositiveIntegerField(
+        "Season parking lots", default=0, help_text="Most season passes valid at once. 0: no limit.",
+    )
+
     # Overstay: when a visitor still on site is flagged and the guardhouse is told.
     overstay_delivery_minutes = models.PositiveIntegerField(
         "Deliveries overstay after (minutes)", default=30,

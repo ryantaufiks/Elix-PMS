@@ -32,6 +32,10 @@ export const condoFields = (opts: { superuser: boolean; creating: boolean; plans
     hint: "Visitors scan the QR or enter the 4-digit PIN from their pass when they leave." },
   { name: "kiosk_face_checkout", label: "Allow check-out by face", type: "checkbox", wide: true,
     hint: "Visitors whose photo the kiosk took can check out by looking at the camera. Matching runs on the kiosk PC; only a face template is stored, compared with visitors on site, and deleted at check-out or when the pass ends. Visitors are told before the photo." },
+  { name: "season_parking_enabled", label: "Sell season parking in the resident app", type: "checkbox", section: "Season parking", wide: true,
+    hint: "Residents pay online (the HitPay account under Facilities & payments) for a plate: a visitor's, tenant's or second car. Once paid, the plate opens the LPR gate until the end of the period." },
+  { name: "season_parking_fee", label: "Price per month", type: "number", hint: "In the payment account's currency, e.g. 80." },
+  { name: "season_parking_quota", label: "Season parking lots", type: "number", hint: "Most passes valid at once; 0 = no limit. Renewals never need a new lot." },
   { name: "overstay_delivery_minutes", label: "Deliveries overstay after (minutes)", type: "number", section: "Overstay alerts",
     hint: "Parcel and food deliveries and pick-ups. 0 turns the alert off." },
   { name: "overstay_guest_minutes", label: "Guests overstay after (minutes)", type: "number",
@@ -47,5 +51,6 @@ export const condoFields = (opts: { superuser: boolean; creating: boolean; plans
 export const condoDefaults = {
   intercom_ring_timeout_seconds: 45, invitation_max_days: 30, visitor_data_retention_days: 90, lpr_enabled: false, plan: "standard",
   kiosk_visitor_form: true, kiosk_photo_required: true, kiosk_walk_in: true, kiosk_walk_in_photo: true, kiosk_checkout: true, kiosk_call_guardhouse: true,
+  season_parking_enabled: false, season_parking_fee: 0, season_parking_quota: 0,
   overstay_delivery_minutes: 30, overstay_guest_minutes: 240, overstay_contractor_until: "18:00",
 };

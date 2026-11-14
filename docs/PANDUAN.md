@@ -157,6 +157,7 @@ Pastikan perangkat lokal Anda telah terinstal:
 * Kamera LPR hanya membuka gerbang di antara tanggal itu (hari terakhir masih bisa masuk). Di luar tanggal, gerbang tidak terbuka dan log akses mencatat alasannya (*Vehicle pass ended on …*).
 * Tab *Ending in 7 days* dan *Expired* untuk memantau perpanjangan; dashboard Site admin/Staff menampilkan bar oranye bila ada pass yang habis dalam 7 hari.
 * Resident menambah mobilnya sendiri dari APK (selalu tipe *Resident*); tipe dan tanggal hanya diatur management. Di APK, penghuni melihat masa berlaku dan mendapat notifikasi 7 hari sebelum habis dan saat sudah habis.
+* **Season parking berbayar di APK**: aktifkan di *Site settings → Season parking* (harga per bulan dan jumlah lot; 0 = tanpa batas). Pembayaran memakai akun HitPay yang sama dengan booking fasilitas (*Facilities & payments*). Di APK, menu **Vehicles → Season parking**: penghuni memasukkan plat dan nama pengemudi (tamu, penyewa, mobil kedua), memilih 1/3/6/12 bulan lalu membayar. Setelah lunas, plat langsung terdaftar sebagai *Season parking* sampai akhir periode. Tombol **Renew** memperpanjang mulai sehari setelah masa lama habis. Plat milik mobil resident atau unit lain tidak bisa dibeli. Semua pembayaran tampil di *Vehicles → Season parking payments*; refund dilakukan di dashboard HitPay.
 * Kartu *On site now* di dashboard juga menghitung tamu yang datang dengan mobil (plat diketik officer saat registrasi atau terbaca kamera).
 
 ### 6. Sidebar & notifikasi dashboard

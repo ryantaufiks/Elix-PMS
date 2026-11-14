@@ -279,3 +279,73 @@ class RemoteOpenTests(APITestCase):
         self.assertEqual((log.method, log.actor, log.unit, log.result), ("app", self.alice, self.unit, "granted"))
         self.client.force_authenticate(make_resident("stranger", make_unit(make_condo("beta"))))
         self.assertEqual(self.client.post(url).status_code, 404)
+
+
+@mock.patch("core.parking.broadcast")
+@mock.patch("core.payments.requests.post", return_value=hitpay_response(id="pr_p", url="https://hitpay.test/pay/pr_p"))
+class SeasonParkingTests(APITestCase):
+    def setUp(self):
+        self.condo = make_condo(season_parking_enabled=True, season_parking_fee=Decimal("80.00"), season_parking_quota=1)
+        self.unit = make_unit(self.condo)
+        self.alice = make_resident("alice", self.unit)
+        m.PaymentSettings.objects.create(condominium=self.condo, enabled=True, hitpay_api_key="key", hitpay_salt="salt")
+        self.client.force_authenticate(self.alice)
+
+    def buy(self, plate="SKT 8821 M", months=3, **extra):
+        return self.client.post("/v1/parking-permits/", {"unit": self.unit.pk, "plate_number": plate, "months": months,
+                                                          "holder_name": "Mr Lim", **extra}, format="json")
+
+    def paid(self, permit_id):
+        with mock.patch("core.payments.requests.get", return_value=hitpay_response(200, status="completed")):
+            return self.client.post(f"/v1/parking-permits/{permit_id}/refresh/").data
+
+    def test_buy_pay_and_renew(self, post, _):
+        offer = self.client.get("/v1/parking-permits/offer/", {"condominium": self.condo.pk}).data
+        self.assertEqual((offer["enabled"], offer["monthly_fee"], offer["lots_left"]), (True, "80.00", 1))
+        response = self.buy()
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["payment_url"], "https://hitpay.test/pay/pr_p")
+        permit = response.data["permit"]
+        self.assertEqual((permit["amount"], permit["plate_number"], permit["status"]), ("240.00", "SKT8821M", "pending_payment"))
+        self.assertEqual(post.call_args.kwargs["data"]["reference_number"], f"parking-{permit['id']}")
+        self.assertFalse(m.Vehicle.objects.exists())  # Nothing parks before it is paid.
+
+        done = self.paid(permit["id"])
+        self.assertEqual(done["status"], "paid")
+        vehicle = m.Vehicle.objects.get()
+        today = timezone.localdate()
+        self.assertEqual((vehicle.kind, vehicle.holder_name, vehicle.valid_from), ("season", "Mr Lim", today))
+        self.assertEqual(vehicle.valid_until.isoformat(), done["ends_on"])
+        self.assertTrue(vehicle.valid_on(today))
+
+        # Renewing carries on from the day after the current pass ends, and needs no new lot.
+        renewal = self.buy(months=1).data["permit"]
+        self.assertEqual(renewal["starts_on"], (vehicle.valid_until + timedelta(days=1)).isoformat())
+        self.paid(renewal["id"])
+        vehicle.refresh_from_db()
+        self.assertEqual(vehicle.valid_until.isoformat(), renewal["ends_on"])
+        self.assertEqual(vehicle.valid_from, today)
+
+    def test_rules(self, post, _):
+        self.assertEqual(self.buy(months=2).status_code, 409)  # 1, 3, 6 or 12 months only.
+        m.Vehicle.objects.create(unit=self.unit, plate_number="SBA1A")
+        self.assertIn("resident's car", self.buy(plate="SBA1A").data["detail"])
+        self.paid(self.buy().data["permit"]["id"])
+        self.assertIn("lots are taken", self.buy(plate="SGX2B").data["detail"])  # Quota of 1.
+        # Another unit's resident cannot buy for this unit.
+        other = make_resident("bob", make_unit(self.condo, "02", "02"))
+        self.client.force_authenticate(other)
+        self.assertEqual(self.buy(plate="SGX3C").status_code, 403)
+        self.condo.season_parking_enabled = False
+        self.condo.save()
+        self.assertFalse(self.client.get("/v1/parking-permits/offer/", {"condominium": self.condo.pk}).data["enabled"])
+
+    def test_return_page_and_webhook(self, post, _):
+        permit = self.buy().data["permit"]
+        with mock.patch("core.payments.requests.get", return_value=hitpay_response(200, status="completed")):
+            page = self.client.get(f"/v1/payments/hitpay/return/?permit={permit['id']}")
+        self.assertContains(page, "Season parking paid")
+        fields = {"payment_request_id": "pr_x", "status": "completed", "reference_number": f"parking-{permit['id']}"}
+        message = "".join(f"{k}{fields[k]}" for k in sorted(fields))
+        signed = {**fields, "hmac": hmac.new(b"salt", message.encode(), hashlib.sha256).hexdigest()}
+        self.assertEqual(self.client.post("/v1/payments/hitpay/webhook/", signed).status_code, 200)

@@ -63,6 +63,18 @@ class Vehicle {
   /// active, expiring (within 7 days), expired, upcoming or inactive.
   String get status => json['status'] as String? ?? 'active';
   DateTime? get validUntil => DateTime.tryParse(json['valid_until'] as String? ?? '');
+  String get holderName => json['holder_name'] as String? ?? '';
+}
+
+/// What season parking costs at the condo, if it is sold in the app.
+class ParkingOffer {
+  ParkingOffer(this.json);
+  final Map<String, dynamic> json;
+  bool get enabled => json['enabled'] as bool? ?? false;
+  double get monthlyFee => double.tryParse('${json['monthly_fee']}') ?? 0;
+  String get currency => json['currency'] as String? ?? 'SGD';
+  List<int> get months => [for (final m in (json['months'] as List? ?? const [1, 3, 6, 12])) m as int];
+  int? get lotsLeft => json['lots_left'] as int?;
 }
 
 class AccessEntry {

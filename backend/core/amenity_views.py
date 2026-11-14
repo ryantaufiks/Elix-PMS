@@ -16,11 +16,11 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
-from . import bookings, entitlements, payments
+from . import bookings, entitlements, parking, payments
 from . import models as m
 from . import serializers as s
 from .realtime import broadcast
-from .scoping import ADMIN, ALL_STAFF, MANAGEMENT, resident_unit_ids, staff_condo_ids
+from .scoping import ADMIN, ALL_STAFF, MANAGEMENT, resident_condo_ids, resident_unit_ids, staff_condo_ids
 from .views import ScopedModelViewSet, ScopedReadOnlyViewSet
 
 log = logging.getLogger(__name__)
@@ -254,6 +254,80 @@ class PaymentSettingsView(generics.RetrieveUpdateAPIView):
         return m.PaymentSettings.objects.get_or_create(condominium=condo)[0]
 
 
+class ParkingPermitViewSet(mixins.CreateModelMixin, ScopedReadOnlyViewSet):
+    """Season parking bought online. Residents buy for a plate of their unit and see their unit's purchases;
+    staff see the condominium's. Paid purchases start or extend the plate's Season parking pass."""
+
+    queryset = m.ParkingPermit.objects.select_related("unit__block", "user")
+    serializer_class = s.ParkingPermitSerializer
+    resident_unit_path = "unit"
+    filterset_fields = ["condominium", "unit", "status"]
+    search_fields = ["plate_number", "holder_name", "unit__unit_number"]
+    ordering_fields = ["created_at", "ends_on"]
+
+    def _check(self, condo_id, unit_id=None):
+        user = self.request.user
+        if user.is_superuser or condo_id in staff_condo_ids(user, MANAGEMENT):
+            return
+        if unit_id is not None and unit_id in resident_unit_ids(user):
+            return
+        raise PermissionDenied()
+
+    def _created(self, permit, code=status.HTTP_201_CREATED):
+        try:
+            url = parking.start_payment(
+                permit, redirect_url=self.request.build_absolute_uri(f"{RETURN_PATH}?permit={permit.pk}"),
+                webhook_url=self.request.build_absolute_uri(WEBHOOK_PATH))
+        except parking.ParkingError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+        permit.refresh_from_db()
+        return Response({"permit": s.ParkingPermitSerializer(permit).data, "payment_url": url,
+                         "return_url_prefix": self.request.build_absolute_uri(RETURN_PATH)}, status=code)
+
+    @extend_schema(request=s.ParkingPurchaseSerializer, responses={201: s.ParkingPermitCreatedSerializer})
+    def create(self, request, *args, **kwargs):
+        """Buy season parking for a plate: open ``payment_url`` (HitPay); the pass starts once it is paid."""
+        body = s.ParkingPurchaseSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        unit = body.validated_data["unit"]
+        self._check(unit.condominium_id, unit.pk)
+        try:
+            permit = parking.buy(unit, request.user, body.validated_data["plate_number"], body.validated_data["months"],
+                                 body.validated_data["holder_name"])
+        except parking.ParkingError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+        return self._created(permit)
+
+    @extend_schema(request=None, responses=s.ParkingPermitCreatedSerializer)
+    @action(detail=True, methods=["post"])
+    def pay(self, request, pk=None):
+        """The payment link of a purchase still awaiting payment."""
+        permit = parking.refresh_payment(self.get_object())
+        if permit.status != m.ParkingPermit.Status.PENDING_PAYMENT:
+            return Response({"detail": f"This purchase is {permit.get_status_display().lower()}."}, status=status.HTTP_409_CONFLICT)
+        return self._created(permit, status.HTTP_200_OK)
+
+    @extend_schema(request=None, responses=s.ParkingPermitSerializer)
+    @action(detail=True, methods=["post"])
+    def refresh(self, request, pk=None):
+        """Check the payment with HitPay now (the app calls this when the payment page closes)."""
+        return Response(s.ParkingPermitSerializer(parking.refresh_payment(self.get_object())).data)
+
+    @extend_schema(parameters=[OpenApiParameter("condominium", int, required=True)], responses=s.ParkingOfferSerializer)
+    @action(detail=False)
+    def offer(self, request):
+        """Whether the site sells season parking, the monthly fee and the lots left."""
+        try:
+            condo_id = int(request.query_params.get("condominium", ""))
+        except ValueError:
+            raise ValidationError({"condominium": "Required."})
+        user = request.user
+        if not (user.is_superuser or condo_id in staff_condo_ids(user) or condo_id in resident_condo_ids(user)):
+            raise PermissionDenied()
+        condo = generics.get_object_or_404(m.Condominium, pk=condo_id)
+        return Response(s.ParkingOfferSerializer(parking.offer(condo)).data)
+
+
 class HitPayThrottle(AnonRateThrottle):
     scope = "payment_callback"
 
@@ -282,9 +356,11 @@ class HitPayWebhookView(APIView):
         data = request.data.dict() if hasattr(request.data, "dict") else dict(request.data)
         payload = data.get("payment_request") if isinstance(data.get("payment_request"), dict) else data
         booking = _booking_from(payload)
-        if booking is None:
+        permit = parking.from_reference(payload) if booking is None else None
+        record = booking or permit
+        if record is None:
             return Response({"received": True})
-        settings = m.PaymentSettings.objects.filter(condominium_id=booking.condominium_id).first()
+        settings = m.PaymentSettings.objects.filter(condominium_id=record.condominium_id).first()
         if settings is None:
             return Response({"received": True})
         signature = request.headers.get("Hitpay-Signature", "")
@@ -292,7 +368,10 @@ class HitPayWebhookView(APIView):
                   else payments.valid_form_webhook(settings, data))
         if not signed:  # Also when the site has no salt yet: an unsigned webhook is never acted on.
             return Response({"detail": "Invalid signature."}, status=status.HTTP_401_UNAUTHORIZED)
-        bookings.refresh_payment(booking)
+        if booking is not None:
+            bookings.refresh_payment(booking)
+        else:
+            parking.refresh_payment(permit)
         return Response({"received": True})
 
 
@@ -312,8 +391,11 @@ class HitPayReturnView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [HitPayThrottle]
 
-    @extend_schema(parameters=[OpenApiParameter("booking", int)], responses={(200, "text/html"): OpenApiResponse()})
+    @extend_schema(parameters=[OpenApiParameter("booking", int), OpenApiParameter("permit", int)],
+                   responses={(200, "text/html"): OpenApiResponse()})
     def get(self, request):
+        if str(request.query_params.get("permit", "")).isdigit():
+            return self._permit(int(request.query_params["permit"]))
         booking = m.Booking.objects.filter(pk=request.query_params.get("booking") or 0).first() \
             if str(request.query_params.get("booking", "")).isdigit() else None
         if booking is not None:
@@ -328,6 +410,25 @@ class HitPayReturnView(APIView):
         else:
             page = {"icon": "✕", "color": "#be123c", "title": "Payment not completed",
                     "detail": "Your booking was not confirmed. Please try again from the Elix app."}
+        return self._page(page)
+
+    def _permit(self, pk):
+        permit = m.ParkingPermit.objects.filter(pk=pk).first()
+        if permit is not None:
+            permit = parking.refresh_payment(permit)
+        if permit is not None and permit.status == m.ParkingPermit.Status.PAID:
+            page = {"icon": "✓", "color": "#059669", "title": "Season parking paid",
+                    "detail": f"{permit.plate_number} parks until {permit.ends_on:%d %b %Y}. You can return to the Elix app."}
+        elif permit is not None and permit.status == m.ParkingPermit.Status.PENDING_PAYMENT:
+            page = {"icon": "…", "color": "#d97706", "title": "Payment processing",
+                    "detail": "We are waiting for the payment to complete. Your pass will update in the Elix app."}
+        else:
+            page = {"icon": "✕", "color": "#be123c", "title": "Payment not completed",
+                    "detail": "Season parking was not bought. Please try again from the Elix app."}
+        return self._page(page)
+
+    @staticmethod
+    def _page(page):
         html = RETURN_PAGE.format(**{k: escape(v) if k != "icon" else v for k, v in page.items()})
         response = HttpResponse(html)
         response["Cache-Control"] = "no-store"

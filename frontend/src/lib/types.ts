@@ -89,6 +89,9 @@ export type Condominium = {
   overstay_delivery_minutes: number;
   overstay_guest_minutes: number;
   overstay_contractor_until: string | null;
+  season_parking_enabled: boolean;
+  season_parking_fee: string;
+  season_parking_quota: number;
   visitor_privacy_notice: string;
 };
 
@@ -359,6 +362,27 @@ export type Vehicle = {
   valid_from: string | null;
   valid_until: string | null;
   status: "active" | "expiring" | "expired" | "upcoming" | "inactive";
+};
+
+export type ParkingPermit = {
+  id: number;
+  condominium: number;
+  unit: number;
+  unit_display: string;
+  bought_by: string;
+  vehicle: number | null;
+  plate_number: string;
+  holder_name: string;
+  months: number;
+  starts_on: string;
+  ends_on: string;
+  status: "pending_payment" | "paid" | "expired" | "cancelled";
+  status_display: string;
+  amount: string;
+  currency: string;
+  payment_expires_at: string | null;
+  paid_at: string | null;
+  created_at: string;
 };
 
 export type Relay = {

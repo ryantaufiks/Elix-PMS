@@ -80,6 +80,7 @@ class CondominiumSerializer(ModelCleanSerializer):
             "subscription_status", "subscription_ends_on", "lpr_enabled", "invitation_max_days", "intercom_ring_timeout_seconds", "face_verification_enabled",
             "visitor_data_retention_days", "kiosk_visitor_form", "kiosk_photo_required", "kiosk_walk_in", "kiosk_walk_in_photo", "kiosk_checkout", "kiosk_face_checkout", "kiosk_call_guardhouse",
             "overstay_delivery_minutes", "overstay_guest_minutes", "overstay_contractor_until",
+            "season_parking_enabled", "season_parking_fee", "season_parking_quota",
             "visitor_privacy_notice", "plan",
             "created_at", "updated_at",
         ]
@@ -1058,6 +1059,43 @@ class BookingCreatedSerializer(serializers.Serializer):
     booking = BookingSerializer()
     payment_url = serializers.CharField(allow_blank=True)
     return_url_prefix = serializers.CharField(help_text="The app closes the payment page when it reaches this URL.")
+
+
+class ParkingPermitSerializer(serializers.ModelSerializer):
+    unit_display = serializers.CharField(source="unit.__str__", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    bought_by = serializers.SerializerMethodField()
+
+    class Meta:
+        model = m.ParkingPermit
+        fields = ["id", "condominium", "unit", "unit_display", "bought_by", "vehicle", "plate_number", "holder_name", "months",
+                  "starts_on", "ends_on", "status", "status_display", "amount", "currency", "payment_expires_at", "paid_at",
+                  "created_at"]
+        read_only_fields = fields
+
+    def get_bought_by(self, obj) -> str:
+        return (obj.user.get_full_name() or obj.user.get_username()) if obj.user else ""
+
+
+class ParkingPurchaseSerializer(serializers.Serializer):
+    unit = serializers.PrimaryKeyRelatedField(queryset=m.Unit.objects.all())
+    plate_number = serializers.CharField(max_length=20)
+    holder_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
+    months = serializers.IntegerField()
+
+
+class ParkingPermitCreatedSerializer(serializers.Serializer):
+    permit = ParkingPermitSerializer()
+    payment_url = serializers.CharField()
+    return_url_prefix = serializers.CharField(help_text="The app closes the payment page when it reaches this URL.")
+
+
+class ParkingOfferSerializer(serializers.Serializer):
+    enabled = serializers.BooleanField(help_text="Season parking is on sale and online payment is set up")
+    monthly_fee = serializers.DecimalField(max_digits=8, decimal_places=2)
+    currency = serializers.CharField()
+    months = serializers.ListField(child=serializers.IntegerField())
+    lots_left = serializers.IntegerField(allow_null=True, help_text="null: no limit")
 
 
 class CancelSerializer(serializers.Serializer):

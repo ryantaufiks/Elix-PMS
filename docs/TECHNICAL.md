@@ -118,7 +118,18 @@ cars from the app as *Resident*; the type, holder and dates are set only by site
 API ignores them from residents). The unit's residents see *ends soon* (7 days before) and *has ended*
 in the app's notifications and on their vehicle list; the dashboard shows managers a bar when passes
 end within 7 days, and counts the visitors on site who came by car (plate typed by the officer or read
-by a camera). Paid season parking (HitPay) builds on these passes later.
+by a camera).
+
+**Season parking bought in the app** (Site settings → *Season parking*: on/off, price per month, lots;
+payments through the site's HitPay account under Facilities & payments). A resident picks a plate, a
+driver name and 1, 3, 6 or 12 months and pays on HitPay (`/v1/parking-permits/`, `…/offer/`,
+`…/{id}/pay|refresh/`; reference `parking-<id>`, the same webhook and return page as bookings). Only
+HitPay's API confirms a payment; then `core.parking` creates the plate's *Season parking* pass or
+extends it (a renewal starts the day after the current pass ends, so no day is paid twice). The lots
+count passes valid now plus purchases being paid; renewals never need a new lot. A plate that is a
+resident's car or belongs to another unit cannot be bought. Unpaid purchases close with the bookings'
+payment window (`expire_unpaid_bookings`). Staff see every purchase on Vehicles → *Season parking
+payments*; refunds go through the HitPay dashboard.
 
 ### Overstay alerts
 

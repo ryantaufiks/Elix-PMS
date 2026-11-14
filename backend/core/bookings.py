@@ -133,7 +133,10 @@ def start_payment(booking, *, redirect_url, webhook_url):
         return booking.payment_url
     settings = PaymentSettings.objects.get(condominium_id=booking.condominium_id)
     try:
-        reference, url = payments.create_request(settings, booking, redirect_url=redirect_url, webhook_url=webhook_url)
+        reference, url = payments.create_request(
+            settings, amount=booking.amount, currency=booking.currency, reference=f"booking-{booking.pk}",
+            purpose=f"{booking.facility.name} {booking.starts_at:%d %b %Y %H:%M} ({booking.unit})", user=booking.user,
+            redirect_url=redirect_url, webhook_url=webhook_url)
     except payments.PaymentError as exc:
         Booking.objects.filter(pk=booking.pk).update(status=Booking.Status.EXPIRED, payment_status=Booking.Payment.FAILED,
                                                      updated_at=timezone.now())

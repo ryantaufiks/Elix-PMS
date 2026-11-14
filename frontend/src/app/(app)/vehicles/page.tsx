@@ -7,9 +7,9 @@ import { SearchInput, UnitPicker } from "@/components/bits";
 import { Tabs } from "@/components/forms";
 import { Badge, Button, Card, Checkbox, Empty, ErrorNote, Field, Input, Loading, Modal, PageHeader, Pagination, Select, Table, Td, Textarea, Th, type Tone, useToast } from "@/components/ui";
 import { api, query } from "@/lib/api";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { useSession } from "@/lib/session";
-import type { Page, Unit, Vehicle } from "@/lib/types";
+import type { Page, ParkingPermit, Unit, Vehicle } from "@/lib/types";
 
 const STATUS: Record<Vehicle["status"], { label: string; tone: Tone }> = {
   active: { label: "Active", tone: "green" },
@@ -19,7 +19,39 @@ const STATUS: Record<Vehicle["status"], { label: string; tone: Tone }> = {
   inactive: { label: "Inactive", tone: "slate" },
 };
 
-type Tab = "all" | "resident" | "season" | "temporary" | "expiring" | "expired";
+type Tab = "all" | "resident" | "season" | "temporary" | "expiring" | "expired" | "payments";
+
+const PERMIT_TONE: Record<ParkingPermit["status"], Tone> = { pending_payment: "amber", paid: "green", expired: "slate", cancelled: "slate" };
+
+/** Season parking bought in the resident app: who paid, for which plate and period. */
+function Payments({ condoId, search }: { condoId: number; search: string }) {
+  const [page, setPage] = useState(1);
+  const { data } = useSWR<Page<ParkingPermit>>(`/v1/parking-permits/${query({ condominium: condoId, search, page })}`, { keepPreviousData: true });
+  if (!data) return <Loading />;
+  if (data.results.length === 0) {
+    return <Empty icon="car" title="No season parking bought yet">Residents buy season parking in the app once it is on sale (Site settings → Season parking).</Empty>;
+  }
+  return (
+    <>
+      <Table>
+        <thead><tr><Th>Bought</Th><Th>Plate</Th><Th>Unit</Th><Th>Period</Th><Th>Amount</Th><Th>Status</Th></tr></thead>
+        <tbody className="divide-y divide-line">
+          {data.results.map((p) => (
+            <tr key={p.id}>
+              <Td className="whitespace-nowrap tabular-nums">{formatDateTime(p.created_at)}<div className="text-xs text-muted">{p.bought_by}</div></Td>
+              <Td className="font-mono font-medium text-ink">{p.plate_number}{p.holder_name && <div className="font-sans text-xs font-normal text-muted">{p.holder_name}</div>}</Td>
+              <Td>{p.unit_display}</Td>
+              <Td className="whitespace-nowrap">{formatDate(p.starts_on)} – {formatDate(p.ends_on)}<div className="text-xs text-muted">{p.months} month{p.months === 1 ? "" : "s"}</div></Td>
+              <Td className="whitespace-nowrap tabular-nums">{p.currency} {p.amount}</Td>
+              <Td><Badge tone={PERMIT_TONE[p.status]}>{p.status_display}</Badge></Td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+      <Pagination page={page} count={data.count} onPage={setPage} />
+    </>
+  );
+}
 
 /** "1 Dec 2026 – 31 Mar 2027", "Until 31 Mar 2027" or "No end date". */
 function validity(v: Vehicle) {
@@ -36,7 +68,7 @@ export default function VehiclesPage() {
   const [tab, setTab] = useState<Tab>("all");
   const [editing, setEditing] = useState<Vehicle | "new" | null>(null);
   const filters = tab === "expiring" || tab === "expired" ? { status: tab } : tab === "all" ? {} : { kind: tab };
-  const { data, mutate } = useSWR<Page<Vehicle>>(`/v1/vehicles/${query({ condominium: condo.id, search, page, ...filters })}`, { keepPreviousData: true });
+  const { data, mutate } = useSWR<Page<Vehicle>>(tab === "payments" ? null : `/v1/vehicles/${query({ condominium: condo.id, search, page, ...filters })}`, { keepPreviousData: true });
   const expiring = useSWR<Page<Vehicle>>(`/v1/vehicles/${query({ condominium: condo.id, status: "expiring", page_size: 1 })}`);
 
   return (
@@ -50,11 +82,14 @@ export default function VehiclesPage() {
         <Tabs active={tab} onChange={(t) => { setTab(t); setPage(1); }} tabs={[
           { key: "all", label: "All" }, { key: "resident", label: "Residents" }, { key: "season", label: "Season parking" },
           { key: "temporary", label: "Temporary" }, { key: "expiring", label: "Ending in 7 days", count: expiring.data?.count }, { key: "expired", label: "Expired" },
+          { key: "payments", label: "Season parking payments" },
         ]} />
         <div className="border-b border-line p-3">
           <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Plate, make, model or holder" />
         </div>
-        {!data ? (
+        {tab === "payments" ? (
+          <Payments condoId={condo.id} search={search} />
+        ) : !data ? (
           <Loading />
         ) : data.results.length === 0 ? (
           <Empty icon="car" title="No vehicles registered" action={isManager && <Button variant="primary" size="sm" onClick={() => setEditing("new")}>Add vehicle</Button>}>Plates listed here open LPR gates automatically for residents.</Empty>
@@ -79,7 +114,7 @@ export default function VehiclesPage() {
             </tbody>
           </Table>
         )}
-        {data && <Pagination page={page} count={data.count} onPage={setPage} />}
+        {data && tab !== "payments" && <Pagination page={page} count={data.count} onPage={setPage} />}
       </Card>
       {editing && (
         <VehicleForm condoId={condo.id} vehicle={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); mutate(); }} />

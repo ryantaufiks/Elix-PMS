@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 
 import '../api.dart';
 import '../models.dart';
 import '../realtime.dart';
 import '../session.dart';
 import 'paged_list.dart';
+import 'payment_screen.dart';
 import 'widgets.dart';
 
 const facilityIcons = <String, IconData>{
@@ -327,93 +327,9 @@ class _BookFacilityScreenState extends State<BookFacilityScreen> {
 }
 
 /// Opens HitPay's payment page; returns true once the booking is confirmed.
-Future<bool> payForBooking(BuildContext context, int bookingId, String url, String returnPrefix) async {
-  await Navigator.of(context).push<void>(MaterialPageRoute(
-      fullscreenDialog: true, builder: (_) => PaymentScreen(bookingId: bookingId, url: url, returnPrefix: returnPrefix)));
-  try {
-    final data = await Api.instance.post('/v1/bookings/$bookingId/refresh/') as Map<String, dynamic>;
-    return Booking(data).status == 'confirmed';
-  } catch (_) {
-    return false;
-  }
-}
-
-class PaymentScreen extends StatefulWidget {
-  const PaymentScreen({super.key, required this.bookingId, required this.url, required this.returnPrefix});
-  final int bookingId;
-  final String url;
-  final String returnPrefix;
-  @override
-  State<PaymentScreen> createState() => _PaymentScreenState();
-}
-
-class _PaymentScreenState extends State<PaymentScreen> {
-  late final WebViewController _web;
-  bool _loading = true;
-  bool _done = false;
-  Timer? _poll;
-  StreamSubscription? _events;
-
-  @override
-  void initState() {
-    super.initState();
-    _web = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(NavigationDelegate(
-        onPageFinished: (_) {
-          if (mounted) setState(() => _loading = false);
-        },
-        onNavigationRequest: (request) {
-          // HitPay sends the resident back to our return page: the payment step is over.
-          if (widget.returnPrefix.isNotEmpty && request.url.startsWith(widget.returnPrefix)) {
-            _finish();
-            return NavigationDecision.prevent;
-          }
-          return NavigationDecision.navigate;
-        },
-      ))
-      ..loadRequest(Uri.parse(widget.url));
-    // The webhook may confirm the booking first (e.g. PayNow paid from a banking app).
-    _poll = Timer.periodic(const Duration(seconds: 5), (_) => _check());
-    _events = Realtime.instance.events.listen((event) {
-      if (event['type'] == 'booking' && (event['data'] as Map?)?['id'] == widget.bookingId && (event['data'] as Map)['status'] != 'pending_payment') {
-        _finish();
-      }
-    });
-  }
-
-  Future<void> _check() async {
-    try {
-      final data = await Api.instance.get('/v1/bookings/${widget.bookingId}/') as Map<String, dynamic>;
-      if (data['status'] != 'pending_payment') _finish();
-    } catch (_) {}
-  }
-
-  void _finish() {
-    if (_done || !mounted) return;
-    _done = true;
-    Navigator.of(context).pop();
-  }
-
-  @override
-  void dispose() {
-    _poll?.cancel();
-    _events?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Payment'),
-          leading: IconButton(icon: const Icon(Icons.close), onPressed: _finish, tooltip: 'Close'),
-        ),
-        body: Stack(children: [
-          WebViewWidget(controller: _web),
-          if (_loading) const Center(child: CircularProgressIndicator()),
-        ]),
-      );
-}
+Future<bool> payForBooking(BuildContext context, int bookingId, String url, String returnPrefix) async =>
+    (await payOnline(context, resource: 'bookings', event: 'booking', id: bookingId, url: url, returnPrefix: returnPrefix))?['status'] ==
+    'confirmed';
 
 class _MyBookings extends StatefulWidget {
   const _MyBookings({super.key});
