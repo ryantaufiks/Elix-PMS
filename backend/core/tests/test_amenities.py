@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
-from core import bookings
+from core import bookings, visits
 from core import models as m
 
 from .factories import make_condo, make_resident, make_staff, make_unit, set_plan
@@ -461,3 +461,61 @@ class NoShowTests(APITestCase):
         admin = make_staff("admin", self.condo, m.StaffAssignment.Role.ADMIN)
         self.client.force_authenticate(admin)
         self.assertEqual(self.client.get("/v1/bookings/", {"condominium": self.condo.pk, "no_show": 1}).data["count"], 1)
+
+
+@mock.patch("core.visits.broadcast")
+@mock.patch("core.tasks.open_gate.delay")
+@mock.patch("core.bookings.broadcast")
+class BookingGuestTests(APITestCase):
+    def setUp(self):
+        self.condo = make_condo(lpr_enabled=True)
+        self.unit = make_unit(self.condo)
+        self.alice = make_resident("alice", self.unit)
+        self.gate = m.AccessGate.objects.create(condominium=self.condo, name="Main gate")
+        self.bbq = m.Facility.objects.create(condominium=self.condo, name="BBQ pit", opens_at=time(0), closes_at=time(23, 59),
+                                             slot_minutes=60, capacity=10)
+        start = timezone.now().replace(second=0, microsecond=0) + timedelta(minutes=20)
+        self.booking = m.Booking.objects.create(condominium=self.condo, facility=self.bbq, unit=self.unit, user=self.alice,
+                                                starts_at=start, ends_at=start + timedelta(hours=2), guests=3, status="confirmed")
+        self.client.force_authenticate(self.alice)
+
+    def invite(self, plates=()):
+        return self.client.post(f"/v1/bookings/{self.booking.pk}/guests/", {"plates": list(plates)}, format="json")
+
+    def test_one_qr_for_the_guests_and_cars_for_the_barrier(self, *_):
+        self.assertEqual(self.client.get(f"/v1/bookings/{self.booking.pk}/guests/").status_code, 404)
+        data = self.invite(["sgx 1 a", "SGX1A"]).data
+        self.assertEqual((data["entries"], data["plates"]), (3, ["SGX1A"]))
+        shared = m.Invitation.objects.get(pk=data["invitation"])
+        self.assertEqual((shared.booking, shared.valid_from, shared.valid_until),
+                         (self.booking, self.booking.starts_at - timedelta(minutes=30), self.booking.ends_at))
+        # Inviting again keeps the shared QR and replaces the cars.
+        again = self.invite(["SBA2B"]).data
+        self.assertEqual((again["invitation"], again["plates"]), (shared.pk, ["SBA2B"]))
+        self.assertEqual(m.Invitation.objects.get(vehicle_plate="SGX1A").status, "cancelled")
+
+        # A guest scans the shared QR at the kiosk: welcomed to the facility, and overstays when the booking ends.
+        kiosk = m.Kiosk.objects.create(condominium=self.condo, name="Lobby", gate=self.gate)
+        token = kiosk.issue_token()
+        kiosk.save()
+        self.client.force_authenticate(None)
+        response = self.client.post("/v1/kiosk/checkin/", {"code": shared.share_url}, format="json", HTTP_AUTHORIZATION=f"Kiosk {token}")
+        self.assertEqual(response.data["result"], "granted", response.data)
+        self.assertEqual(response.data["invitation"]["facility"], "BBQ pit")
+        visit = m.Visit.objects.get()
+        self.assertEqual(visits.overstay_at(visit), self.booking.ends_at)
+        self.client.force_authenticate(make_staff("guard", self.condo, m.StaffAssignment.Role.SECURITY))
+        listed = self.client.get("/v1/visits/", {"condominium": self.condo.pk, "state": "on_site"}).data["results"][0]
+        self.assertEqual(listed["facility"], "BBQ pit")
+
+    def test_rules_and_cancelling_the_booking(self, *_):
+        self.assertIn("At most 5", self.invite([f"SGX{i}A" for i in range(6)]).data["detail"])
+        self.invite(["SGX1A"])
+        bob = make_resident("bob", make_unit(self.condo, "07", "01"))
+        self.client.force_authenticate(bob)
+        self.assertEqual(self.invite().status_code, 404)  # Another unit's booking.
+        self.client.force_authenticate(make_staff("admin", self.condo, m.StaffAssignment.Role.ADMIN))
+        self.assertEqual(self.client.post(f"/v1/bookings/{self.booking.pk}/cancel/").status_code, 200)
+        self.client.force_authenticate(self.alice)
+        self.assertFalse(m.Invitation.objects.filter(status="active").exists())
+        self.assertIn("confirmed booking", self.invite().data["detail"])

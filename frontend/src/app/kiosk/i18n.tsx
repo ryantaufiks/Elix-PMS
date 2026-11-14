@@ -35,6 +35,8 @@ const STRINGS: Record<string, [string, string, string]> = {
   "Booked": ["已预订", "Ditempah", "முன்பதிவு"],
   "Now": ["现在", "Sekarang", "இப்போது"],
   "Book in the Elix app.": ["请在 Elix 应用中预订。", "Tempah dalam aplikasi Elix.", "Elix செயலியில் முன்பதிவு செய்யுங்கள்."],
+  "Welcome to {facility}!": ["欢迎来到{facility}！", "Selamat datang ke {facility}!", "{facility} க்கு வரவேற்கிறோம்!"],
+  "Hosted by {unit}. The gate is opening.": ["由 {unit} 邀请。闸门正在打开。", "Dijemput oleh {unit}. Pintu pagar sedang dibuka.", "{unit} அழைத்துள்ளார். வாயில் திறக்கிறது."],
   "Enjoy {facility}!": ["祝您使用{facility}愉快！", "Selamat menggunakan {facility}!", "{facility} ஐ மகிழ்ச்சியுடன் பயன்படுத்துங்கள்!"],
   "The door is opening. Your booking: {time}.": ["门正在打开。您的预订：{time}。", "Pintu sedang dibuka. Tempahan anda: {time}.", "கதவு திறக்கிறது. உங்கள் முன்பதிவு: {time}."],
   "You are checked in. Your booking: {time}.": ["您已签到。您的预订：{time}。", "Anda telah daftar masuk. Tempahan anda: {time}.", "உங்கள் வருகை பதிவானது. உங்கள் முன்பதிவு: {time}."],

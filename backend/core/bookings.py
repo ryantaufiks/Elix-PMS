@@ -8,8 +8,9 @@ from django.db.models import Q
 from django.utils import timezone
 
 from . import payments
-from .models import Booking, Facility, PaymentSettings
+from .models import Booking, Facility, Invitation, PaymentSettings
 from .realtime import broadcast
+from .validators import normalize_plate
 
 log = logging.getLogger(__name__)
 
@@ -108,6 +109,48 @@ def check_in(condominium_id, code, now=None):
     return booking, ""
 
 
+# Guests of a booking may come in this long before it starts.
+GUEST_EARLY = timedelta(minutes=30)
+MAX_GUEST_CARS = 5
+
+
+@transaction.atomic
+def guest_pass(booking, user, plates=()):
+    """The booking's guest pass: one shared QR for up to ``booking.guests`` entries from 30 minutes before the
+    start until the end, plus one pass per car plate so the LPR barrier opens for them. Calling again keeps
+    the shared pass and replaces the cars. Returns (pass, car passes)."""
+    booking = Booking.objects.select_for_update().select_related("facility", "unit").get(pk=booking.pk)
+    if booking.status != Booking.Status.CONFIRMED:
+        raise BookingError("Guests can be invited to a confirmed booking only.")
+    if booking.ends_at <= timezone.now():
+        raise BookingError("This booking is over.")
+    wanted = list(dict.fromkeys(p for p in (normalize_plate(x) for x in plates) if p))
+    if len(wanted) > MAX_GUEST_CARS:
+        raise BookingError(f"At most {MAX_GUEST_CARS} guest cars per booking.")
+    common = {"condominium_id": booking.condominium_id, "unit": booking.unit, "host": booking.user or user,
+              "purpose": Invitation.Purpose.GUEST, "valid_from": booking.starts_at - GUEST_EARLY,
+              "valid_until": booking.ends_at, "booking": booking}
+    active = booking.guest_invitations.filter(status=Invitation.Status.ACTIVE)
+    shared = active.filter(vehicle_plate="").first() or Invitation.objects.create(
+        visitor_name=f"Guests: {booking.facility.name}", max_entries=max(1, booking.guests),
+        notes=f"{booking.facility.name} booking", **common)
+    cars = {i.vehicle_plate: i for i in active.exclude(vehicle_plate="")}
+    for plate, invitation in cars.items():
+        if plate not in wanted:
+            invitation.cancel()
+    for plate in wanted:
+        if plate not in cars:
+            cars[plate] = Invitation.objects.create(visitor_name=f"Guest car: {booking.facility.name}", vehicle_plate=plate,
+                                                    max_entries=0, notes=f"{booking.facility.name} booking", **common)
+    return shared, [cars[p] for p in wanted]
+
+
+def end_guest_passes(booking):
+    """A booking that will not happen takes its guests' passes with it."""
+    for invitation in booking.guest_invitations.filter(status=Invitation.Status.ACTIVE):
+        invitation.cancel()
+
+
 def mark_no_shows(now=None):
     """Flag confirmed bookings nobody checked in to within their facility's no-show time; facilities set to
     release no-shows cancel them so the rest of the slot can be booked. Returns how many were flagged."""
@@ -123,6 +166,7 @@ def mark_no_shows(now=None):
         if booking.facility.release_no_shows and booking.ends_at > now:
             booking.status, booking.cancelled_at = Booking.Status.CANCELLED, now
             booking.cancel_reason = f"No-show: nobody checked in within {booking.facility.no_show_minutes} minutes."
+            end_guest_passes(booking)
         booking.save()
         notify(booking)
         count += 1
@@ -280,6 +324,7 @@ def cancel(booking, user, *, staff, reason=""):
                                "Please contact the management office.")
     booking.status, booking.cancelled_at, booking.cancelled_by = Booking.Status.CANCELLED, now, user
     booking.cancel_reason = reason[:255] or ("Cancelled by the management" if staff else "Cancelled by the resident")
+    end_guest_passes(booking)
     if booking.payment_status == Booking.Payment.PENDING:
         booking.payment_status = Booking.Payment.FAILED
     booking.save()

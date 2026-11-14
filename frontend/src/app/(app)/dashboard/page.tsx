@@ -112,7 +112,7 @@ function OnSite({ visits, onCheckOut }: { visits: Visit[]; onCheckOut: (v: Visit
             <div className="truncate text-sm font-medium text-ink">
               {v.visitor_name} <span className="font-normal text-muted">→ {v.unit_display}</span>
             </div>
-            <div className="truncate text-xs text-muted">{visitPurpose(v.purpose, v.company)} · in {sgDay(v.created_at) === sgDay(new Date(now).toISOString()) ? formatTime(v.created_at) : formatDateTime(v.created_at)}</div>
+            <div className="truncate text-xs text-muted">{v.facility ? `${v.facility} booking` : visitPurpose(v.purpose, v.company)} · in {sgDay(v.created_at) === sgDay(new Date(now).toISOString()) ? formatTime(v.created_at) : formatDateTime(v.created_at)}</div>
           </div>
           <div className="shrink-0 text-right">
             <div className={cx("text-sm tabular-nums", v.overstaying ? "font-semibold text-rose-600 dark:text-rose-300" : "text-body")}>{stayed(v.created_at, now)}</div>

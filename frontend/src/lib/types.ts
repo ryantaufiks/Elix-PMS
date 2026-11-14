@@ -474,6 +474,8 @@ export type Visit = {
   /** When the visitor passes the site's limit for their purpose (null: no limit). */
   overstay_at: string | null;
   overstaying: boolean;
+  /** Guest of this facility's booking (empty otherwise). */
+  facility: string;
 };
 
 export type Summary = {

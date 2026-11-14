@@ -100,6 +100,9 @@ class Invitation(TimeStampedModel):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
     notes = models.CharField(max_length=255, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True, editable=False)
+    booking = models.ForeignKey(
+        "core.Booking", on_delete=models.CASCADE, null=True, blank=True, related_name="guest_invitations",
+        help_text="Guests of this facility booking: valid around the booking, ended with it.")
 
     class Meta:
         ordering = ["-valid_from"]

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../api.dart';
 import '../models.dart';
@@ -454,10 +455,16 @@ class _MyBookingsState extends State<_MyBookings> {
               if (b.awaitingPayment || b.canCancel || b.hasQr)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
-                  child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                  // Wraps on narrow phones (and with large text) instead of overflowing.
+                  child: Wrap(alignment: WrapAlignment.end, spacing: 8, runSpacing: 4, children: [
                     if (b.canCancel) TextButton(onPressed: () => _cancel(b), child: const Text('Cancel')),
                     if (b.hasQr) ...[
-                      const SizedBox(width: 8),
+                      TextButton.icon(
+                        onPressed: () => showModalBottomSheet<void>(
+                            context: context, isScrollControlled: true, builder: (_) => _GuestsSheet(booking: b)),
+                        icon: const Icon(Icons.group_add_rounded, size: 20),
+                        label: const Text('Invite guests'),
+                      ),
                       FilledButton.icon(
                         style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
                         onPressed: () => _showQr(b),
@@ -465,14 +472,12 @@ class _MyBookingsState extends State<_MyBookings> {
                         label: const Text('Check-in QR'),
                       ),
                     ],
-                    if (b.awaitingPayment) ...[
-                      const SizedBox(width: 8),
+                    if (b.awaitingPayment)
                       FilledButton(
                         style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
                         onPressed: () => _pay(b),
                         child: const Text('Pay now'),
                       ),
-                    ],
                   ]),
                 ),
             ]),
@@ -482,3 +487,117 @@ class _MyBookingsState extends State<_MyBookings> {
     );
   }
 }
+
+
+/// Guests of a booking: one QR to share for up to the booking's number of people, valid from 30 minutes
+/// before the start until the end, and the guests' car plates so the barrier opens for them.
+class _GuestsSheet extends StatefulWidget {
+  const _GuestsSheet({required this.booking});
+  final Booking booking;
+  @override
+  State<_GuestsSheet> createState() => _GuestsSheetState();
+}
+
+class _GuestsSheetState extends State<_GuestsSheet> {
+  final _plates = TextEditingController();
+  Map<String, dynamic>? _pass;
+  bool _loading = true;
+  bool _busy = false;
+  String? _error;
+
+  String get _path => '/v1/bookings/${widget.booking.id}/guests/';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final data = await Api.instance.get(_path) as Map<String, dynamic>;
+      _pass = data;
+      _plates.text = (data['plates'] as List).join(', ');
+    } on ApiException catch (e) {
+      if (e.status != 404) _error = e.message;
+    } catch (e) {
+      _error = '$e';
+    }
+    if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _save() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final plates = _plates.text.split(RegExp(r'[,\s]+')).where((p) => p.isNotEmpty).toList();
+      final data = await Api.instance.post(_path, {'plates': plates}) as Map<String, dynamic>;
+      setState(() => _pass = data);
+    } catch (e) {
+      setState(() => _error = '$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _share() {
+    final b = widget.booking;
+    SharePlus.instance.share(ShareParams(
+      subject: 'Your pass for ${b.facilityName}',
+      text: 'You are invited to ${b.facilityName} on ${DateFormat('EEE d MMM, HH:mm').format(b.startsAt)}. '
+          'Show the QR code at the gate kiosk from 30 minutes before: ${_pass!['share_url']}',
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final b = widget.booking;
+    final outline = Theme.of(context).colorScheme.outline;
+    final pass = _pass;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.viewInsetsOf(context).bottom + 20),
+      child: _loading
+          ? const SizedBox(height: 160, child: Center(child: CircularProgressIndicator()))
+          : SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Text('Guests for ${b.facilityName}', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 4),
+                Text('One QR for up to ${b.guests} ${b.guests == 1 ? 'person' : 'people'}, from 30 minutes before the start until '
+                    'the end. Guests scan it at the gate kiosk.', style: TextStyle(color: outline)),
+                const SizedBox(height: 16),
+                if (_error != null)
+                  Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+                if (pass != null) ...[
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                      child: SizedBox(width: 200, height: 200,
+                          child: AuthImage('/v1/invitations/${pass['invitation']}/qr/', fit: BoxFit.contain, semanticLabel: 'Guest pass QR code')),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('${pass['entries_left']} of ${pass['entries']} entries left', textAlign: TextAlign.center, style: TextStyle(color: outline)),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(onPressed: _share, icon: const Icon(Icons.share), label: const Text('Share with guests')),
+                  const SizedBox(height: 20),
+                ],
+                TextField(
+                  controller: _plates,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(labelText: 'Guests\' car plates (optional)', hintText: 'SBA1234A, SGX5678B',
+                      helperText: 'Up to 5. The barrier opens for them during the booking.'),
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton(
+                  onPressed: _busy ? null : _save,
+                  child: Text(_busy ? 'Saving…' : pass == null ? 'Create guest pass' : 'Save car plates'),
+                ),
+              ]),
+            ),
+    );
+  }
+}
+

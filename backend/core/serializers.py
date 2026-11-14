@@ -487,6 +487,7 @@ class VisitSerializer(ModelCleanSerializer):
     visitor_blocked = serializers.BooleanField(source="visitor.is_blacklisted", read_only=True, default=False)
     overstay_at = serializers.SerializerMethodField()
     overstaying = serializers.SerializerMethodField()
+    facility = serializers.SerializerMethodField(help_text="Facility whose booking the visitor is a guest of")
 
     class Meta:
         model = m.Visit
@@ -495,7 +496,7 @@ class VisitSerializer(ModelCleanSerializer):
             "gate_name", "invitation", "intercom_call", "visitor", "visitor_name", "visitor_phone", "visitor_blocked", "purpose", "company",
             "vehicle_plate", "notes", "has_snapshot", "pass_number", "pin", "issued_on", "valid_until", "state",
             "checked_out_at", "checked_out_by", "checked_out_by_name", "created_by", "created_by_name", "created_at",
-            "overstay_at", "overstaying",
+            "overstay_at", "overstaying", "facility",
         ]
         read_only_fields = sorted(set(fields) - {"visitor_name", "company", "notes"})
 
@@ -508,6 +509,10 @@ class VisitSerializer(ModelCleanSerializer):
 
         at = visits.overstay_at(obj)
         return serializers.DateTimeField().to_representation(at) if at else None
+
+    def get_facility(self, obj) -> str:
+        booking = obj.invitation.booking if obj.invitation_id else None
+        return booking.facility.name if booking else ""
 
     def get_overstaying(self, obj) -> bool:
         from . import visits
@@ -959,14 +964,18 @@ class InvitationPassSerializer(serializers.ModelSerializer):
     entries_left = serializers.SerializerMethodField()
     usable = serializers.SerializerMethodField()
     problem = serializers.SerializerMethodField()
+    facility = serializers.SerializerMethodField(help_text="For a booking's guests: the facility booked")
 
     class Meta:
         model = m.Invitation
         fields = [
             "visitor_name", "purpose", "condominium_name", "condominium_address", "unit_display", "host_first_name",
             "valid_from", "valid_until", "status", "vehicle_plate", "require_face", "entries_left", "usable", "problem",
-            "privacy_notice",
+            "privacy_notice", "facility",
         ]
+
+    def get_facility(self, obj) -> str:
+        return obj.booking.facility.name if obj.booking_id else ""
 
     def get_host_first_name(self, obj) -> str:
         return obj.host.first_name or ""
@@ -1048,6 +1057,21 @@ class BookingSerializer(serializers.ModelSerializer):
         """Whether the resident can still cancel it themselves."""
         return (obj.status in m.Booking.ACTIVE_STATUSES
                 and obj.starts_at - timezone.now() >= timedelta(hours=obj.facility.cancel_hours))
+
+
+class GuestPassRequestSerializer(serializers.Serializer):
+    plates = serializers.ListField(child=serializers.CharField(max_length=20), required=False, default=list,
+                                   help_text="Guests' car plates (at most 5): the LPR barrier opens for them.")
+
+
+class GuestPassSerializer(serializers.Serializer):
+    invitation = serializers.IntegerField(help_text="The shared guest invitation (its QR is /v1/invitations/{id}/qr/)")
+    share_url = serializers.CharField()
+    entries = serializers.IntegerField()
+    entries_left = serializers.IntegerField()
+    valid_from = serializers.DateTimeField()
+    valid_until = serializers.DateTimeField()
+    plates = serializers.ListField(child=serializers.CharField())
 
 
 class KioskSlotSerializer(serializers.Serializer):

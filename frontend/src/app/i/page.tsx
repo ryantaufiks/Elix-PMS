@@ -61,6 +61,7 @@ export default function VisitorPassPage() {
                 {[
                   ["Visitor", pass.visitor_name],
                   ["Visiting", `${pass.unit_display}${pass.host_first_name ? ` · ${pass.host_first_name}` : ""}`],
+                  ...(pass.facility ? [["Booking", pass.facility]] : []),
                   ["Valid from", when.format(new Date(pass.valid_from))],
                   ["Valid until", when.format(new Date(pass.valid_until))],
                   ...(pass.vehicle_plate ? [["Vehicle", pass.vehicle_plate]] : []),
@@ -70,7 +71,7 @@ export default function VisitorPassPage() {
                 ))}
               </dl>
               <div className="bg-surface-2 px-6 py-4 text-sm text-body">
-                At the gate, tap <strong>“I have an invitation”</strong> on the kiosk and hold this QR code up to its camera.
+                At the gate, tap <strong>“Scan QR code”</strong> on the kiosk and hold this QR code up to its camera.
                 {pass.require_face && " The kiosk will also take a quick photo of you."}
                 {pass.vehicle_plate && " Driving? The barrier opens automatically for your registered plate."}
               </div>

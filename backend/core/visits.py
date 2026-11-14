@@ -46,6 +46,8 @@ def overstay_at(visit, condo=None):
     """When a visitor still on site starts overstaying, by the site's limit for their purpose; None when
     no limit applies. A contractor who arrives after the day's cut-off gets the guests' limit."""
     condo = condo or visit.condominium
+    if visit.invitation_id and visit.invitation.booking_id:
+        return visit.invitation.booking.ends_at  # A booking's guests leave when it ends.
     guest = condo.overstay_guest_minutes and visit.created_at + timedelta(minutes=condo.overstay_guest_minutes)
     if visit.purpose in DELIVERY_PURPOSES:
         return condo.overstay_delivery_minutes and visit.created_at + timedelta(minutes=condo.overstay_delivery_minutes) or None
@@ -72,7 +74,7 @@ def notify_overstays():
     now = timezone.now()
     told = 0
     waiting = Visit.objects.filter(checked_out_at__isnull=True, valid_until__gte=now, overstay_notified_at__isnull=True) \
-        .select_related("condominium", "unit__block", "kiosk", "gate", "visitor", "created_by")
+        .select_related("condominium", "unit__block", "kiosk", "gate", "visitor", "created_by", "invitation__booking__facility")
     for visit in waiting:
         if not is_overstaying(visit, now):
             continue

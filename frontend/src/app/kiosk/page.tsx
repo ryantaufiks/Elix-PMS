@@ -1487,6 +1487,8 @@ export default function KioskPage() {
     try {
       const r = await kioskApi<CheckInResult>("/v1/kiosk/checkin/", { method: "POST", body: form });
       if (r.result === "face_required" && r.invitation) setScreen({ name: "face", code, pass: r.invitation });
+      else if (r.result === "granted" && r.invitation?.facility) setScreen({ name: "result", outcome: { tone: "good", title: "Welcome to {facility}!",
+        detail: "Hosted by {unit}. The gate is opening.", vars: { facility: r.invitation.facility, unit: r.invitation.unit_display } } });
       else if (r.result === "granted") setScreen({ name: "result", outcome: { tone: "good", title: r.invitation?.visitor_name ? "Welcome, {name}!" : "Welcome!",
         detail: "The gate is opening. You are visiting {unit}.", vars: { name: r.invitation?.visitor_name ?? "", unit: r.invitation?.unit_display ?? "" } } });
       else setScreen({ name: "result", outcome: { tone: "bad", title: "Entry not allowed", detail: r.reason } });

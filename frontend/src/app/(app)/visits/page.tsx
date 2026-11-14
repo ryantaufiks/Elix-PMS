@@ -161,7 +161,7 @@ export default function VisitsPage() {
                       ) : <span className="h-10 w-10 shrink-0 rounded-md bg-surface-3" />}
                       <div className="min-w-0">
                         <div className="font-medium text-ink">{v.visitor_name}{v.visitor_blocked && <span className="ml-2"><Badge tone="red">Blocked</Badge></span>}</div>
-                        <div className="text-xs text-muted">{[visitPurpose(v.purpose, v.company), v.visitor_phone, v.vehicle_plate].filter(Boolean).join(" · ")}</div>
+                        <div className="text-xs text-muted">{[v.facility ? `${v.facility} booking` : visitPurpose(v.purpose, v.company), v.visitor_phone, v.vehicle_plate].filter(Boolean).join(" · ")}</div>
                         {v.notes && <div className="mt-1 max-w-xs whitespace-pre-line text-xs italic text-body">{v.notes}</div>}
                       </div>
                     </div>

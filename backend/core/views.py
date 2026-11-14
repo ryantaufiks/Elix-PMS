@@ -644,7 +644,7 @@ class VisitViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, ScopedReadO
     ``?state=on_site|checked_out|expired``, ``?date_from=`` / ``?date_to=`` (local dates)."""
 
     queryset = m.Visit.objects.select_related("condominium", "unit__block", "kiosk", "gate", "visitor", "created_by",
-                                              "checked_out_by", "intercom_call", "entry_log")
+                                              "checked_out_by", "intercom_call", "entry_log", "invitation__booking__facility")
     serializer_class = s.VisitSerializer
     resident_unit_path = "unit"
     staff_write_roles = ALL_STAFF
@@ -862,7 +862,8 @@ class DashboardSummaryView(generics.GenericAPIView):
         """Visitors on site, arrivals and departures today (with yesterday at this time to compare)."""
         condo = m.Condominium.objects.get(pk=condo_id)
         visits_qs = m.Visit.objects.filter(condominium_id=condo_id)
-        inside = list(visits_qs.filter(checked_out_at__isnull=True, valid_until__gte=now).select_related("condominium"))
+        inside = list(visits_qs.filter(checked_out_at__isnull=True, valid_until__gte=now)
+                      .select_related("condominium", "invitation__booking"))
         by_purpose = {}
         for v in inside:
             by_purpose[v.purpose] = by_purpose.get(v.purpose, 0) + 1

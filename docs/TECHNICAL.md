@@ -258,7 +258,13 @@ page and press *Save & test Firebase*; without it only open apps (WebSocket) rin
   facility, off by default: *No-show after (minutes)*): every 5 minutes `mark_no_shows` flags confirmed
   bookings nobody checked in to that long after the start (`Booking.no_show_at`; the resident gets a
   *Missed booking* notification); with *Release no-shows* the booking is cancelled so the rest of the slot
-  can be booked (no automatic refund). A late check-in clears the flag. Bookings → status *No-show* lists them. Booking for
+  can be booked (no automatic refund). A late check-in clears the flag. Bookings → status *No-show* lists them.
+  **Guests of a booking** (`/v1/bookings/{id}/guests/`, from the app's *Invite guests*): one shared
+  invitation for up to the booking's number of people, valid from 30 minutes before the start until the end,
+  plus one plate invitation per guest car (at most 5) for the LPR barrier; `Invitation.booking` links them.
+  Calling it again keeps the shared QR and replaces the cars; cancelling the booking (or releasing a no-show)
+  cancels them. The kiosk welcomes guests to the facility, hosted by the unit; on the dashboard they show as
+  *<facility> booking* and overstay when the booking ends. Booking for
   non-residents is left out on purpose: most condo by-laws keep facilities for residents and their guests.
 - **Check out** (per site, Site settings → *Offer self check-out at the kiosk*, on by default): the
   kiosk's fourth button. The visitor scans the QR on their slip or screenshot, or types the PIN on the

@@ -181,6 +181,8 @@ export type VisitorPass = {
   usable: boolean;
   problem: string;
   privacy_notice: string;
+  /** For a booking's guests: the facility booked. */
+  facility: string;
 };
 
 export type CheckInResult = { result: "granted" | "denied" | "face_required"; reason: string; invitation: VisitorPass | null };

@@ -182,6 +182,34 @@ class BookingViewSet(mixins.CreateModelMixin, ScopedReadOnlyViewSet):
             raise PermissionDenied()
         return staff
 
+    @extend_schema(methods=["POST"], request=s.GuestPassRequestSerializer, responses=s.GuestPassSerializer)
+    @extend_schema(methods=["GET"], responses=s.GuestPassSerializer)
+    @action(detail=True, methods=["get", "post"])
+    def guests(self, request, pk=None):
+        """Invite guests to a confirmed booking: one QR for up to ``guests`` entries (30 minutes before the start
+        until the end) to share, and car plates for the barrier. GET shows the current pass (404 if none)."""
+        booking = self.get_object()
+        self._own_or_staff(booking, MANAGEMENT)
+        if request.method == "GET":
+            shared = booking.guest_invitations.filter(status=m.Invitation.Status.ACTIVE, vehicle_plate="").first()
+            if shared is None:
+                raise NotFound("No guest pass yet.")
+            cars = list(booking.guest_invitations.filter(status=m.Invitation.Status.ACTIVE).exclude(vehicle_plate="")
+                        .values_list("vehicle_plate", flat=True))
+        else:
+            body = s.GuestPassRequestSerializer(data=request.data)
+            body.is_valid(raise_exception=True)
+            try:
+                shared, car_passes = bookings.guest_pass(booking, request.user, body.validated_data["plates"])
+            except bookings.BookingError as exc:
+                return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+            cars = [c.vehicle_plate for c in car_passes]
+        return Response(s.GuestPassSerializer({
+            "invitation": shared.pk, "share_url": shared.share_url, "entries": shared.max_entries,
+            "entries_left": max(0, shared.max_entries - shared.entry_count), "valid_from": shared.valid_from,
+            "valid_until": shared.valid_until, "plates": cars,
+        }).data)
+
     @extend_schema(responses={(200, "image/png"): OpenApiResponse(description="QR code PNG")})
     @action(detail=True, methods=["get"])
     def qr(self, request, pk=None):
