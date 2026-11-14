@@ -15,7 +15,7 @@ const FLOWS: Record<string, { name: string; steps: Step[] }> = {
     steps: [
       { label: "Kiosk", title: "Visitor taps the lobby kiosk", text: "They pick the unit on a big number pad, enter their name and purpose, and the kiosk takes a photo after they accept the privacy notice." },
       { label: "Phone rings", title: "The resident's phone rings", text: "A full-screen call reaches the resident app even when it is closed, with the visitor's photo and purpose." },
-      { label: "Video call", title: "Face-to-face video", text: "Resident and visitor see and hear each other. The guardhouse can pick up the same call from the dashboard." },
+      { label: "Video call", title: "Face-to-face video", text: "Resident and visitor see and hear each other. The guardhouse sees the call pop up on any dashboard page and can pick it up." },
       { label: "Swipe", title: "Swipe to open", text: "One swipe approves the visitor. Declining or not answering keeps the gate shut." },
       { label: "Gate opens", title: "The gate opens", text: "The relay on the gate motor opens the gate at the kiosk the visitor is standing at." },
       { label: "Logged", title: "Everything is logged", text: "Time, unit, visitor, photo and decision land in the access log and the reports, live on the dashboard." },
@@ -32,11 +32,21 @@ const FLOWS: Record<string, { name: string; steps: Step[] }> = {
       { label: "Logged", title: "Logged and counted", text: "The entry counts against the invitation and shows up for the resident and the guardhouse." },
     ],
   },
+  facility: {
+    name: "Facility booking",
+    steps: [
+      { label: "Book", title: "Resident books in the app", text: "A slot at the BBQ pit or function room, within the estate's rules, paid with PayNow or card when it has a fee." },
+      { label: "QR", title: "A check-in QR", text: "The booking carries its own QR in My bookings, valid from 15 minutes before the start." },
+      { label: "Kiosk", title: "Check in at the kiosk", text: "Facilities on the kiosk shows today's free and booked slots, never who booked them, and scans the QR." },
+      { label: "Door opens", title: "The door opens", text: "When the facility has a door on a relay, it opens for the resident with the booking." },
+      { label: "No-show", title: "No-shows flagged", text: "Nobody checked in after the set minutes: the booking is marked no-show and can free the slot for others." },
+    ],
+  },
   lpr: {
     name: "Car at the barrier",
     steps: [
       { label: "Camera", title: "The camera reads the plate", text: "The licence-plate camera at the barrier sends each read to Elix." },
-      { label: "Match", title: "Matched in milliseconds", text: "Against residents' registered vehicles and today's invitations with a plate. Unknown plates are logged and the barrier stays shut." },
+      { label: "Match", title: "Matched in milliseconds", text: "Against registered vehicles and season parking within their dates, and today's invitations with a plate. Unknown or lapsed plates are logged and the barrier stays shut." },
       { label: "Barrier", title: "The barrier opens", text: "Residents and invited cars drive straight in, no remote or card needed." },
       { label: "Logged", title: "Logged with a snapshot", text: "Plate, gate, decision and the camera snapshot, searchable in the access log and vehicle report." },
     ],

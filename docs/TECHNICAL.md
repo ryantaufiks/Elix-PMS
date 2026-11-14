@@ -29,8 +29,9 @@ in `.env` to the server's Tailscale IP to reach the dev API remotely.
 ## Landing page
 
 The site root (`/`, `frontend/src/app/page.tsx` → `components/landing/`) is the public product page:
-hero, features, *How it works* (an interactive Three.js scene per journey: visitor calls a resident,
-invited guest, car at the barrier; drag to turn, tap a step, auto-plays unless the visitor prefers reduced
+hero (with *Four languages* and *Designed to WCAG 2.1 AA*), twelve feature cards (incl. guardhouse dashboard,
+vehicle passes and season parking, facility check-in and no-shows, report insights, Elixa, accessibility), *How it works* (an interactive Three.js scene per journey: visitor calls a resident,
+invited guest, facility booking, car at the barrier; drag to turn, tap a step, auto-plays unless the visitor prefers reduced
 motion, and falls back to the step list without WebGL), plans (modules per plan, *Contact for quote*, no
 prices), PDPA, technology and security, with links to the privacy and cybersecurity policies. *Request a
 demo* and the quote buttons open an email to services@ with a pre-filled template. Three.js is loaded only

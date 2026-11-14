@@ -14,15 +14,18 @@ const quote = (plan: string) => "mailto:services@smartcitytechnologies.com.sg?su
   + "&body=" + encodeURIComponent(`Hello Elix team,\n\nPlease send a quote for the ${plan} plan.\n\nCondominium:\nNumber of units:\nNumber of gates:\nContact person and phone:\n`);
 
 const FEATURES: { icon: IconName; title: string; text: string }[] = [
-  { icon: "tablet", title: "Lobby kiosk", text: "Visitors call a unit, register as a walk-in or show their invitation on any tablet. Big buttons, a number pad and a voice assistant." },
-  { icon: "video", title: "Video intercom", text: "The resident's phone rings with the visitor's photo. Talk face to face, then swipe to open the gate." },
+  { icon: "tablet", title: "Lobby kiosk", text: "Visitors call a unit, register as a walk-in or show their invitation on any tablet, in English, 中文, Melayu or தமிழ். Big buttons and a number pad." },
+  { icon: "video", title: "Video intercom", text: "The resident's phone rings with the visitor's photo. Talk face to face, then swipe to open the gate. Visitors who need help call the guardhouse instead." },
+  { icon: "users", title: "Guardhouse dashboard", text: "Who is on site, since when and who has overstayed, with alerts per visitor type. Kiosk calls pop up and ring on any page." },
   { icon: "qr", title: "QR invitations", text: "Residents invite guests in seconds. Guests get a pass by link, with validity, entries and plate, no app needed." },
   { icon: "car", title: "Licence-plate entry", text: "Cameras at the barrier let residents and invited cars straight in, and log every read with a snapshot." },
+  { icon: "ticket", title: "Vehicle passes", text: "Residents' cars, temporary passes and season parking, each with start and end dates. Residents buy and renew season parking in the app." },
   { icon: "smartphone", title: "Resident app", text: "Calls, gate opening, invitations, facility bookings, documents and feedback in one Android app." },
-  { icon: "calendar", title: "Facility booking", text: "BBQ pits, function rooms and courts with slots, rules and online payment including PayNow." },
+  { icon: "calendar", title: "Facility booking", text: "BBQ pits, function rooms and courts with slots, rules and PayNow. Residents check in at the kiosk with a QR; no-shows are flagged." },
   { icon: "printer", title: "Walk-in passes", text: "A printed slip with a pass number for security, and self check-out with its QR or PIN when visitors leave." },
-  { icon: "report", title: "Reports", text: "Visitor, access, vehicle, intercom and invitation reports for one site or many, as PDF, Excel or CSV." },
-  { icon: "sparkle", title: "AI concierge", text: "A voice assistant at the kiosk for directions, facilities and help registering. It only talks about your estate." },
+  { icon: "report", title: "Reports and insights", text: "Visitor, access, vehicle, intercom and invitation reports for one or many sites, busiest hours for planning shifts, and PDF, Excel or CSV." },
+  { icon: "sparkle", title: "AI concierge", text: "Elixa, a voice assistant at the kiosk: directions, facilities, help registering, and a call to the guardhouse when a person is needed." },
+  { icon: "eye", title: "Accessible", text: "Designed to WCAG 2.1 AA: high contrast, a larger text option for staff, and a \u201cmore time?\u201d prompt at the kiosk." },
 ];
 
 const PLANS = [
@@ -37,7 +40,7 @@ const PDPA = [
   ["Deleted on schedule", "Visitor names, contacts, photos and plates are erased automatically after the period your estate sets (90 days by default)."],
   ["Faces only with permission", "Face check-out is off unless the estate turns it on; only a face template is kept, and deleted at check-out."],
   ["Residents in control", "Residents can ask for their account and data to be deleted; the app links straight to the request."],
-  ["Clear roles", "Officers handle visitors and gates; residents' documents stay with the management office."],
+  ["Clear roles", "Officers handle visitors and gates; residents' documents stay with the management office. Lobby screens never show who booked what."],
 ];
 
 const TECH: { icon: IconName; title: string; text: string }[] = [
@@ -46,7 +49,7 @@ const TECH: { icon: IconName; title: string; text: string }[] = [
   { icon: "gate", title: "Works with your gates", text: "Smart relays on existing gate motors and barriers, controlled over the network or the cloud." },
   { icon: "camera", title: "Plate cameras", text: "Licence-plate cameras at the barrier send each read straight to Elix." },
   { icon: "building", title: "Many sites, one account", text: "Managing agents with several estates switch between them in one account." },
-  { icon: "globe", title: "Made for Singapore", text: "SGT everywhere, Singapore plates and postal codes, PayNow, PDPA built in." },
+  { icon: "globe", title: "Made for Singapore", text: "SGT everywhere, Singapore plates and postal codes, PayNow, PDPA built in, and a kiosk in the four official languages." },
 ];
 
 const SECURITY = [
@@ -95,7 +98,7 @@ export function Landing() {
             <a href="#how" className="rounded-xl border border-white/20 bg-white/5 px-6 py-3.5 text-base font-semibold text-white transition hover:bg-white/10">See how it works</a>
           </div>
           <div className="mt-14 flex flex-wrap justify-center gap-x-8 gap-y-3 text-sm text-slate-300">
-            {["PDPA built in", "Works with existing gates", "Live on every screen", "Made for Singapore"].map((t) => (
+            {["PDPA built in", "Works with existing gates", "Live on every screen", "Four languages", "Designed to WCAG 2.1 AA"].map((t) => (
               <span key={t} className="flex items-center gap-2">
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary-500/25 text-primary-300"><Icon name="check" className="h-3 w-3" /></span>{t}
               </span>

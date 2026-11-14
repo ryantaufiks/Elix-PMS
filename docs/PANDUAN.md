@@ -141,7 +141,8 @@ Pastikan perangkat lokal Anda telah terinstal:
 * Untuk Microsoft 365 / Gmail dengan verifikasi dua langkah, gunakan *app password*.
 
 ### 5c. Landing page
-* Alamat utama (`https://elixsmart.cloud/`) sekarang halaman produk: fitur, diagram alur 3D interaktif (tamu memanggil penghuni, tamu undangan, mobil di barrier; bisa diputar dan diklik per langkah), paket Basic/Standard/Premium tanpa harga (*Contact for quote*), PDPA, teknologi dan keamanan.
+* Alamat utama (`https://elixsmart.cloud/`) sekarang halaman produk: fitur, diagram alur 3D interaktif (tamu memanggil penghuni, tamu undangan, booking fasilitas, mobil di barrier; bisa diputar dan diklik per langkah), paket Basic/Standard/Premium tanpa harga (*Contact for quote*), PDPA, teknologi dan keamanan.
+* Bagian Features memuat 12 kartu termasuk fitur terbaru: dashboard pos jaga (on site, overstay, pop-up panggilan), vehicle passes & season parking, check-in fasilitas & no-show, report insights, Elixa yang bisa memanggil pos jaga, dan aksesibilitas (WCAG 2.1 AA). Hero menampilkan *Four languages* dan *Designed to WCAG 2.1 AA*.
 * Dashboard pindah ke **`/dashboard/`**; setelah login otomatis ke sana. Kalau browser sudah login, tombol di landing berubah jadi *Open dashboard*.
 * Tombol *Request a demo* dan *Contact for quote* membuka email ke services@smartcitytechnologies.com.sg dengan template terisi (nama condo, jumlah unit, jumlah gerbang, kontak).
 * Setelah bagian Features ada pita *The Elix app for residents* dengan tombol **Coming soon on Google Play / App Store** (juga ikon kecil di footer). Ini bukan badge resmi toko (badge resmi hanya boleh dipakai kalau aplikasi sudah bisa diunduh); saat rilis, ganti di `frontend/src/components/landing/StoreBadges.tsx` dengan badge resmi + link ke toko.
