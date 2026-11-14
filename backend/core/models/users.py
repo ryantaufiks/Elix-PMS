@@ -2,6 +2,7 @@ import uuid
 from pathlib import Path
 
 from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
 
@@ -56,6 +57,10 @@ class Residency(TimeStampedModel):
 
     def __str__(self):
         return f"{self.user} @ {self.unit}"
+
+    def clean(self):
+        if self.unit_id and self.unit.is_office:
+            raise ValidationError({"unit": "The management office has no residents."})
 
     @property
     def condominium(self):

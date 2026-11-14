@@ -223,11 +223,23 @@ class BlockViewSet(ScopedModelViewSet):
 class UnitViewSet(ScopedModelViewSet):
     limit_key = "units"
     setup = True
-    queryset = m.Unit.objects.select_related("block")
+    queryset = m.Unit.objects.select_related("block").filter(is_office=False)  # The office is not a home.
     serializer_class = s.UnitSerializer
     resident_unit_path = "id"
     filterset_fields = {"condominium": ["exact"], "block": ["exact", "isnull"], "floor": ["exact"], "is_active": ["exact"]}
     search_fields = ["unit_number", "floor", "block__name"]
+
+    @extend_schema(parameters=[OpenApiParameter("condominium", int, required=True)], responses=s.UnitSerializer)
+    @action(detail=False)
+    def office(self, request):
+        """The site's management office, for vendor passes and visitors of the MCST (staff only)."""
+        try:
+            condo_id = int(request.query_params.get("condominium", ""))
+        except ValueError:
+            raise ValidationError({"condominium": "Required."})
+        if not request.user.is_superuser and condo_id not in staff_condo_ids(request.user, ALL_STAFF):
+            raise PermissionDenied()
+        return Response(s.UnitSerializer(m.Unit.office_of(condo_id)).data)
 
     @extend_schema(request=s.BulkUnitsSerializer, responses={201: OpenApiResponse(description="{'created': n, 'skipped': n}")})
     @action(detail=False, methods=["post"])
@@ -530,8 +542,18 @@ class InvitationViewSet(ScopedModelViewSet):
     resident_unit_path = "unit"
     resident_writable = True
     filterset_fields = ["condominium", "unit", "status", "purpose", "host"]
-    search_fields = ["visitor_name", "visitor_phone", "vehicle_plate"]
+    search_fields = ["visitor_name", "visitor_phone", "vehicle_plate", "company"]
     ordering_fields = ["valid_from", "valid_until", "created_at"]
+
+    @extend_schema(parameters=[OpenApiParameter("vendor", bool, description="Vendor passes only (with a company)")])
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.request.query_params.get("vendor") in ("1", "true"):
+            qs = qs.exclude(company="")
+        return qs
 
     def perform_create(self, serializer):
         self.check_write(serializer.validated_data)

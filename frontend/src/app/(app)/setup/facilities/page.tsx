@@ -21,6 +21,7 @@ const ICONS = [
   { value: "sports_tennis", label: "Tennis court" }, { value: "sports_basketball", label: "Basketball court" },
   { value: "fitness_center", label: "Gym" }, { value: "pool", label: "Pool" }, { value: "celebration", label: "Party / event space" },
   { value: "spa", label: "Spa / sauna" }, { value: "sports_esports", label: "Games room" }, { value: "local_parking", label: "Visitor parking" },
+  { value: "elevator", label: "Service lift" }, { value: "local_shipping", label: "Loading bay" },
 ];
 const SLOTS = [30, 60, 90, 120, 180, 240];
 
@@ -29,7 +30,7 @@ const hhmm = (t: string) => t.slice(0, 5);
 
 type Form = Omit<Facility, "id" | "condominium" | "has_image" | "is_paid">;
 const blank: Form = {
-  name: "", description: "", location: "", icon: "event", capacity: 10, opens_at: "08:00", closes_at: "22:00",
+  name: "", kind: "amenity", description: "", location: "", icon: "event", capacity: 10, opens_at: "08:00", closes_at: "22:00",
   open_days: [0, 1, 2, 3, 4, 5, 6], slot_minutes: 60, max_slots_per_booking: 2, concurrent_bookings: 1, price_per_slot: "0.00",
   deposit: "0.00", advance_days: 14, max_upcoming_per_unit: 2, cancel_hours: 24, rules: "", no_show_minutes: 0, release_no_shows: false, gate: null, is_active: true,
 };
@@ -80,6 +81,12 @@ function FacilityModal({ condoId, facility, onClose, onSaved }: { condoId: numbe
         <ErrorNote error={errors.detail || !Object.keys(errors).length ? error : null} />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Name"><Input value={form.name} onChange={(e) => set("name", e.target.value)} required placeholder="e.g. BBQ pit 1" />{err("name")}</Field>
+          <Field label="Type" hint="Service: a service lift or loading bay, booked for moving in or out and renovation deliveries.">
+            <Select value={form.kind} onChange={(e) => set("kind", e.target.value as Facility["kind"])}>
+              <option value="amenity">Amenity (BBQ pit, function room, court…)</option>
+              <option value="service">Service (service lift, loading bay)</option>
+            </Select>
+          </Field>
           <Field label="Icon in the app">
             <Select value={form.icon} onChange={(e) => set("icon", e.target.value)}>{ICONS.map((i) => <option key={i.value} value={i.value}>{i.label}</option>)}</Select>
           </Field>
@@ -246,6 +253,7 @@ function FacilitiesPage() {
                       </div>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-1.5">
+                      {f.kind === "service" && <Badge tone="blue">Service</Badge>}
                       {f.is_active ? <Badge tone="green">Bookable</Badge> : <Badge>Hidden</Badge>}
                       <Badge tone={f.is_paid ? "blue" : "slate"}>{f.is_paid ? `${money(f.price_per_slot)} / slot${Number(f.deposit) ? ` + ${money(f.deposit)} deposit` : ""}` : "Free"}</Badge>
                     </div>

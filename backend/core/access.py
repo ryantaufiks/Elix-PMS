@@ -73,6 +73,9 @@ def handle_plate(camera, plate, payload):
     invitation = next((i for i in invitations if _admits_gate(i, gate)), None)
     if invitation is None:
         return deny(gate, reason=lapsed or "Unregistered plate", **fields)
+    usable, reason = invitation.check_usable()  # Days and hours of a vendor pass, contractors' working hours.
+    if not usable:
+        return deny(gate, reason=reason, invitation=invitation, unit=invitation.unit, **fields)
 
     fields.update(invitation=invitation, unit=invitation.unit, visitor=invitation.visitor)
     if invitation.needs_face:

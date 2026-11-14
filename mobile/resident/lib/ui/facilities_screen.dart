@@ -24,6 +24,8 @@ const facilityIcons = <String, IconData>{
   'spa': Icons.spa_rounded,
   'sports_esports': Icons.sports_esports_rounded,
   'local_parking': Icons.local_parking_rounded,
+  'elevator': Icons.elevator_rounded,
+  'local_shipping': Icons.local_shipping_rounded,
 };
 
 final _day = DateFormat('EEE');
@@ -89,8 +91,8 @@ class _FacilityList extends StatelessWidget {
                   child: Icon(facilityIcons[f.icon] ?? Icons.event_available_rounded, color: Theme.of(context).colorScheme.primary),
                 ),
                 title: Text(f.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text([f.location, '${f.opensAt}–${f.closesAt}'].where((s) => s.isNotEmpty).join(' · '),
-                    style: TextStyle(color: outline)),
+                subtitle: Text([if (f.isService) 'For moving and renovation', f.location, '${f.opensAt}–${f.closesAt}']
+                    .where((s) => s.isNotEmpty).join(' · '), style: TextStyle(color: outline)),
                 trailing: Text(f.priceLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
               ),
             ]),

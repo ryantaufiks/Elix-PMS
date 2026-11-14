@@ -1,5 +1,6 @@
 import secrets
 from datetime import timedelta
+from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -58,6 +59,33 @@ class Visitor(TimeStampedModel):
             raise ValidationError({"face_consent_at": "Record the visitor's consent before storing a face photo."})
 
 
+DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+
+def weekday_names(days):
+    """[0, 1, 2, 3, 4] -> 'Mon–Fri'; [0, 2] -> 'Mon, Wed'."""
+    days = sorted(set(days))
+    if len(days) > 2 and days == list(range(days[0], days[-1] + 1)):
+        return f"{DAY_NAMES[days[0]]}–{DAY_NAMES[days[-1]]}"
+    return ", ".join(DAY_NAMES[d] for d in days)
+
+
+def _hm(value, default):
+    return value.strftime("%H:%M") if value else default
+
+
+def contractor_hours_problem(condo, at=None):
+    """Why a contractor may not come in now under the site's working hours ('' when they may)."""
+    if not condo.contractor_hours_enforced:
+        return ""
+    local = (at or timezone.now()).astimezone(ZoneInfo(condo.timezone or "Asia/Singapore"))
+    days = condo.contractor_days or [0, 1, 2, 3, 4, 5]
+    until = condo.overstay_contractor_until
+    if local.weekday() in days and condo.contractor_from <= local.time() and (until is None or local.time() < until):
+        return ""
+    return f"Contractors may work {weekday_names(days)}, {_hm(condo.contractor_from, '00:00')}–{_hm(until, '23:59')}."
+
+
 def generate_invitation_token():
     return secrets.token_urlsafe(24)
 
@@ -103,6 +131,11 @@ class Invitation(TimeStampedModel):
     booking = models.ForeignKey(
         "core.Booking", on_delete=models.CASCADE, null=True, blank=True, related_name="guest_invitations",
         help_text="Guests of this facility booking: valid around the booking, ended with it.")
+    # A vendor pass: a company's recurring access, e.g. Monday to Friday 09:00-17:00 for three weeks.
+    company = models.CharField(max_length=100, blank=True, help_text="Vendor or contractor company.")
+    weekdays = models.JSONField(default=list, blank=True, help_text="Days it works, Monday = 0. Empty: every day.")
+    daily_from = models.TimeField(null=True, blank=True, help_text="Each day from (local time).")
+    daily_until = models.TimeField(null=True, blank=True, help_text="Each day until (local time).")
 
     class Meta:
         ordering = ["-valid_from"]
@@ -142,6 +175,10 @@ class Invitation(TimeStampedModel):
                     errors["valid_until"] = f"Invitations may last at most {max_days} days at this condominium."
         if self.require_face and self.condominium_id and not self.condominium.face_verification_enabled:
             errors["require_face"] = "Face verification is not enabled at this condominium."
+        if not isinstance(self.weekdays, list) or any(d not in range(7) for d in self.weekdays):
+            errors["weekdays"] = "Weekdays are numbers 0 (Monday) to 6 (Sunday)."
+        if self.daily_from and self.daily_until and self.daily_until <= self.daily_from:
+            errors["daily_until"] = "Must be after the daily start."
         if errors:
             raise ValidationError(errors)
 
@@ -160,6 +197,14 @@ class Invitation(TimeStampedModel):
             return False, "Invitation has expired."
         if self.max_entries and self.entry_count >= self.max_entries:
             return False, "Entry limit reached."
+        local = at.astimezone(ZoneInfo(self.condominium.timezone or "Asia/Singapore"))
+        if self.weekdays and local.weekday() not in self.weekdays:
+            return False, f"This pass is valid on {weekday_names(self.weekdays)} only."
+        if (self.daily_from and local.time() < self.daily_from) or (self.daily_until and local.time() > self.daily_until):
+            return False, f"This pass is valid {_hm(self.daily_from, '00:00')}–{_hm(self.daily_until, '23:59')} only."
+        problem = contractor_hours_problem(self.condominium, at) if self.purpose == self.Purpose.CONTRACTOR else ""
+        if problem:
+            return False, problem
         return True, ""
 
     def record_entry(self):

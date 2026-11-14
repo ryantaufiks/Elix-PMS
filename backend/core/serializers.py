@@ -81,6 +81,7 @@ class CondominiumSerializer(ModelCleanSerializer):
             "visitor_data_retention_days", "kiosk_visitor_form", "kiosk_photo_required", "kiosk_walk_in", "kiosk_walk_in_photo", "kiosk_checkout", "kiosk_face_checkout", "kiosk_call_guardhouse",
             "overstay_delivery_minutes", "overstay_guest_minutes", "overstay_contractor_until",
             "season_parking_enabled", "season_parking_fee", "season_parking_quota",
+            "contractor_hours_enforced", "contractor_days", "contractor_from",
             "visitor_privacy_notice", "plan",
             "created_at", "updated_at",
         ]
@@ -351,15 +352,20 @@ class InvitationSerializer(ModelCleanSerializer):
     share_url = serializers.CharField(read_only=True)
     unit_display = serializers.CharField(source="unit.__str__", read_only=True)
     host_detail = UserSummarySerializer(source="host", read_only=True)
+    schedule = serializers.SerializerMethodField(help_text="A vendor pass's days and hours, e.g. 'Mon–Fri, 09:00–17:00'")
 
     class Meta:
         model = m.Invitation
         fields = [
             "id", "condominium", "unit", "unit_display", "host", "host_detail", "visitor", "visitor_name", "visitor_phone",
-            "purpose", "valid_from", "valid_until", "max_entries", "entry_count", "vehicle_plate", "require_face",
-            "gates", "status", "notes", "share_url", "cancelled_at", "created_at",
+            "purpose", "company", "valid_from", "valid_until", "weekdays", "daily_from", "daily_until", "schedule",
+            "max_entries", "entry_count", "vehicle_plate", "require_face",
+            "gates", "status", "notes", "share_url", "booking", "cancelled_at", "created_at",
         ]
-        read_only_fields = ["condominium", "host", "entry_count", "status", "cancelled_at"]
+        read_only_fields = ["condominium", "host", "entry_count", "status", "booking", "cancelled_at"]
+
+    def get_schedule(self, obj) -> str:
+        return schedule_text(obj)
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
@@ -952,6 +958,18 @@ class QrCheckInSerializer(QrCodeSerializer):
     face_descriptor = FaceDescriptorField(required=False, allow_null=True, default=None)
 
 
+def schedule_text(invitation):
+    """'Mon–Fri, 09:00–17:00' for a vendor pass with days and hours; '' for a plain invitation."""
+    parts = []
+    if invitation.weekdays:
+        parts.append(m.weekday_names(invitation.weekdays))
+    if invitation.daily_from or invitation.daily_until:
+        start = invitation.daily_from.strftime("%H:%M") if invitation.daily_from else "00:00"
+        end = invitation.daily_until.strftime("%H:%M") if invitation.daily_until else "23:59"
+        parts.append(f"{start}–{end}")
+    return ", ".join(parts)
+
+
 class InvitationPassSerializer(serializers.ModelSerializer):
     """What a visitor (or a kiosk) may see about an invitation: no resident names beyond the host's first name."""
 
@@ -965,14 +983,18 @@ class InvitationPassSerializer(serializers.ModelSerializer):
     usable = serializers.SerializerMethodField()
     problem = serializers.SerializerMethodField()
     facility = serializers.SerializerMethodField(help_text="For a booking's guests: the facility booked")
+    schedule = serializers.SerializerMethodField(help_text="A vendor pass's days and hours")
 
     class Meta:
         model = m.Invitation
         fields = [
-            "visitor_name", "purpose", "condominium_name", "condominium_address", "unit_display", "host_first_name",
-            "valid_from", "valid_until", "status", "vehicle_plate", "require_face", "entries_left", "usable", "problem",
-            "privacy_notice", "facility",
+            "visitor_name", "purpose", "company", "condominium_name", "condominium_address", "unit_display", "host_first_name",
+            "valid_from", "valid_until", "schedule", "status", "vehicle_plate", "require_face", "entries_left", "usable",
+            "problem", "privacy_notice", "facility",
         ]
+
+    def get_schedule(self, obj) -> str:
+        return schedule_text(obj)
 
     def get_facility(self, obj) -> str:
         return obj.booking.facility.name if obj.booking_id else ""
@@ -1005,7 +1027,7 @@ class FacilitySerializer(ModelCleanSerializer):
     class Meta:
         model = m.Facility
         fields = [
-            "id", "condominium", "name", "description", "location", "icon", "image", "has_image", "capacity",
+            "id", "condominium", "name", "kind", "description", "location", "icon", "image", "has_image", "capacity",
             "opens_at", "closes_at", "open_days", "slot_minutes", "max_slots_per_booking", "concurrent_bookings",
             "price_per_slot", "deposit", "is_paid", "advance_days", "max_upcoming_per_unit", "cancel_hours", "rules",
             "no_show_minutes", "release_no_shows", "gate", "is_active", "created_at",

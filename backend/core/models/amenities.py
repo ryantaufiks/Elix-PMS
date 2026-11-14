@@ -27,8 +27,15 @@ class Facility(TimeStampedModel):
     pays online (HitPay) and the booking is confirmed when the payment completes.
     """
 
+    class Kind(models.TextChoices):
+        AMENITY = "amenity", "Amenity"
+        SERVICE = "service", "Service (lift, loading bay)"
+
     condominium = models.ForeignKey(Condominium, on_delete=models.CASCADE, related_name="facilities")
     name = models.CharField(max_length=100)
+    kind = models.CharField(
+        max_length=10, choices=Kind.choices, default=Kind.AMENITY,
+        help_text="Service: booked for moving in or out and renovation deliveries (service lift, loading bay).")
     description = models.TextField(blank=True)
     location = models.CharField(max_length=150, blank=True, help_text="e.g. 'Level 1, next to the pool'.")
     icon = models.CharField(max_length=30, default="event", help_text="Icon shown in the resident app.")

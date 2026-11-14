@@ -48,6 +48,11 @@ def overstay_at(visit, condo=None):
     condo = condo or visit.condominium
     if visit.invitation_id and visit.invitation.booking_id:
         return visit.invitation.booking.ends_at  # A booking's guests leave when it ends.
+    if visit.invitation_id and visit.invitation.daily_until:  # A vendor pass: the end of its working day.
+        tz = ZoneInfo(condo.timezone or "Asia/Singapore")
+        end = datetime.combine(visit.created_at.astimezone(tz).date(), visit.invitation.daily_until, tzinfo=tz)
+        if end > visit.created_at:
+            return end
     guest = condo.overstay_guest_minutes and visit.created_at + timedelta(minutes=condo.overstay_guest_minutes)
     if visit.purpose in DELIVERY_PURPOSES:
         return condo.overstay_delivery_minutes and visit.created_at + timedelta(minutes=condo.overstay_delivery_minutes) or None
@@ -169,7 +174,7 @@ def invitation_entry(invitation, entry_log, kiosk=None, face_descriptor=None):
             visit.save(update_fields=["face_descriptor", "updated_at"])
         return visit
     return create(invitation.condominium_id, unit=invitation.unit, purpose=invitation.purpose,
-                  name=invitation.visitor_name, source=Visit.Source.INVITATION, invitation=invitation,
+                  name=invitation.visitor_name, source=Visit.Source.INVITATION, invitation=invitation, company=invitation.company,
                   visitor=invitation.visitor, vehicle_plate=invitation.vehicle_plate or entry_log.plate_number,
                   gate=entry_log.gate, kiosk=kiosk, entry_log=entry_log, face_descriptor=face_descriptor)
 

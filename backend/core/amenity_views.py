@@ -62,7 +62,7 @@ class FacilityViewSet(ScopedModelViewSet):
     serializer_class = s.FacilitySerializer
     resident_condo_read = True
     parser_classes = [MultiPartParser, FormParser, JSONParser]
-    filterset_fields = ["condominium", "is_active"]
+    filterset_fields = ["condominium", "kind", "is_active"]
     search_fields = ["name", "location"]
 
     def get_queryset(self):

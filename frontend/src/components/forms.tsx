@@ -12,7 +12,7 @@ type Values = Record<string, unknown>;
 export type FieldDef = {
   name: string;
   label: string;
-  type?: "text" | "number" | "email" | "tel" | "url" | "password" | "secret" | "secret-text" | "textarea" | "select" | "checkbox" | "time";
+  type?: "text" | "number" | "email" | "tel" | "url" | "password" | "secret" | "secret-text" | "textarea" | "select" | "checkbox" | "time" | "weekdays";
   options?: Option[];
   hint?: string;
   placeholder?: string;
@@ -34,6 +34,7 @@ export function initialValues(fields: FieldDef[], record: Values | null, default
     const current = record?.[f.name] ?? defaults[f.name];
     if (f.type === "secret" || f.type === "secret-text" || f.type === "password") values[f.name] = "";
     else if (f.type === "checkbox") values[f.name] = Boolean(current ?? false);
+    else if (f.type === "weekdays") values[f.name] = Array.isArray(current) ? current : [];
     else values[f.name] = current ?? "";
   }
   return values;
@@ -90,6 +91,8 @@ export function FormFields({ fields, values, onChange, errors, record }: {
           );
         } else if (f.type === "checkbox") {
           control = <Checkbox label={f.label} checked={Boolean(value)} onChange={(e) => onChange(f.name, e.target.checked)} />;
+        } else if (f.type === "weekdays") {
+          control = <WeekdayPicker value={(value as number[]) ?? []} onChange={(days) => onChange(f.name, days)} />;
         } else if (f.type === "select") {
           control = (
             <Select value={String(value ?? "")} required={f.required} onChange={(e) => onChange(f.name, e.target.value)}>
@@ -225,6 +228,27 @@ export function ConfirmDialog({ open, title, message, confirmLabel, onConfirm, o
     <Modal open={open} onClose={onClose} title={title} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="danger" busy={busy} onClick={confirm}>{confirmLabel}</Button></>}>
       <div className="text-sm text-body">{message}</div>
     </Modal>
+  );
+}
+
+const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+/** Seven toggles, Monday = 0 (as the API stores weekdays). */
+export function WeekdayPicker({ value, onChange }: { value: number[]; onChange: (days: number[]) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1.5" role="group" aria-label="Days">
+      {WEEKDAY_LABELS.map((label, day) => {
+        const on = value.includes(day);
+        return (
+          <button key={day} type="button" aria-pressed={on}
+            onClick={() => onChange(on ? value.filter((d) => d !== day) : [...value, day].sort())}
+            className={cx("min-w-11 rounded-md border px-2.5 py-1.5 text-sm font-medium transition-colors",
+              on ? "border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300" : "border-line text-muted hover:text-ink")}>
+            {label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

@@ -46,10 +46,14 @@ export default function VisitorPassPage() {
                 <h1 className="mt-1 text-xl font-semibold text-ink">{pass.condominium_name}</h1>
                 {pass.condominium_address && <p className="mt-1 text-sm text-muted">{pass.condominium_address}</p>}
               </div>
-              <div className="mx-6 my-5 flex justify-center rounded-xl border border-line bg-white p-4">
-                {pass.usable ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={`/v1/public/invitations/${encodeURIComponent(token ?? "")}/qr/`} alt="Invitation QR code" className="h-60 w-60" />
+              <div className="mx-6 my-5 flex flex-col items-center rounded-xl border border-line bg-white p-4">
+                {/* Still to come (another day or hour, not started yet): show the QR to keep, with when it works. */}
+                {pass.usable || (pass.status === "active" && new Date(pass.valid_until) > new Date()) ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`/v1/public/invitations/${encodeURIComponent(token ?? "")}/qr/`} alt="Invitation QR code" className="h-60 w-60" />
+                    {!pass.usable && <p className="mt-2 rounded-lg bg-amber-500/10 px-3 py-2 text-center text-sm text-amber-800">Not now: {pass.problem}</p>}
+                  </>
                 ) : (
                   <div className="flex h-60 w-60 flex-col items-center justify-center text-center">
                     <span className="rounded-full bg-rose-500/10 px-3 py-1 text-sm font-medium text-rose-700">Not valid</span>
@@ -62,6 +66,8 @@ export default function VisitorPassPage() {
                   ["Visitor", pass.visitor_name],
                   ["Visiting", `${pass.unit_display}${pass.host_first_name ? ` · ${pass.host_first_name}` : ""}`],
                   ...(pass.facility ? [["Booking", pass.facility]] : []),
+                  ...(pass.company ? [["Company", pass.company]] : []),
+                  ...(pass.schedule ? [["Days and hours", pass.schedule]] : []),
                   ["Valid from", when.format(new Date(pass.valid_from))],
                   ["Valid until", when.format(new Date(pass.valid_until))],
                   ...(pass.vehicle_plate ? [["Vehicle", pass.vehicle_plate]] : []),

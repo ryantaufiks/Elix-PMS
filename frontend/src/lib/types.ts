@@ -92,6 +92,9 @@ export type Condominium = {
   season_parking_enabled: boolean;
   season_parking_fee: string;
   season_parking_quota: number;
+  contractor_hours_enforced: boolean;
+  contractor_days: number[];
+  contractor_from: string;
   visitor_privacy_notice: string;
 };
 
@@ -332,6 +335,13 @@ export type Invitation = {
   visitor_name: string;
   visitor_phone: string;
   purpose: Purpose;
+  /** Vendor passes: the company, and the days (Monday = 0) and hours each day it works. */
+  company: string;
+  weekdays: number[];
+  daily_from: string | null;
+  daily_until: string | null;
+  schedule: string;
+  booking: number | null;
   valid_from: string;
   valid_until: string;
   max_entries: number;
@@ -512,6 +522,7 @@ export type Facility = {
   id: number;
   condominium: number;
   name: string;
+  kind: "amenity" | "service";
   description: string;
   location: string;
   icon: string;

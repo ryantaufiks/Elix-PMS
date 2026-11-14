@@ -27,6 +27,8 @@ One platform for the guardhouse, the management office, the lobby kiosk and ever
   the AI concierge for directions or help.
 - **A resident app**: open the gate, answer visitors, invite guests, book facilities, register
   vehicles, see notifications and the condo's documents.
+- **Contractors and vendors**: working hours for contractors, recurring vendor passes (days and hours) for the MCST's
+  vendors or a resident's contractor, and service lift / loading bay bookings.
 - **A dashboard for the site team**: who is on site now, arrivals vs yesterday, overstay alerts per
   visitor type, vehicle passes (resident, season parking bought in the app, temporary) with start and end dates, live activity, visitor list, bookings and payments, feedback,
   reports, and role-based access for site admins, staff and officers.

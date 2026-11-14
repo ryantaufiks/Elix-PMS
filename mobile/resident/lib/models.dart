@@ -132,6 +132,8 @@ class Facility {
   final Map<String, dynamic> json;
   int get id => json['id'] as int;
   String get name => json['name'] as String;
+  /// A service lift or loading bay (booked for moving and renovation deliveries).
+  bool get isService => json['kind'] == 'service';
   String get description => json['description'] as String? ?? '';
   String get location => json['location'] as String? ?? '';
   String get icon => json['icon'] as String? ?? 'event';

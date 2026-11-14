@@ -156,6 +156,12 @@ Pastikan perangkat lokal Anda telah terinstal:
 * Site admin juga melihat bagian **Gates & devices** (keputusan gerbang, perangkat online, metode masuk); Officer tidak.
 * **Batas overstay** di *Site settings → Overstay alerts*: delivery 30 menit, tamu 4 jam (240 menit), kontraktor jam 18:00; isi 0 / kosong untuk mematikan. Saat terlewati, dashboard menampilkan *toast* merah dan notifikasi di lonceng (sekali per tamu), dan di *Visitor list* muncul badge *Overstay*. Jam 22:00 ada ringkasan "X visitors still on site" untuk shift malam.
 
+### 5f. Kontraktor & vendor
+* **Jam kerja kontraktor** (*Site settings → Contractor working hours*, mati secara default): pilih hari kerja (default Senin–Sabtu) dan jam mulai; jam selesai memakai *Contractors work until (overstay after)*. Bila aktif, walk-in kontraktor di kiosk ditolak di luar jam itu, dan undangan kontraktor serta vendor pass tidak membuka gerbang di kiosk/LPR (alasannya tercatat di Access log).
+* **Vendor pass** (*Invitations → New vendor pass*, tab *Vendor passes*): satu pass untuk satu perusahaan (tim), dengan rentang tanggal, hari (mis. Sen–Jum) dan jam per hari (mis. 09:00–17:00), entri tak terbatas dan plat opsional. Pilih **For the management office** untuk vendor MCST (lift, AC, pest control) atau **For a unit** untuk kontraktor penghuni. Bagikan link/QR-nya ke perusahaan; di luar hari/jam pass, halaman pass tetap menampilkan QR dengan catatan *Not now*. Kunjungan vendor tercatat dengan nama perusahaan dan kena overstay di jam akhir pass.
+* **Management office**: tujuan khusus untuk vendor dan tamu MCST; tidak tampil di daftar unit, tidak punya penghuni, dan tidak dihitung dalam batas unit paket.
+* **Service lift / loading bay**: di form fasilitas pilih *Type: Service*; penghuni mem-booking-nya di APK untuk pindahan atau pengiriman renovasi (bisa dengan deposit). Ikon *Service lift* dan *Loading bay* tersedia.
+
 ### 5e. Kendaraan: resident, season parking, temporary
 * Menu **Vehicles**: setiap plat punya **Type** (*Resident*, *Season parking*, *Temporary*), **Holder name** (mis. tamu pemegang season parking atau kontraktor renovasi), **Valid from** dan **Valid until**. Season parking dan Temporary wajib punya tanggal akhir.
 * Kamera LPR hanya membuka gerbang di antara tanggal itu (hari terakhir masih bisa masuk). Di luar tanggal, gerbang tidak terbuka dan log akses mencatat alasannya (*Vehicle pass ended on …*).

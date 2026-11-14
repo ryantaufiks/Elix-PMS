@@ -397,8 +397,11 @@ class FacilityCheckInTests(APITestCase):
         self.assertEqual(m.AccessLog.objects.filter(result="denied").count(), 3)  # Denials at the door are logged too.
 
     def test_schedule_and_resident_qr(self, *_):
-        self.booking(timedelta(minutes=-10))
-        rows = self.client.get("/v1/kiosk/facilities/", HTTP_AUTHORIZATION=f"Kiosk {self.token}").data
+        noon = at(0, 12) + timedelta(minutes=20)  # A fixed time of day: late at night no slot is under way.
+        m.Booking.objects.create(condominium=self.condo, facility=self.room, unit=self.unit, user=self.alice,
+                                 starts_at=at(0, 12), ends_at=at(0, 13), status="confirmed")
+        with mock.patch("core.kiosk_views.timezone.now", return_value=noon):
+            rows = self.client.get("/v1/kiosk/facilities/", HTTP_AUTHORIZATION=f"Kiosk {self.token}").data
         self.assertEqual(rows[0]["name"], "Function room")
         current = next(slot for slot in rows[0]["slots"] if slot["now"])
         self.assertTrue(current["booked"])

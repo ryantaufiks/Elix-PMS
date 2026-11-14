@@ -329,6 +329,10 @@ class WalkInView(KioskView):
         body = s.WalkInRegisterSerializer(data=request.data)
         body.is_valid(raise_exception=True)
         data = body.validated_data
+        if data["purpose"] == m.VisitPurpose.CONTRACTOR:
+            problem = m.contractor_hours_problem(condo)
+            if problem:
+                return Response({"detail": f"{problem} Please come back then, or see the guardhouse."}, status=status.HTTP_409_CONFLICT)
         name, visitor, _ = self.visitor_details(data, data["unit"], details=True, photo=condo.kiosk_walk_in_photo,
                                                 method=m.AccessLog.Method.WALK_IN,
                                                 blocked_reason="Blocked visitor tried to register as a walk-in")

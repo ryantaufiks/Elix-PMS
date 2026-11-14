@@ -10,6 +10,10 @@ from core.validators import validate_sg_postal_code
 from .base import TimeStampedModel
 
 
+def default_contractor_days():
+    return [0, 1, 2, 3, 4, 5]  # Monday to Saturday
+
+
 class Condominium(TimeStampedModel):
     """A site (tenant). Every other record belongs to exactly one condominium."""
 
@@ -98,6 +102,14 @@ class Condominium(TimeStampedModel):
         "Contractors overstay after", default=time(18, 0), null=True, blank=True,
         help_text="Local time contractors should have left by. Empty turns the alert off.",
     )
+    # Contractor working hours (renovation rules): when on, contractors are let in only then.
+    contractor_hours_enforced = models.BooleanField(
+        "Keep contractors to working hours", default=False,
+        help_text="Kiosk walk-ins, invitations and vendor passes for contractors work only on the days and hours below.",
+    )
+    contractor_days = models.JSONField(default=default_contractor_days, blank=True,
+                                       help_text="Weekdays contractors may work, Monday = 0. Empty: Monday to Saturday.")
+    contractor_from = models.TimeField("Contractors may start at", default=time(9, 0))
     visitor_privacy_notice = models.TextField(
         blank=True, help_text="Shown at the kiosk and on visitor passes. Leave blank for the standard notice.",
     )
@@ -122,6 +134,12 @@ class Condominium(TimeStampedModel):
     def __str__(self):
         return self.name
 
+    def clean(self):
+        days = self.contractor_days
+        if not isinstance(days, list) or any(d not in range(7) for d in days):
+            raise ValidationError({"contractor_days": "Weekdays are numbers 0 (Monday) to 6 (Sunday)."})
+        self.contractor_days = sorted(set(days))
+
     @property
     def resident_app_enabled(self) -> bool:
         return "resident_app" in (self.modules or [])
@@ -142,13 +160,19 @@ class Block(TimeStampedModel):
 
 
 class Unit(TimeStampedModel):
-    """A residential unit, labelled Singapore-style as #<floor>-<unit> (e.g. #05-12)."""
+    """A residential unit, labelled Singapore-style as #<floor>-<unit> (e.g. #05-12).
+
+    Each site also has one ``is_office`` unit, the management office: vendors and visitors of the MCST
+    are recorded against it. It has no residents and does not count towards the plan's units."""
+
+    OFFICE_NUMBER = "_OFFICE_"  # Never a real unit number.
 
     condominium = models.ForeignKey(Condominium, on_delete=models.CASCADE, related_name="units")
     block = models.ForeignKey(Block, on_delete=models.PROTECT, null=True, blank=True, related_name="units")
     floor = models.CharField(max_length=4, blank=True, help_text="e.g. '05'. Leave blank for landed units.")
     unit_number = models.CharField(max_length=10, help_text="e.g. '12' for #05-12, or the house number.")
     is_active = models.BooleanField(default=True)
+    is_office = models.BooleanField(default=False, editable=False, help_text="The site's management office.")
 
     class Meta:
         ordering = ["condominium", "block__name", "floor", "unit_number"]
@@ -162,10 +186,18 @@ class Unit(TimeStampedModel):
 
     @property
     def label(self):
+        if self.is_office:
+            return "Management office"
         return f"#{self.floor}-{self.unit_number}" if self.floor else self.unit_number
 
     def __str__(self):
-        return f"{self.block.name} {self.label}" if self.block_id else self.label
+        return f"{self.block.name} {self.label}" if self.block_id and not self.is_office else self.label
+
+    @classmethod
+    def office_of(cls, condominium_id):
+        """The site's management office (created the first time it is needed)."""
+        return cls.objects.get_or_create(condominium_id=condominium_id, is_office=True,
+                                         defaults={"unit_number": cls.OFFICE_NUMBER})[0]
 
     def clean(self):
         if self.block_id and self.condominium_id and self.block.condominium_id != self.condominium_id:

@@ -206,7 +206,7 @@ def usage(condo) -> dict:
 
     return {
         **metering.this_month(condo),
-        "units": Unit.objects.filter(condominium=condo, is_active=True).count(),
+        "units": Unit.objects.filter(condominium=condo, is_active=True, is_office=False).count(),
         "kiosks": Kiosk.objects.filter(condominium=condo).count(),
         "gates": AccessGate.objects.filter(condominium=condo).count(),
         "lpr_cameras": LprCamera.objects.filter(gate__condominium=condo).count(),

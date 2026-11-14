@@ -110,6 +110,23 @@ Development with hot reload (proxies the API to the dev web service):
 docker compose --profile frontend up -d frontend   # http://127.0.0.1:3000
 ```
 
+### Contractors and vendors
+
+- **Contractor working hours** (Site settings → *Contractor working hours*, off by default): working days
+  (Mon–Sat by default) and a start time; the end is *Contractors work until (overstay after)*. When on,
+  contractors' kiosk walk-ins are refused outside them, and contractor invitations and vendor passes do not
+  open at the kiosk or the LPR barrier (`contractor_hours_problem`), with the reason logged.
+- **Vendor passes** (Invitations → *New vendor pass*, *Vendor passes* tab; `?vendor=1`): one invitation for a
+  company's team with dates, days of the week (`weekdays`, Monday = 0) and hours each day (`daily_from`,
+  `daily_until`), unlimited entries and an optional plate. It is for the **management office** (the MCST's
+  vendors: lift, aircon, pest control) or for a unit (a resident's contractor). The visit carries the company,
+  overstays at the end of the pass's day, and the pass page shows the QR with *Not now* outside its days and
+  hours.
+- **Management office**: every site has one `Unit.is_office` (`/v1/units/office/`), created when first needed;
+  it is not listed with the units, has no residents and does not count towards the plan's units.
+- **Service facilities**: a facility of type *Service* (service lift, loading bay) is booked like the others,
+  with a deposit if set, for moving and renovation deliveries; the app labels it *For moving and renovation*.
+
 ### Vehicle passes
 
 A vehicle opens LPR gates only from `valid_from` to `valid_until` (local dates, both days included;

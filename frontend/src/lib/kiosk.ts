@@ -183,6 +183,9 @@ export type VisitorPass = {
   privacy_notice: string;
   /** For a booking's guests: the facility booked. */
   facility: string;
+  /** Vendor passes. */
+  company: string;
+  schedule: string;
 };
 
 export type CheckInResult = { result: "granted" | "denied" | "face_required"; reason: string; invitation: VisitorPass | null };
