@@ -5,7 +5,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 
 import { refreshAccess, tokens, wsUrl } from "./api";
-import type { AccessLog, Booking, Feedback, IntercomCall, Visit } from "./types";
+import type { AccessLog, Booking, Feedback, IntercomCall, RenovationPermit, Visit } from "./types";
 
 export type LiveEvent =
   | { type: "access_log"; data: AccessLog }
@@ -14,6 +14,7 @@ export type LiveEvent =
   | { type: "booking"; data: Booking }
   | { type: "feedback"; data: Feedback }
   | { type: "visit_overstay"; data: Visit }
+  | { type: "permit"; data: RenovationPermit }
   | { type: "visitors_on_site"; data: { condominium: number; count: number; at: string } };
 type Listener = (event: LiveEvent) => void;
 

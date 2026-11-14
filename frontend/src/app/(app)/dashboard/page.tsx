@@ -182,6 +182,13 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {isManager && !!v?.permits_waiting && (
+        <Link href="/permits/" className="mb-5 flex items-center gap-3 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 hover:bg-amber-500/15 dark:text-amber-200">
+          <Icon name="file" className="h-4 w-4 shrink-0" />
+          <span className="flex-1"><strong>{v.permits_waiting} renovation permit{v.permits_waiting === 1 ? "" : "s"}</strong> waiting for approval.</span>
+          <span className="font-medium underline">Review</span>
+        </Link>
+      )}
       {isManager && !!v?.vehicle_passes_expiring && (
         <Link href="/vehicles/" className="mb-5 flex items-center gap-3 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 hover:bg-amber-500/15 dark:text-amber-200">
           <Icon name="car" className="h-4 w-4 shrink-0" />

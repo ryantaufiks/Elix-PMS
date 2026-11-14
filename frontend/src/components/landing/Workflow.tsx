@@ -42,6 +42,17 @@ const FLOWS: Record<string, { name: string; steps: Step[] }> = {
       { label: "No-show", title: "No-shows flagged", text: "Nobody checked in after the set minutes: the booking is marked no-show and can free the slot for others." },
     ],
   },
+  contractor: {
+    name: "Contractor and vendor",
+    steps: [
+      { label: "Permit", title: "Resident applies for a permit", text: "Contractor, work, dates and plates in the app, with the deposit paid online when the estate asks for one." },
+      { label: "Approve", title: "The office approves", text: "The managing agent reviews it on the dashboard, adds conditions and approves. MCST vendors get a vendor pass directly." },
+      { label: "Pass", title: "The contractor gets a pass", text: "A QR pass for the permit's dates, valid only on the estate's working days and hours." },
+      { label: "Gate", title: "In at the kiosk or barrier", text: "Outside working hours the kiosk and the plate camera keep them out, and say why." },
+      { label: "Overstay", title: "Alert at the end of the day", text: "Still inside after working hours: the guardhouse dashboard flags the contractor." },
+      { label: "Done", title: "Works completed", text: "The office marks the permit completed, the pass ends, and the deposit refund is recorded." },
+    ],
+  },
   lpr: {
     name: "Car at the barrier",
     steps: [

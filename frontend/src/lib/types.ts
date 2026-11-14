@@ -95,6 +95,9 @@ export type Condominium = {
   contractor_hours_enforced: boolean;
   contractor_days: number[];
   contractor_from: string;
+  renovation_permits_enabled: boolean;
+  renovation_deposit: string;
+  renovation_terms: string;
   visitor_privacy_notice: string;
 };
 
@@ -374,6 +377,40 @@ export type Vehicle = {
   status: "active" | "expiring" | "expired" | "upcoming" | "inactive";
 };
 
+export type RenovationPermit = {
+  id: number;
+  condominium: number;
+  unit: number;
+  unit_display: string;
+  applicant_name: string;
+  category: string;
+  category_display: string;
+  description: string;
+  contractor_company: string;
+  contractor_contact: string;
+  contractor_phone: string;
+  workers: number;
+  start_date: string;
+  end_date: string;
+  plates: string[];
+  status: "pending_payment" | "submitted" | "approved" | "rejected" | "cancelled" | "completed";
+  status_display: string;
+  deposit: string;
+  currency: string;
+  payment_status: "none" | "pending" | "paid" | "refunded";
+  payment_status_display: string;
+  paid_at: string | null;
+  refunded_at: string | null;
+  decision_note: string;
+  decided_by_name: string;
+  decided_at: string | null;
+  completed_at: string | null;
+  has_document: boolean;
+  document_name: string;
+  pass_url: string;
+  created_at: string;
+};
+
 export type ParkingPermit = {
   id: number;
   condominium: number;
@@ -509,6 +546,7 @@ export type Summary = {
     on_site_by_purpose: Record<string, number>;
     cars_on_site: number;
     vehicle_passes_expiring: number;
+    permits_waiting: number;
     overstaying: number;
     arrived_today: number;
     arrived_yesterday_by_now: number;

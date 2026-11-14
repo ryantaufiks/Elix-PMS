@@ -4,6 +4,7 @@ from datetime import timedelta
 from io import BytesIO
 
 import qrcode
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Avg, Count, Q
 from django.http import FileResponse, HttpResponse
 from django.utils import timezone
@@ -18,7 +19,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
-from . import bookings, entitlements, parking, payments
+from . import bookings, entitlements, parking, payments, permits
 from . import models as m
 from . import serializers as s
 from .realtime import broadcast
@@ -372,6 +373,158 @@ class ParkingPermitViewSet(mixins.CreateModelMixin, ScopedReadOnlyViewSet):
         return Response(s.ParkingOfferSerializer(parking.offer(condo)).data)
 
 
+class RenovationPermitViewSet(mixins.CreateModelMixin, ScopedReadOnlyViewSet):
+    """e-Permit to Work. Residents apply for their unit and see its permits; staff see the condominium's, and
+    the management office approves, rejects, completes and records deposit refunds. ``?open=1``: not closed."""
+
+    module = "resident_app"
+    queryset = m.RenovationPermit.objects.select_related("unit__block", "applicant", "decided_by")
+    serializer_class = s.RenovationPermitSerializer
+    resident_unit_path = "unit"
+    filterset_fields = ["condominium", "unit", "status", "payment_status"]
+    search_fields = ["contractor_company", "contractor_contact", "description", "unit__unit_number"]
+    ordering_fields = ["created_at", "start_date"]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.request.query_params.get("open") in ("1", "true"):
+            qs = qs.filter(status__in=m.RenovationPermit.OPEN_STATUSES)
+        return qs
+
+    def _staff(self, permit_or_condo_id, roles=MANAGEMENT):
+        condo_id = permit_or_condo_id if isinstance(permit_or_condo_id, int) else permit_or_condo_id.condominium_id
+        return self.request.user.is_superuser or condo_id in staff_condo_ids(self.request.user, roles)
+
+    def _manage(self, permit):
+        if not self._staff(permit):
+            raise PermissionDenied("Only the management office can do this.")
+
+    def _answer(self, permit, code=status.HTTP_200_OK):
+        url = ""
+        if permit.status == m.RenovationPermit.Status.PENDING_PAYMENT:
+            try:
+                url = permits.start_payment(
+                    permit, redirect_url=self.request.build_absolute_uri(f"{RETURN_PATH}?renovation={permit.pk}"),
+                    webhook_url=self.request.build_absolute_uri(WEBHOOK_PATH))
+            except permits.PermitError as exc:
+                return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+            permit.refresh_from_db()
+        return Response({"permit": s.RenovationPermitSerializer(permit).data, "payment_url": url,
+                         "return_url_prefix": self.request.build_absolute_uri(RETURN_PATH)}, status=code)
+
+    @extend_schema(request=s.PermitApplySerializer, responses={201: s.PermitCreatedSerializer})
+    def create(self, request, *args, **kwargs):
+        """Apply for a renovation. With a deposit, open ``payment_url``; the office sees it once paid."""
+        body = s.PermitApplySerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        data = dict(body.validated_data)
+        unit = data.pop("unit")
+        if not (self._staff(unit.condominium_id) or unit.pk in resident_unit_ids(request.user)):
+            raise PermissionDenied()
+        try:
+            permit = permits.apply(unit, request.user, **data)
+        except permits.PermitError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+        except DjangoValidationError as exc:
+            return Response(exc.message_dict, status=status.HTTP_400_BAD_REQUEST)
+        return self._answer(permit, status.HTTP_201_CREATED)
+
+    @extend_schema(request=None, responses=s.PermitCreatedSerializer)
+    @action(detail=True, methods=["post"])
+    def pay(self, request, pk=None):
+        """The deposit's payment link, to resume paying."""
+        permit = permits.refresh_payment(self.get_object())
+        if permit.status != m.RenovationPermit.Status.PENDING_PAYMENT:
+            return Response({"detail": f"This permit is {permit.get_status_display().lower()}."}, status=status.HTTP_409_CONFLICT)
+        return self._answer(permit)
+
+    @extend_schema(request=None, responses=s.RenovationPermitSerializer)
+    @action(detail=True, methods=["post"])
+    def refresh(self, request, pk=None):
+        """Check the deposit with HitPay now (the app calls this when the payment page closes)."""
+        return Response(s.RenovationPermitSerializer(permits.refresh_payment(self.get_object())).data)
+
+    def _act(self, fn):
+        try:
+            return Response(s.RenovationPermitSerializer(fn()).data)
+        except permits.PermitError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+
+    def _note(self, request):
+        body = s.PermitDecisionSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        return body.validated_data["note"]
+
+    @extend_schema(request=s.PermitDecisionSerializer, responses=s.RenovationPermitSerializer)
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        """Approve: the contractor's vendor pass is issued for the permit's dates and the site's contractor hours."""
+        permit = self.get_object()
+        self._manage(permit)
+        note = self._note(request)
+        return self._act(lambda: permits.decide(permit, request.user, True, note))
+
+    @extend_schema(request=s.PermitDecisionSerializer, responses=s.RenovationPermitSerializer)
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        permit = self.get_object()
+        self._manage(permit)
+        note = self._note(request)
+        return self._act(lambda: permits.decide(permit, request.user, False, note))
+
+    @extend_schema(request=None, responses=s.RenovationPermitSerializer)
+    @action(detail=True, methods=["post"])
+    def cancel(self, request, pk=None):
+        """Residents cancel before approval; the office at any time. The contractor's passes end."""
+        permit = self.get_object()
+        return self._act(lambda: permits.close(permit, request.user, m.RenovationPermit.Status.CANCELLED, self._staff(permit)))
+
+    @extend_schema(request=None, responses=s.RenovationPermitSerializer)
+    @action(detail=True, methods=["post"])
+    def complete(self, request, pk=None):
+        """The works are done (after inspection): the contractor's passes end."""
+        permit = self.get_object()
+        self._manage(permit)
+        return self._act(lambda: permits.close(permit, request.user, m.RenovationPermit.Status.COMPLETED, True))
+
+    @extend_schema(request=None, responses=s.RenovationPermitSerializer)
+    @action(detail=True, methods=["post"])
+    def refunded(self, request, pk=None):
+        """Record that the deposit was refunded in HitPay's dashboard."""
+        permit = self.get_object()
+        self._manage(permit)
+        return self._act(lambda: permits.mark_refunded(permit))
+
+    @extend_schema(methods=["GET"], responses={(200, "application/octet-stream"): OpenApiResponse(description="The file")})
+    @extend_schema(methods=["POST"], request={"multipart/form-data": {"type": "object", "properties": {"file": {"type": "string", "format": "binary"}}}},
+                   responses=s.RenovationPermitSerializer)
+    @action(detail=True, methods=["get", "post"], parser_classes=[MultiPartParser, FormParser])
+    def document(self, request, pk=None):
+        """The permit's document (insurance, drawings). The management office attaches it (PDF, JPG, PNG, 8 MB)."""
+        permit = self.get_object()
+        if request.method == "GET":
+            if not permit.document:
+                raise NotFound("No document.")
+            response = FileResponse(permit.document.open("rb"), as_attachment=True, filename=permit.document_name or "document")
+            response["Cache-Control"] = "private, no-store"
+            return response
+        self._manage(permit)
+        upload = request.FILES.get("file")
+        if upload is None:
+            raise ValidationError({"file": "Choose a file."})
+        try:
+            upload = s.checked_document(upload)
+        except ValidationError as exc:
+            raise ValidationError({"file": exc.detail})
+        name = upload.name[-255:]
+        upload.name = f"permit{upload.document_suffix}"
+        if permit.document:
+            permit.document.delete(save=False)
+        permit.document, permit.document_name = upload, name
+        permit.save(update_fields=["document", "document_name", "updated_at"])
+        return Response(s.RenovationPermitSerializer(permit).data)
+
+
 class HitPayThrottle(AnonRateThrottle):
     scope = "payment_callback"
 
@@ -401,7 +554,8 @@ class HitPayWebhookView(APIView):
         payload = data.get("payment_request") if isinstance(data.get("payment_request"), dict) else data
         booking = _booking_from(payload)
         permit = parking.from_reference(payload) if booking is None else None
-        record = booking or permit
+        renovation = permits.from_reference(payload) if booking is None and permit is None else None
+        record = booking or permit or renovation
         if record is None:
             return Response({"received": True})
         settings = m.PaymentSettings.objects.filter(condominium_id=record.condominium_id).first()
@@ -414,8 +568,10 @@ class HitPayWebhookView(APIView):
             return Response({"detail": "Invalid signature."}, status=status.HTTP_401_UNAUTHORIZED)
         if booking is not None:
             bookings.refresh_payment(booking)
-        else:
+        elif permit is not None:
             parking.refresh_payment(permit)
+        else:
+            permits.refresh_payment(renovation)
         return Response({"received": True})
 
 
@@ -440,6 +596,8 @@ class HitPayReturnView(APIView):
     def get(self, request):
         if str(request.query_params.get("permit", "")).isdigit():
             return self._permit(int(request.query_params["permit"]))
+        if str(request.query_params.get("renovation", "")).isdigit():
+            return self._renovation(int(request.query_params["renovation"]))
         booking = m.Booking.objects.filter(pk=request.query_params.get("booking") or 0).first() \
             if str(request.query_params.get("booking", "")).isdigit() else None
         if booking is not None:
@@ -469,6 +627,21 @@ class HitPayReturnView(APIView):
         else:
             page = {"icon": "✕", "color": "#be123c", "title": "Payment not completed",
                     "detail": "Season parking was not bought. Please try again from the Elix app."}
+        return self._page(page)
+
+    def _renovation(self, pk):
+        permit = m.RenovationPermit.objects.filter(pk=pk).first()
+        if permit is not None:
+            permit = permits.refresh_payment(permit)
+        if permit is not None and permit.payment_status == m.RenovationPermit.Payment.PAID:
+            page = {"icon": "✓", "color": "#059669", "title": "Deposit paid",
+                    "detail": "Your renovation permit is with the management office. You will be told in the Elix app."}
+        elif permit is not None and permit.status == m.RenovationPermit.Status.PENDING_PAYMENT:
+            page = {"icon": "…", "color": "#d97706", "title": "Payment processing",
+                    "detail": "We are waiting for the payment to complete. Your permit will update in the Elix app."}
+        else:
+            page = {"icon": "✕", "color": "#be123c", "title": "Payment not completed",
+                    "detail": "The permit was not submitted. Please apply again from the Elix app."}
         return self._page(page)
 
     @staticmethod

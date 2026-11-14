@@ -89,6 +89,19 @@ class Condominium(TimeStampedModel):
         "Season parking lots", default=0, help_text="Most season passes valid at once. 0: no limit.",
     )
 
+    # e-Permit to Work: residents apply to renovate in the app; the management office approves.
+    renovation_permits_enabled = models.BooleanField(
+        "Renovation permits in the app", default=False,
+        help_text="Residents apply for renovation (contractor, work, dates) in the app; approval issues the contractor's pass.",
+    )
+    renovation_deposit = models.DecimalField(
+        "Renovation deposit", max_digits=9, decimal_places=2, default=0,
+        help_text="Refundable deposit paid online with the application (0: none, or collected at the office).",
+    )
+    renovation_terms = models.TextField(
+        "Renovation rules", blank=True, help_text="Shown to residents before they apply, e.g. noise and debris rules.",
+    )
+
     # Overstay: when a visitor still on site is flagged and the guardhouse is told.
     overstay_delivery_minutes = models.PositiveIntegerField(
         "Deliveries overstay after (minutes)", default=30,

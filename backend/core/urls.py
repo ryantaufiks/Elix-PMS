@@ -31,6 +31,7 @@ router.register("users", views.ManagedUserViewSet, basename="user")
 router.register("facilities", amenity_views.FacilityViewSet)
 router.register("bookings", amenity_views.BookingViewSet)
 router.register("parking-permits", amenity_views.ParkingPermitViewSet)
+router.register("renovation-permits", amenity_views.RenovationPermitViewSet)
 router.register("feedback", amenity_views.FeedbackViewSet)
 
 urlpatterns = [

@@ -68,6 +68,12 @@ function describe(event: LiveEvent): Omit<Note, "at" | "condo"> | null {
       const title = { confirmed: "Booking confirmed", pending_payment: "New booking, awaiting payment", cancelled: "Booking cancelled", expired: "Booking payment expired" }[b.status];
       return { key: `booking:${b.id}:${b.status}`, title, body, href: "/bookings/", tone: b.status === "confirmed" ? "green" : b.status === "pending_payment" ? "amber" : "slate" };
     }
+    case "permit": {
+      const p = event.data;
+      return p.status === "submitted"
+        ? { key: `permit:${p.id}:submitted`, title: "Renovation permit to review", body: join(p.unit_display, p.contractor_company, p.category_display), href: "/permits/", tone: "amber" }
+        : null;
+    }
     case "feedback": {
       const f = event.data;
       return { key: `feedback:${f.id}`, title: `New feedback · ${f.rating} ★`, body: join(f.unit_display, f.comment), href: "/feedback/", tone: f.rating <= 2 ? "red" : "amber" };

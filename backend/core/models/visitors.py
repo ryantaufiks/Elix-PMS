@@ -131,6 +131,9 @@ class Invitation(TimeStampedModel):
     booking = models.ForeignKey(
         "core.Booking", on_delete=models.CASCADE, null=True, blank=True, related_name="guest_invitations",
         help_text="Guests of this facility booking: valid around the booking, ended with it.")
+    permit = models.ForeignKey(
+        "core.RenovationPermit", on_delete=models.CASCADE, null=True, blank=True, related_name="invitations",
+        help_text="Issued by this renovation permit's approval; ends with it.")
     # A vendor pass: a company's recurring access, e.g. Monday to Friday 09:00-17:00 for three weeks.
     company = models.CharField(max_length=100, blank=True, help_text="Vendor or contractor company.")
     weekdays = models.JSONField(default=list, blank=True, help_text="Days it works, Monday = 0. Empty: every day.")

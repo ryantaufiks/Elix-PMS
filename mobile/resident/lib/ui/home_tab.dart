@@ -14,6 +14,7 @@ import 'activity_screen.dart';
 import 'facilities_screen.dart';
 import 'feedback_screen.dart';
 import 'notifications_screen.dart';
+import 'renovation_screen.dart';
 import 'visitors_screen.dart';
 import 'weather_badge.dart';
 import 'widgets.dart';
@@ -84,7 +85,12 @@ class _HomeTabState extends State<HomeTab> {
           onTap: () => _open(const VisitorsScreen())),
       _MenuCard(icon: Icons.star_rounded, label: 'Feedback', color: const Color(0xFFF59E0B),
           onTap: () => _open(const FeedbackScreen())),
+      if (me.residencies.any((r) => r.renovationPermits))
+        _MenuCard(icon: Icons.construction_rounded, label: 'Renovation', color: const Color(0xFFEA580C),
+            onTap: () => _open(const RenovationScreen())),
     ];
+    // Up to four in a row; more wrap three to a row so the labels stay readable.
+    final columns = menu.length <= 4 ? menu.length : 3;
     final hour = DateTime.now().hour;
     final greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
     return RefreshIndicator(
@@ -168,10 +174,10 @@ class _HomeTabState extends State<HomeTab> {
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
           sliver: SliverGrid.count(
-            crossAxisCount: menu.length,
+            crossAxisCount: columns,
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
-            childAspectRatio: menu.length == 4 ? 0.82 : 1.0,
+            childAspectRatio: columns == 4 ? 0.82 : columns == 3 ? 1.2 : 1.0,
             children: menu,
           ),
         ),

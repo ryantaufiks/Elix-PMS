@@ -14,7 +14,7 @@ const quote = (plan: string) => "mailto:services@smartcitytechnologies.com.sg?su
   + "&body=" + encodeURIComponent(`Hello Elix team,\n\nPlease send a quote for the ${plan} plan.\n\nCondominium:\nNumber of units:\nNumber of gates:\nContact person and phone:\n`);
 
 const FEATURES: { icon: IconName; title: string; text: string }[] = [
-  { icon: "tablet", title: "Lobby kiosk", text: "Visitors call a unit, register as a walk-in or show their invitation on any tablet, in English, 中文, Melayu or தமிழ். Big buttons and a number pad." },
+  { icon: "tablet", title: "Lobby kiosk", text: "Visitors call a unit, register as a walk-in with a printed pass, or show their invitation on any tablet, in English, 中文, Melayu or தமிழ்." },
   { icon: "video", title: "Video intercom", text: "The resident's phone rings with the visitor's photo. Talk face to face, then swipe to open the gate. Visitors who need help call the guardhouse instead." },
   { icon: "users", title: "Guardhouse dashboard", text: "Who is on site, since when and who has overstayed, with alerts per visitor type. Kiosk calls pop up and ring on any page." },
   { icon: "qr", title: "QR invitations", text: "Residents invite guests in seconds. Guests get a pass by link, with validity, entries and plate, no app needed." },
@@ -22,15 +22,15 @@ const FEATURES: { icon: IconName; title: string; text: string }[] = [
   { icon: "ticket", title: "Vehicle passes", text: "Residents' cars, temporary passes and season parking, each with start and end dates. Residents buy and renew season parking in the app." },
   { icon: "smartphone", title: "Resident app", text: "Calls, gate opening, invitations, facility bookings, documents and feedback in one Android app." },
   { icon: "calendar", title: "Facility booking", text: "BBQ pits, function rooms and courts with slots, rules and PayNow. Residents check in at the kiosk with a QR; no-shows are flagged." },
-  { icon: "printer", title: "Walk-in passes", text: "A printed slip with a pass number for security, and self check-out with its QR or PIN when visitors leave." },
+  { icon: "clipboard", title: "Contractors and vendors", text: "Renovation permits approved online, vendor passes by day and hour, contractor working hours at the gate, and service lift bookings." },
   { icon: "report", title: "Reports and insights", text: "Visitor, access, vehicle, intercom and invitation reports for one or many sites, busiest hours for planning shifts, and PDF, Excel or CSV." },
   { icon: "sparkle", title: "AI concierge", text: "Elixa, a voice assistant at the kiosk: directions, facilities, help registering, and a call to the guardhouse when a person is needed." },
   { icon: "eye", title: "Accessible", text: "Designed to WCAG 2.1 AA: high contrast, a larger text option for staff, and a \u201cmore time?\u201d prompt at the kiosk." },
 ];
 
 const PLANS = [
-  { name: "Basic", tagline: "Kiosk and management dashboard", features: ["Lobby kiosk in four languages: walk-ins and QR check-in", "Visitor dashboard with overstay alerts", "Visitor list, access log and gate control", "Vehicle passes with start and end dates", "Staff and guardhouse accounts", "On-screen reports"] },
-  { name: "Standard", tagline: "Adds the residents", highlight: true, features: ["Everything in Basic", "Resident app (Android)", "Video intercom, also to the guardhouse", "Facility booking, kiosk check-in and no-shows", "Season parking paid in the app", "Report insights and export: PDF, Excel and CSV"] },
+  { name: "Basic", tagline: "Kiosk and management dashboard", features: ["Lobby kiosk in four languages: walk-ins and QR check-in", "Visitor dashboard with overstay alerts", "Visitor list, access log and gate control", "Vehicle passes with start and end dates", "Vendor passes and contractor working hours", "Staff and guardhouse accounts", "On-screen reports"] },
+  { name: "Standard", tagline: "Adds the residents", highlight: true, features: ["Everything in Basic", "Resident app (Android)", "Video intercom, also to the guardhouse", "Facility booking, kiosk check-in and no-shows", "Season parking paid in the app", "Renovation permits (e-PTW) with deposit", "Report insights and export: PDF, Excel and CSV"] },
   { name: "Premium", tagline: "The full estate experience", features: ["Everything in Standard", "Licence-plate recognition", "Face check at the kiosk", "AI voice concierge that can call the guardhouse"] },
 ];
 

@@ -902,6 +902,8 @@ class DashboardSummaryView(generics.GenericAPIView):
             "on_site": len(inside),
             "on_site_by_purpose": by_purpose,
             "cars_on_site": sum(bool(v.vehicle_plate) for v in inside),
+            "permits_waiting": m.RenovationPermit.objects.filter(
+                condominium_id=condo_id, status=m.RenovationPermit.Status.SUBMITTED).count(),
             "vehicle_passes_expiring": m.Vehicle.objects.filter(
                 condominium_id=condo_id, is_active=True, valid_until__gte=timezone.localdate(),
                 valid_until__lte=timezone.localdate() + timedelta(days=7)).count(),

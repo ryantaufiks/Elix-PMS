@@ -23,10 +23,10 @@ class Module:
 
 MODULES = {m.key: m for m in (
     Module("core", "Core", "Visitor dashboard with overstay alerts, visitor list, access log, staff invitations, open "
-           "gates, residents, vehicle passes with start and end dates, kiosk in four languages (walk-in, invitation "
-           "QR, check-out), cloud relays, on-screen reports.", keeps_access=True),
+           "gates, residents, vehicle passes with start and end dates, vendor passes and contractor working hours, kiosk "
+           "in four languages (walk-in, invitation QR, check-out), cloud relays, on-screen reports.", keeps_access=True),
     Module("resident_app", "Resident app", "Android app: invitations, vehicles, activity, notifications, swipe to "
-           "open, documents, feedback."),
+           "open, documents, feedback, renovation permits (e-PTW)."),
     Module("intercom", "Video intercom", "Visitors video call a unit, or the guardhouse, from the kiosk; residents and "
            "guards open the gate from the call.", requires=("resident_app",)),
     Module("facilities", "Facilities & payments", "Facility booking and season parking paid with HitPay; kiosk "

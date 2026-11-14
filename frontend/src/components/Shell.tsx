@@ -41,6 +41,7 @@ const NAV: { title: string; items: NavItem[] }[] = [
     items: [
       { href: "/residents/", label: "Residents", icon: "users" },
       { href: "/vehicles/", label: "Vehicles", icon: "car" },
+      { href: "/permits/", label: "Renovation permits", icon: "file", module: "resident_app" },
       { href: "/feedback/", label: "Feedback", icon: "star", module: "resident_app" },
       { href: "/staff/", label: "Staff", icon: "shield", admin: true },
     ],

@@ -141,9 +141,9 @@ def notify_still_on_site() -> int:
 @shared_task
 def expire_unpaid_bookings() -> int:
     """Release facility slots, and close season parking purchases, whose payment was not completed in time."""
-    from . import bookings, parking
+    from . import bookings, parking, permits
 
-    return bookings.expire_stale() + parking.expire_stale()
+    return bookings.expire_stale() + parking.expire_stale() + permits.expire_stale()
 
 
 @shared_task

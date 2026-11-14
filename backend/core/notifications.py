@@ -67,6 +67,14 @@ def _sources(user, since):
                 f"{timezone.localtime(b.starts_at):%a %d %b, %H:%M}: nobody checked in at the kiosk"
                 f"{' and the slot was released' if b.status == m.Booking.Status.CANCELLED else ''}.", b.no_show_at)
 
+    def permit(p):
+        kind = {m.RenovationPermit.Status.APPROVED: "permit_approved", m.RenovationPermit.Status.REJECTED: "permit_rejected"}.get(
+            p.status, "permit_closed")
+        title = {"permit_approved": "Renovation permit approved", "permit_rejected": "Renovation permit rejected"}.get(
+            kind, f"Renovation permit {p.get_status_display().lower()}")
+        body = " · ".join(x for x in (p.contractor_company, f"{p.start_date:%d %b}–{p.end_date:%d %b}", p.decision_note) if x)
+        return kind, title, body, p.decided_at
+
     def replied(f):
         return "feedback_reply", "The management replied to your feedback", f.reply[:140], f.replied_at
 
@@ -87,6 +95,7 @@ def _sources(user, since):
         ("booking", bookings.filter(status__in=BOOKING, updated_at__gte=since).exclude(no_show_at__isnull=False, status=m.Booking.Status.CANCELLED),
          "updated_at", booking),
         ("no_show", bookings.filter(no_show_at__gte=since), "no_show_at", no_show),
+        ("permit", m.RenovationPermit.objects.filter(unit__in=units, decided_at__gte=since), "decided_at", permit),
         ("feedback", m.Feedback.objects.filter(user=user, replied_at__gte=since), "replied_at", replied),
     ]
 

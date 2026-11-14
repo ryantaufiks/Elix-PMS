@@ -82,6 +82,7 @@ class CondominiumSerializer(ModelCleanSerializer):
             "overstay_delivery_minutes", "overstay_guest_minutes", "overstay_contractor_until",
             "season_parking_enabled", "season_parking_fee", "season_parking_quota",
             "contractor_hours_enforced", "contractor_days", "contractor_from",
+            "renovation_permits_enabled", "renovation_deposit", "renovation_terms",
             "visitor_privacy_notice", "plan",
             "created_at", "updated_at",
         ]
@@ -138,17 +139,33 @@ class ResidencySerializer(ModelCleanSerializer):
     resident_app_enabled = serializers.BooleanField(source="unit.condominium.resident_app_enabled", read_only=True)
     modules = serializers.ListField(source="unit.condominium.modules", child=serializers.CharField(), read_only=True)
     unit_display = serializers.CharField(source="unit.__str__", read_only=True)
+    renovation_permits_enabled = serializers.BooleanField(source="unit.condominium.renovation_permits_enabled", read_only=True)
+    renovation_terms = serializers.CharField(source="unit.condominium.renovation_terms", read_only=True)
 
     class Meta:
         model = m.Residency
         fields = [
-            "id", "user", "user_detail", "unit", "unit_display", "condominium", "condominium_name", "resident_app_enabled", "modules", "resident_type",
+            "id", "user", "user_detail", "unit", "unit_display", "condominium", "condominium_name", "resident_app_enabled", "modules",
+            "renovation_permits_enabled", "renovation_terms", "resident_type",
             "is_primary_contact", "receives_intercom_calls", "start_date", "end_date", "is_active",
         ]
 
 
 DOCUMENT_TYPES = {b"%PDF-": ".pdf", b"\xff\xd8\xff": ".jpg", b"\x89PNG\r\n\x1a\n": ".png"}
 DOCUMENT_MAX_BYTES = 8 * 1024 * 1024  # The gateway accepts 10 MB per request.
+
+
+def checked_document(upload):
+    """An uploaded document, judged by its content, not its name: only PDF, JPEG and PNG up to 8 MB."""
+    if upload.size > DOCUMENT_MAX_BYTES:
+        raise serializers.ValidationError("The file is larger than 8 MB.")
+    head = upload.read(8)
+    upload.seek(0)
+    suffix = next((ext for magic, ext in DOCUMENT_TYPES.items() if head.startswith(magic)), None)
+    if suffix is None:
+        raise serializers.ValidationError("Upload a PDF, JPG or PNG file.")
+    upload.document_suffix = suffix
+    return upload
 
 
 class ResidentDocumentSerializer(serializers.ModelSerializer):
@@ -174,16 +191,7 @@ class ResidentDocumentSerializer(serializers.ModelSerializer):
         return (obj.uploaded_by.get_full_name() or obj.uploaded_by.get_username()) if obj.uploaded_by else ""
 
     def validate_file(self, upload):
-        if upload.size > DOCUMENT_MAX_BYTES:
-            raise serializers.ValidationError("The file is larger than 8 MB.")
-        head = upload.read(8)
-        upload.seek(0)
-        # Judge the file by its content, not its name: only PDF, JPEG and PNG are kept.
-        suffix = next((ext for magic, ext in DOCUMENT_TYPES.items() if head.startswith(magic)), None)
-        if suffix is None:
-            raise serializers.ValidationError("Upload a PDF, JPG or PNG file.")
-        upload.document_suffix = suffix
-        return upload
+        return checked_document(upload)
 
     def validate(self, attrs):
         if self.instance is not None and "residency" in attrs and attrs["residency"] != self.instance.residency:
@@ -730,6 +738,7 @@ class VisitorSummarySerializer(serializers.Serializer):
     on_site_by_purpose = serializers.DictField(child=serializers.IntegerField())
     cars_on_site = serializers.IntegerField(help_text="Visitors on site who came by car (plate entered or read)")
     vehicle_passes_expiring = serializers.IntegerField(help_text="Active vehicle passes ending within 7 days")
+    permits_waiting = serializers.IntegerField(help_text="Renovation permits waiting for the management office")
     overstaying = serializers.IntegerField()
     arrived_today = serializers.IntegerField()
     arrived_yesterday_by_now = serializers.IntegerField()
@@ -1157,6 +1166,63 @@ class ParkingPermitSerializer(serializers.ModelSerializer):
         return (obj.user.get_full_name() or obj.user.get_username()) if obj.user else ""
 
 
+class RenovationPermitSerializer(serializers.ModelSerializer):
+    unit_display = serializers.CharField(source="unit.__str__", read_only=True)
+    applicant_name = serializers.SerializerMethodField()
+    decided_by_name = serializers.SerializerMethodField()
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    category_display = serializers.CharField(source="get_category_display", read_only=True)
+    payment_status_display = serializers.CharField(source="get_payment_status_display", read_only=True)
+    has_document = serializers.SerializerMethodField()
+    pass_url = serializers.SerializerMethodField(help_text="The contractor's vendor pass link, once approved")
+
+    class Meta:
+        model = m.RenovationPermit
+        fields = ["id", "condominium", "unit", "unit_display", "applicant_name", "category", "category_display", "description",
+                  "contractor_company", "contractor_contact", "contractor_phone", "workers", "start_date", "end_date", "plates",
+                  "status", "status_display", "deposit", "currency", "payment_status", "payment_status_display", "paid_at",
+                  "refunded_at", "decision_note", "decided_by_name", "decided_at", "completed_at", "has_document",
+                  "document_name", "pass_url", "created_at"]
+        read_only_fields = fields
+
+    def get_applicant_name(self, obj) -> str:
+        return (obj.applicant.get_full_name() or obj.applicant.get_username()) if obj.applicant else ""
+
+    def get_decided_by_name(self, obj) -> str:
+        return (obj.decided_by.get_full_name() or obj.decided_by.get_username()) if obj.decided_by else ""
+
+    def get_has_document(self, obj) -> bool:
+        return bool(obj.document)
+
+    def get_pass_url(self, obj) -> str:
+        shared = obj.invitations.filter(status=m.Invitation.Status.ACTIVE, vehicle_plate="").first() \
+            if obj.status == m.RenovationPermit.Status.APPROVED else None
+        return shared.share_url if shared else ""
+
+
+class PermitApplySerializer(serializers.Serializer):
+    unit = serializers.PrimaryKeyRelatedField(queryset=m.Unit.objects.all())
+    category = serializers.ChoiceField(choices=m.RenovationPermit.Category.choices)
+    description = serializers.CharField(required=False, allow_blank=True, default="", max_length=2000)
+    contractor_company = serializers.CharField(max_length=100)
+    contractor_contact = serializers.CharField(required=False, allow_blank=True, default="", max_length=100)
+    contractor_phone = serializers.CharField(required=False, allow_blank=True, default="", max_length=30)
+    workers = serializers.IntegerField(min_value=1, max_value=50, default=1)
+    start_date = serializers.DateField()
+    end_date = serializers.DateField()
+    plates = serializers.ListField(child=serializers.CharField(max_length=20), required=False, default=list, max_length=3)
+
+
+class PermitCreatedSerializer(serializers.Serializer):
+    permit = RenovationPermitSerializer()
+    payment_url = serializers.CharField(allow_blank=True, help_text="Open to pay the deposit; empty when there is none")
+    return_url_prefix = serializers.CharField()
+
+
+class PermitDecisionSerializer(serializers.Serializer):
+    note = serializers.CharField(required=False, allow_blank=True, default="", max_length=255)
+
+
 class ParkingPurchaseSerializer(serializers.Serializer):
     unit = serializers.PrimaryKeyRelatedField(queryset=m.Unit.objects.all())
     plate_number = serializers.CharField(max_length=20)
@@ -1243,7 +1309,8 @@ class FeedbackSummarySerializer(serializers.Serializer):
 class NotificationSerializer(serializers.Serializer):
     id = serializers.CharField()
     kind = serializers.CharField(help_text="visit_in, visit_out, gate_open, gate_denied, call_missed, booking_confirmed, "
-                                           "booking_cancelled, booking_expired, booking_no_show, feedback_reply, vehicle_expiring or vehicle_expired")
+                                           "booking_cancelled, booking_expired, booking_no_show, feedback_reply, vehicle_expiring, vehicle_expired, "
+                                           "permit_approved or permit_rejected")
     title = serializers.CharField()
     body = serializers.CharField()
     at = serializers.DateTimeField()

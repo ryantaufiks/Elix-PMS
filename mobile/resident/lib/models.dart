@@ -13,6 +13,9 @@ class Residency {
   bool get appEnabled => json['resident_app_enabled'] as bool? ?? true;
   /// Modules of the site's plan; servers before plans send none, which means everything.
   bool hasModule(String key) => (json['modules'] as List?)?.contains(key) ?? true;
+  /// The site takes renovation permits in the app (e-Permit to Work), with these rules.
+  bool get renovationPermits => json['renovation_permits_enabled'] as bool? ?? false;
+  String get renovationTerms => json['renovation_terms'] as String? ?? '';
 }
 
 class Me {

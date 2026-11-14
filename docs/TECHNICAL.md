@@ -31,7 +31,7 @@ in `.env` to the server's Tailscale IP to reach the dev API remotely.
 The site root (`/`, `frontend/src/app/page.tsx` → `components/landing/`) is the public product page:
 hero (with *Four languages* and *Designed to WCAG 2.1 AA*), twelve feature cards (incl. guardhouse dashboard,
 vehicle passes and season parking, facility check-in and no-shows, report insights, Elixa, accessibility), *How it works* (an interactive Three.js scene per journey: visitor calls a resident,
-invited guest, facility booking, car at the barrier; drag to turn, tap a step, auto-plays unless the visitor prefers reduced
+invited guest, facility booking, contractor and vendor, car at the barrier; drag to turn, tap a step, auto-plays unless the visitor prefers reduced
 motion, and falls back to the step list without WebGL), plans (modules per plan, *Contact for quote*, no
 prices), PDPA, technology and security, with links to the privacy and cybersecurity policies. *Request a
 demo* and the quote buttons open an email to services@ with a pre-filled template. Three.js is loaded only
@@ -124,6 +124,16 @@ docker compose --profile frontend up -d frontend   # http://127.0.0.1:3000
   hours.
 - **Management office**: every site has one `Unit.is_office` (`/v1/units/office/`), created when first needed;
   it is not listed with the units, has no residents and does not count towards the plan's units.
+- **Renovation permits (e-Permit to Work)** (Site settings → *Renovation permits*: on/off, deposit, rules;
+  Community → *Renovation permits*; resident app → *Renovation*; `/v1/renovation-permits/`, `core.permits`):
+  a resident applies with the contractor, the work, the dates, workers and up to 3 plates, after agreeing to the
+  site's rules. With a deposit (Facilities & payments and HitPay ready) it waits for payment (`permit-<id>`,
+  return page `?renovation=`); then the management office approves (with an optional note) or rejects.
+  Approval issues the contractor's vendor pass (`Invitation.permit`) for the permit's dates on the site's
+  contractor days and hours, plus one per plate; the resident shares it from the app. Residents cancel before
+  approval; the office cancels or completes (passes end) and records the deposit refund (done in HitPay). The
+  office can attach a document (insurance, drawings: PDF/JPG/PNG, 8 MB). The dashboard shows managers how
+  many wait; the resident is told in the app's notifications.
 - **Service facilities**: a facility of type *Service* (service lift, loading bay) is booked like the others,
   with a deposit if set, for moving and renovation deliveries; the app labels it *For moving and renovation*.
 
