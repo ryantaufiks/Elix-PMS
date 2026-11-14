@@ -34,7 +34,18 @@ export type ReportData = {
   generated_at: string;
   generated_by: string;
   filters: { label: string; value: string }[];
-  summary: { kpis: Kpi[]; breakdowns: Breakdown[]; trend: { series: { key: string; label: string }[]; points: TrendPoint[] } };
+  summary: {
+    kpis: Kpi[];
+    breakdowns: Breakdown[];
+    trend: { series: { key: string; label: string }[]; points: TrendPoint[] };
+    /** Visitor report only. */
+    insights?: {
+      /** Arrivals: 7 rows (Monday first) of 24 local hours. */
+      heatmap: number[][];
+      stay_by_purpose: { key: string; label: string; minutes: number; visits: number }[];
+      purpose_trend: { series: { key: string; label: string }[]; points: TrendPoint[] };
+    };
+  };
   columns: ReportColumn[];
   rows: Record<string, string | number | null>[];
   count: number;

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 
-import { BarList, DailyChart } from "@/components/charts";
+import { BarList, DailyChart, Heatmap } from "@/components/charts";
 import { Icon, type IconName } from "@/components/icons";
 import { upsellText, useModule, useModuleCatalogue } from "@/components/ModuleGate";
 import { ReportPrint } from "@/components/ReportPrint";
@@ -288,6 +288,32 @@ export default function ReportsPage() {
               ))}
             </div>
           </div>
+
+          {data.summary.insights && (
+            <>
+              <Card>
+                <CardHeader title="Busiest times" action={<span className="text-xs text-muted">Arrivals by weekday and hour (SGT) · for planning shifts</span>} />
+                <div className="p-5"><Heatmap grid={data.summary.insights.heatmap} what="arrivals" /></div>
+              </Card>
+              <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
+                <Card>
+                  <CardHeader title="Visits per day by category" />
+                  <div className="p-5">
+                    <DailyChart points={data.summary.insights.purpose_trend.points} series={data.summary.insights.purpose_trend.series} label={dayLabel} />
+                  </div>
+                </Card>
+                <Card>
+                  <CardHeader title="Average stay by category" action={<span className="text-xs text-muted">Visitors who checked out</span>} />
+                  <div className="p-5">
+                    {data.summary.insights.stay_by_purpose.length ? (
+                      <BarList rows={data.summary.insights.stay_by_purpose.map((r) => ({ label: `${r.label} (${r.visits})`, value: r.minutes }))}
+                        format={(m) => (m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m` : `${m}m`)} />
+                    ) : <p className="text-sm text-muted">Nobody checked out in this period.</p>}
+                  </div>
+                </Card>
+              </div>
+            </>
+          )}
 
           <Card>
             <CardHeader

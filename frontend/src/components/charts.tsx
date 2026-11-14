@@ -2,7 +2,7 @@
 
 // Small SVG charts for the dashboard. Colours come from CSS roles (--series-1/2, --grid, --axis)
 // that swap with the theme; text always uses text tokens, never the series colour.
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 
 import { cx } from "./ui";
 
@@ -161,13 +161,13 @@ export function Sparkline({ values, className }: { values: number[]; className?:
 }
 
 /** Horizontal bars, one hue (magnitude). Values at the bar tip in text ink. */
-export function BarList({ rows }: { rows: { label: string; value: number }[] }) {
+export function BarList({ rows, format = String }: { rows: { label: string; value: number }[]; format?: (value: number) => string }) {
   const max = Math.max(1, ...rows.map((r) => r.value));
   return (
     <ul className="space-y-3">
       {rows.map((r) => (
-        <li key={r.label} title={`${r.label}: ${r.value}`}>
-          <div className="mb-1 flex justify-between text-sm"><span className="text-body">{r.label}</span><span className="font-medium tabular-nums text-ink">{r.value}</span></div>
+        <li key={r.label} title={`${r.label}: ${format(r.value)}`}>
+          <div className="mb-1 flex justify-between text-sm"><span className="text-body">{r.label}</span><span className="font-medium tabular-nums text-ink">{format(r.value)}</span></div>
           <div className="h-2 rounded-full bg-surface-3">
             <div className="h-2 rounded-r-full rounded-l-sm transition-[width] duration-500" style={{ width: `${(r.value / max) * 100}%`, background: "var(--series-1)", minWidth: r.value ? 6 : 0 }} />
           </div>
@@ -178,6 +178,43 @@ export function BarList({ rows }: { rows: { label: string; value: number }[] }) 
 }
 
 const SERIES = ["var(--series-1)", "var(--series-2)", "var(--series-3)"];
+
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+/** Weekday × hour grid, darker where more happened (one hue). ``what`` names the counted thing. */
+export function Heatmap({ grid, what }: { grid: number[][]; what: string }) {
+  const max = Math.max(0, ...grid.flat());
+  let peak = { day: 0, hour: 0, n: 0 };
+  grid.forEach((row, day) => row.forEach((n, hour) => { if (n > peak.n) peak = { day, hour, n }; }));
+  const summary = max ? `Busiest: ${WEEKDAYS[peak.day]} ${String(peak.hour).padStart(2, "0")}:00 (${peak.n} ${what})` : `No ${what} in this period`;
+  return (
+    <div>
+      <p className="mb-3 text-sm text-body">{summary}</p>
+      {/* Focusable so the 24 columns scroll with the arrow keys on a narrow screen. */}
+      <div className="overflow-x-auto rounded-sm focus-visible:outline-2 focus-visible:outline-primary-500" tabIndex={0} role="img" aria-label={summary}>
+        <div className="grid min-w-[560px] grid-cols-[2.5rem_repeat(24,minmax(0,1fr))] gap-0.5 text-[10px] text-muted">
+          <span />
+          {Array.from({ length: 24 }, (_, h) => <span key={h} className="text-center tabular-nums">{h % 3 === 0 ? String(h).padStart(2, "0") : ""}</span>)}
+          {grid.map((row, day) => (
+            <Fragment key={day}>
+              <span className="pr-1 text-right leading-5">{WEEKDAYS[day]}</span>
+              {row.map((n, hour) => (
+                <span key={hour} title={`${WEEKDAYS[day]} ${String(hour).padStart(2, "0")}:00 · ${n} ${what}`}
+                  className="h-5 rounded-[3px] bg-surface-3"
+                  style={n ? { background: "var(--series-1)", opacity: 0.15 + 0.85 * (n / max) } : undefined} />
+              ))}
+            </Fragment>
+          ))}
+        </div>
+      </div>
+      <div className="mt-2 flex items-center justify-end gap-1.5 text-[11px] text-muted">
+        Fewer <span className="h-2.5 w-2.5 rounded-sm" style={{ background: "var(--series-1)", opacity: 0.2 }} />
+        <span className="h-2.5 w-2.5 rounded-sm" style={{ background: "var(--series-1)", opacity: 0.6 }} />
+        <span className="h-2.5 w-2.5 rounded-sm" style={{ background: "var(--series-1)" }} /> More
+      </div>
+    </div>
+  );
+}
 
 /** Stacked bars per day (up to 3 series), with legend and hover readout. ``label`` formats a date key. */
 /** Bars per day (or any bucket keyed by ``date``): stacked series, or side by side with ``grouped``. */

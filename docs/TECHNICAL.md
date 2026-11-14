@@ -339,6 +339,11 @@ It only talks about the site and never reveals or confirms anything about reside
 pick several sites or *All sites* for one consolidated report (a *Site* column and a *Visits by site*
 breakdown appear).
 
+The **Visitor report** adds insights for the management: *Busiest times* (arrivals by weekday and hour,
+Monday first, local time: for planning shifts), *Visits per day by category* (guests, deliveries,
+contractors: the same groups as the dashboard) and *Average stay by category* (visitors who checked
+out). They come with the summary as `summary.insights` (`heatmap`, `purpose_trend`, `stay_by_purpose`).
+
 | Report | Rows | Key figures |
 |---|---|---|
 | Consolidated summary | one per site and day | visits, walk-ins, not checked out, entries granted / denied / errors, intercom calls, missed calls, invitations |

@@ -57,6 +57,15 @@ class ReportTests(APITestCase):
         self.assertEqual(len(data["summary"]["trend"]["points"]), 7)
         self.assertNotIn("site", [c["key"] for c in data["columns"]])  # One site: no site column.
 
+        # Insights: arrivals by weekday and hour, stay and daily visits per purpose group.
+        m.Visit.objects.filter(pk=a.pk).update(created_at=a.checked_out_at - timedelta(minutes=30))
+        insights = self.get("visits").data["summary"]["insights"]
+        self.assertEqual((len(insights["heatmap"]), sum(map(sum, insights["heatmap"]))), (7, 2))
+        self.assertEqual([(r["key"], r["minutes"], r["visits"]) for r in insights["stay_by_purpose"]], [("contractors", 30, 1)])
+        trend = insights["purpose_trend"]
+        self.assertEqual([x["key"] for x in trend["series"]], ["guests", "deliveries", "contractors"])
+        self.assertEqual(sum(p["guests"] + p["contractors"] for p in trend["points"]), 2)
+
         self.assertEqual(self.get("visits", q="unit:05-12 plate:sgx1234").data["count"], 1)
         self.assertEqual(self.get("visits", q='"Ace Air"').data["rows"][0]["visitor"], "Tan Ah Kow")
         self.assertEqual(self.get("visits", q="category:contr").data["count"], 1)

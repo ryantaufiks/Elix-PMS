@@ -15,7 +15,7 @@ from datetime import date, datetime, time, timedelta
 from typing import Callable
 
 from django.db.models import Avg, Count, DurationField, ExpressionWrapper, F, Q
-from django.db.models.functions import ExtractHour, TruncDate
+from django.db.models.functions import ExtractHour, ExtractIsoWeekDay, TruncDate
 from django.utils import timezone
 
 from . import models as m
@@ -142,6 +142,47 @@ def daily(qs, field_name, series):
     return out
 
 
+# Visit purposes as the three groups the guardhouse thinks in (also the dashboard's).
+PURPOSE_GROUPS = {
+    "guests": ("Guests", ("guest", "other")),
+    "deliveries": ("Deliveries", ("delivery", "food", "pickup")),
+    "contractors": ("Contractors", ("contractor",)),
+}
+
+
+def heatmap(qs, field_name):
+    """Arrivals by weekday (Monday first) and local hour: 7 rows of 24 counts, for staffing the shifts."""
+    grid = [[0] * 24 for _ in range(7)]
+    tz = timezone.get_current_timezone()
+    rows = (qs.order_by().annotate(wd=ExtractIsoWeekDay(field_name, tzinfo=tz), h=ExtractHour(field_name, tzinfo=tz))
+            .values_list("wd", "h").annotate(n=Count("pk")))
+    for weekday, hour, n in rows:
+        grid[weekday - 1][hour] = n
+    return grid
+
+
+def stay_by_purpose(qs):
+    """Average stay in minutes of visitors who checked out, per purpose group."""
+    out = []
+    stay = ExpressionWrapper(F("checked_out_at") - F("created_at"), output_field=DurationField())
+    for key, (label, purposes) in PURPOSE_GROUPS.items():
+        row = qs.filter(checked_out_at__isnull=False, purpose__in=purposes).aggregate(a=Avg(stay), n=Count("pk"))
+        if row["n"]:
+            out.append({"key": key, "label": label, "minutes": round(row["a"].total_seconds() / 60), "visits": row["n"]})
+    return out
+
+
+def purpose_trend(qs, period):
+    """Visits per day split by purpose group, every day of the period."""
+    first, last = period
+    per_day = daily(qs, "created_at", {key: Q(purpose__in=purposes) for key, (_, purposes) in PURPOSE_GROUPS.items()})
+    days = [first + timedelta(days=i) for i in range((last - first).days + 1)]
+    return {
+        "series": [{"key": key, "label": label} for key, (label, _) in PURPOSE_GROUPS.items()],
+        "points": [{"date": d.isoformat(), **{key: per_day.get(d, {}).get(key, 0) for key in PURPOSE_GROUPS}} for d in days],
+    }
+
+
 def kpi(key, label, value, kind="number"):
     return {"key": key, "label": label, "value": value, "kind": kind}
 
@@ -260,6 +301,11 @@ class VisitsReport(Report):
                 {"key": "hours", "title": "Busiest hours", "rows": hours(qs, "created_at")},
             ],
             "trend": daily(qs, "created_at", {"visits": None, "not_out": Q(checked_out_at__isnull=True, valid_until__lt=now)}),
+            "insights": {
+                "heatmap": heatmap(qs, "created_at"),
+                "stay_by_purpose": stay_by_purpose(qs),
+                "purpose_trend": purpose_trend(qs, period),
+            },
         }
 
 

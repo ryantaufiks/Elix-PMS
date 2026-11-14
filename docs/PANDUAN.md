@@ -198,6 +198,7 @@ Pastikan perangkat lokal Anda telah terinstal:
 ### 9. Report Center
 * Menu **Operations → Reports** untuk semua staff (Site admin, Staff dan Officer). Officer hanya melihat site/kondo masing-masing; super admin bisa memilih beberapa site atau *All sites* untuk laporan gabungan (konsolidasi).
 * Jenis laporan: *Consolidated summary* (per site per hari), *Visitor*, *Access*, *Vehicle* (LPR), *Intercom*, *Invitation*. Masing-masing punya angka kunci, grafik tren harian, breakdown, dan tabel detail.
+* **Visitor report** juga menampilkan analisis untuk management: *Busiest times* (heatmap kedatangan per hari dan jam, untuk mengatur jumlah petugas per shift), *Visits per day by category* (tamu / delivery / kontraktor per hari) dan *Average stay by category* (rata-rata lama kunjungan).
 * Filter periode (Today, Yesterday, 7/30 hari, bulan ini/lalu, tahun ini, custom maks. 366 hari), filter per laporan, dan **smart search**: kata bebas mencari di semua kolom teks, token `key:value` untuk satu kolom, contoh `unit:05-12 plate:SGX1234 status:denied "Ace Aircon"`.
 * **Print / PDF:** layout A4 landscape profesional (kop, periode, site, filter, angka kunci, tren, breakdown, semua baris s/d 5.000, nomor halaman, kolom tanda tangan Prepared/Reviewed/Approved). Pilih *Save as PDF* di dialog print.
 * **Excel / CSV:** semua baris (s/d 50.000); Excel berisi sheet *Summary* dan *Details*.
