@@ -653,6 +653,10 @@ intercom, residents, access, settings, bookings, reports and the Register visito
 - **Resident app**: follows the phone's font size; rating stars, booking dates, images (QR, visitor photo,
   facility photo) and the swipe-to-open slider have TalkBack/VoiceOver labels; the primary blue is
   #2563eb (light) and #8fb8ff with navy text (dark).
+- **Gradients**: navy panels (`.brand-panel`, `.sidebar-bg`) and the landing top bar keep a solid base colour under
+  their glow. Checkers that cannot read gradients (some online scanners) measure text against that colour instead
+  of the light page behind; without it they report white text on the hero and menus as failures. axe lists these
+  texts as *needs review*, not as violations. Level AAA (7:1 contrast) is not targeted.
 - Automated checks find about a third of issues: before claiming conformance in a tender, test with a
   screen reader (NVDA on the dashboard, TalkBack on the app) and the phone font at its largest.
 

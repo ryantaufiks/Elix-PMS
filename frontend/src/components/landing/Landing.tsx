@@ -13,8 +13,8 @@ import { Workflow } from "./Workflow";
 const quote = (plan: string) => "mailto:services@smartcitytechnologies.com.sg?subject=" + encodeURIComponent(`Elix ${plan} plan: request a quote`)
   + "&body=" + encodeURIComponent(`Hello Elix team,\n\nPlease send a quote for the ${plan} plan.\n\nCondominium:\nNumber of units:\nNumber of gates:\nContact person and phone:\n`);
 
-const FEATURES: { icon: IconName; title: string; text: string }[] = [
-  { icon: "tablet", title: "Lobby kiosk", text: "Visitors call a unit, register as a walk-in with a printed pass, or show their invitation on any tablet, in English, 中文, Melayu or தமிழ்." },
+const FEATURES: { icon: IconName; title: string; text: React.ReactNode }[] = [
+  { icon: "tablet", title: "Lobby kiosk", text: <>Visitors call a unit, register as a walk-in with a printed pass, or show their invitation on any tablet, in English, <span lang="zh">中文</span>, <span lang="ms">Melayu</span> or <span lang="ta">தமிழ்</span>.</> },
   { icon: "video", title: "Video intercom", text: "The resident's phone rings with the visitor's photo. Talk face to face, then swipe to open the gate. Visitors who need help call the guardhouse instead." },
   { icon: "users", title: "Guardhouse dashboard", text: "Who is on site, since when and who has overstayed, with alerts per visitor type. Kiosk calls pop up and ring on any page." },
   { icon: "qr", title: "QR invitations", text: "Residents invite guests in seconds. Guests get a pass by link, with validity, entries and plate, no app needed." },
@@ -161,7 +161,7 @@ export function Landing() {
                   </li>
                 ))}
               </ul>
-              <a href={quote(p.name)} className={p.highlight
+              <a href={quote(p.name)} aria-label={`Contact for quote: ${p.name} plan`} className={p.highlight
                 ? "mt-8 rounded-xl bg-primary-500 px-5 py-3 text-center font-semibold text-white shadow-primary transition hover:bg-primary-600"
                 : "mt-8 rounded-xl border border-line px-5 py-3 text-center font-semibold text-ink transition hover:bg-surface-2"}>
                 Contact for quote

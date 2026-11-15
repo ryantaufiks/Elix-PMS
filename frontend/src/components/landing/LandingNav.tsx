@@ -24,8 +24,9 @@ export function LandingNav() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+  // Never fully transparent: it sits on the hero's navy, and contrast checkers need a colour to measure.
   return (
-    <header className={cx("fixed inset-x-0 top-0 z-40 transition-colors", scrolled ? "border-b border-white/10 bg-navy-950/85 backdrop-blur" : "bg-transparent")}>
+    <header className={cx("fixed inset-x-0 top-0 z-40 transition-colors", scrolled ? "border-b border-white/10 bg-navy-950/85 backdrop-blur" : "bg-navy-950/60")}>
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6">
         <a href="#top" className="shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}

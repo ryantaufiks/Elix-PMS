@@ -99,6 +99,8 @@ body {
     radial-gradient(120% 50% at 0% 0%, rgb(47 111 255 / 0.18), transparent 60%),
     radial-gradient(80% 40% at 100% 100%, rgb(56 189 248 / 0.08), transparent 60%),
     linear-gradient(180deg, var(--color-navy-900), var(--color-navy-950));
+  /* A solid colour under the glow: contrast checkers that cannot read gradients measure against it. */
+  background-color: var(--color-navy-950);
 }
 
 .brand-panel {
@@ -106,6 +108,7 @@ body {
     radial-gradient(60% 50% at 50% 40%, rgb(47 111 255 / 0.28), transparent 70%),
     radial-gradient(40% 30% at 80% 90%, rgb(56 189 248 / 0.12), transparent 70%),
     linear-gradient(160deg, var(--color-navy-800), var(--color-navy-950));
+  background-color: var(--color-navy-950);  /* As .sidebar-bg: what contrast checkers measure against. */
 }
 
 /* Tables become a list of cards on phones: each row a card, each cell "label  value" (label from Td's data-label).
