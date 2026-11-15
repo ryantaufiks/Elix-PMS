@@ -91,7 +91,7 @@ export function Landing() {
           <img src="/brand/elix-logo.png" alt="Elix" className="mx-auto h-16 w-auto drop-shadow-[0_0_30px_rgba(47,111,255,0.55)] sm:h-24" />
           <h1 className="mx-auto mt-8 max-w-3xl text-4xl font-semibold tracking-tight sm:text-6xl">Engage Link Identified Experience</h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-300 sm:text-xl">
-            Visitor management and access control for Singapore condominiums: a lobby kiosk, a resident app and one dashboard for the management office.
+            One platform for everyone who comes through your gate: visitors, residents, contractors and vendors. Built for Singapore condominiums.
           </p>
           <div className="mt-10 flex flex-wrap justify-center gap-3">
             <a href={DEMO_MAIL} className="rounded-xl bg-primary-500 px-6 py-3.5 text-base font-semibold text-white shadow-primary transition hover:bg-primary-600">Request a demo</a>
